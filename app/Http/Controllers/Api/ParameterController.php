@@ -20,6 +20,31 @@ class ParameterController extends Controller
             return response()->json(['error' => 'Forbidden. Only administrators and directors can view or manage system parameters.'], 403);
         }
 
+        $defaults = [
+            ['chave' => 'REENVIO_PARCIAL_MODO', 'valor' => 'RECALCULA_TUDO', 'descricao' => 'Modo de processamento de cotacoes devolvidas ao reabrir para edicao (RECALCULA_TUDO ou SO_ITENS_ALTERADOS)', 'tipo' => 'texto', 'editavel_por' => 'diretor'],
+            ['chave' => 'VALIDADE_PADRAO_HORAS', 'valor' => '24', 'descricao' => 'Validade padrao em horas de uma nova cotacao', 'tipo' => 'numero', 'editavel_por' => 'diretor'],
+            ['chave' => 'EXIGE_ANEXO_JUSTIFICATIVA', 'valor' => 'true', 'descricao' => 'Exige anexo de comprovante/documento ao enviar justificativa de desconto abaixo do preco minimo', 'tipo' => 'booleano', 'editavel_por' => 'diretor'],
+            ['chave' => 'DESCONTO_AVALIACAO_MODO', 'valor' => 'ITEM_A_ITEM', 'descricao' => 'Modo de avaliacao de desconto para alcada de aprovacao (ITEM_A_ITEM ou MEDIA_TOTAL)', 'tipo' => 'texto', 'editavel_por' => 'diretor'],
+            ['chave' => 'ALCADA_GRANDE_CONTA_VALOR', 'valor' => '10000.00', 'descricao' => 'Valor total limite (igual ou maior) para classificar uma cotação como Grande Conta / Alta Prioridade', 'tipo' => 'numero', 'editavel_por' => 'diretor'],
+            ['chave' => 'ALCADA_GRANDE_CONTA_QTD', 'valor' => '100', 'descricao' => 'Quantidade total de itens (igual ou maior) para classificar uma cotação como Grande Conta / Alta Prioridade', 'tipo' => 'numero', 'editavel_por' => 'diretor'],
+            ['chave' => 'ALCADA_GRANDE_CONTA_MARGEM', 'valor' => '15.00', 'descricao' => 'Margem geral calculada (igual ou menor) para classificar uma cotação como Grande Conta / Alta Prioridade', 'tipo' => 'numero', 'editavel_por' => 'diretor'],
+            ['chave' => 'SANKHYA_CONN_TIPO', 'valor' => 'DIRETO', 'descricao' => 'Tipo de conexao com o banco de dados do Sankhya (DIRETO ou SSH_TUNNEL)', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_DB_HOST', 'valor' => '127.0.0.1', 'descricao' => 'Endereço IP ou hostname do banco de dados Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_DB_PORT', 'valor' => '1521', 'descricao' => 'Porta do banco de dados Oracle do Sankhya', 'tipo' => 'numero', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_DB_NAME', 'valor' => 'XE', 'descricao' => 'Nome do Serviço ou SID do Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_DB_USER', 'valor' => 'sankhya', 'descricao' => 'Usuário do banco de dados Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_DB_PASS', 'valor' => '', 'descricao' => 'Senha criptografada do banco de dados Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_SSH_HOST', 'valor' => '', 'descricao' => 'Host/IP do servidor SSH intermediário (informativo)', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_SSH_PORT', 'valor' => '22', 'descricao' => 'Porta do servidor SSH intermediário (informativo)', 'tipo' => 'numero', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_SSH_USER', 'valor' => '', 'descricao' => 'Usuário do servidor SSH intermediário (informativo)', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_SYNC_AUTO', 'valor' => 'false', 'descricao' => 'Sincronização automática ativa', 'tipo' => 'booleano', 'editavel_por' => 'administrador'],
+            ['chave' => 'SANKHYA_SYNC_INTERVALO', 'valor' => 'DIARIO', 'descricao' => 'Intervalo de sincronização automática', 'tipo' => 'texto', 'editavel_por' => 'administrador'],
+        ];
+
+        foreach ($defaults as $d) {
+            ParametroSistema::firstOrCreate(['chave' => $d['chave']], $d);
+        }
+
         $params = ParametroSistema::all();
 
         return response()->json([

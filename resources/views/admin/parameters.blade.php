@@ -185,58 +185,85 @@
                     // Populate technical Oracle fields dynamically
                     if (connectionKeys.includes(p.chave)) {
                         if (p.chave === 'SANKHYA_CONN_TIPO') {
-                            document.getElementById('sankhya-tipo').value = p.valor;
+                            const el = document.getElementById('sankhya-tipo');
+                            if (el) el.value = (p.valor || 'DIRETO').toUpperCase();
                             toggleSshFields();
                         }
-                        if (p.chave === 'SANKHYA_DB_HOST') document.getElementById('sankhya-host').value = p.valor;
-                        if (p.chave === 'SANKHYA_DB_PORT') document.getElementById('sankhya-port').value = p.valor;
-                        if (p.chave === 'SANKHYA_DB_NAME') document.getElementById('sankhya-name').value = p.valor;
-                        if (p.chave === 'SANKHYA_DB_USER') document.getElementById('sankhya-user').value = p.valor;
-                        if (p.chave === 'SANKHYA_SSH_HOST') document.getElementById('sankhya-ssh-host').value = p.valor;
-                        if (p.chave === 'SANKHYA_SSH_PORT') document.getElementById('sankhya-ssh-port').value = p.valor;
-                        if (p.chave === 'SANKHYA_SSH_USER') document.getElementById('sankhya-ssh-user').value = p.valor;
+                        if (p.chave === 'SANKHYA_DB_HOST') {
+                            const el = document.getElementById('sankhya-host');
+                            if (el) el.value = p.valor || '';
+                        }
+                        if (p.chave === 'SANKHYA_DB_PORT') {
+                            const el = document.getElementById('sankhya-port');
+                            if (el) el.value = p.valor || '1521';
+                        }
+                        if (p.chave === 'SANKHYA_DB_NAME') {
+                            const el = document.getElementById('sankhya-name');
+                            if (el) el.value = p.valor || '';
+                        }
+                        if (p.chave === 'SANKHYA_DB_USER') {
+                            const el = document.getElementById('sankhya-user');
+                            if (el) el.value = p.valor || '';
+                        }
+                        if (p.chave === 'SANKHYA_SSH_HOST') {
+                            const el = document.getElementById('sankhya-ssh-host');
+                            if (el) el.value = p.valor || '';
+                        }
+                        if (p.chave === 'SANKHYA_SSH_PORT') {
+                            const el = document.getElementById('sankhya-ssh-port');
+                            if (el) el.value = p.valor || '22';
+                        }
+                        if (p.chave === 'SANKHYA_SSH_USER') {
+                            const el = document.getElementById('sankhya-ssh-user');
+                            if (el) el.value = p.valor || '';
+                        }
                         
                         if (p.chave === 'SANKHYA_SYNC_AUTO') {
-                            document.getElementById('sankhya-auto').value = p.valor;
+                            const el = document.getElementById('sankhya-auto');
+                            const isAuto = p.valor === 'true' || p.valor === '1' || p.valor === 1;
+                            if (el) el.value = isAuto ? 'true' : 'false';
                             toggleAutoSyncInterval();
                         }
                         if (p.chave === 'SANKHYA_SYNC_INTERVALO') {
-                            document.getElementById('sankhya-intervalo').value = p.valor;
+                            const el = document.getElementById('sankhya-intervalo');
+                            if (el) el.value = p.valor || 'DIARIO';
                         }
                         return; // Skip drawing row in parameters table
                     }
 
                     let inputMarkup = "";
+                    const safeVal = p.valor !== null && p.valor !== undefined ? p.valor : '';
 
                     // Tailored edit inputs based on configuration key or data type
                     if (p.chave === 'DESCONTO_AVALIACAO_MODO') {
                         inputMarkup = `
                             <select id="val-${p.chave}" class="form-control" style="font-size:13px; padding:6px 10px;">
-                                <option value="ITEM_A_ITEM" ${p.valor === 'ITEM_A_ITEM' ? 'selected' : ''}>Item a Item</option>
-                                <option value="MEDIA_TOTAL" ${p.valor === 'MEDIA_TOTAL' ? 'selected' : ''}>Média Total</option>
+                                <option value="ITEM_A_ITEM" ${safeVal === 'ITEM_A_ITEM' ? 'selected' : ''}>Item a Item</option>
+                                <option value="MEDIA_TOTAL" ${safeVal === 'MEDIA_TOTAL' ? 'selected' : ''}>Média Total</option>
                             </select>
                         `;
                     } else if (p.chave === 'REENVIO_PARCIAL_MODO') {
                         inputMarkup = `
                             <select id="val-${p.chave}" class="form-control" style="font-size:13px; padding:6px 10px;">
-                                <option value="RECALCULA_TUDO" ${p.valor === 'RECALCULA_TUDO' ? 'selected' : ''}>Recalcula Tudo</option>
-                                <option value="SO_ITENS_ALTERADOS" ${p.valor === 'SO_ITENS_ALTERADOS' ? 'selected' : ''}>Só Itens Alterados</option>
+                                <option value="RECALCULA_TUDO" ${safeVal === 'RECALCULA_TUDO' ? 'selected' : ''}>Recalcula Tudo</option>
+                                <option value="SO_ITENS_ALTERADOS" ${safeVal === 'SO_ITENS_ALTERADOS' ? 'selected' : ''}>Só Itens Alterados</option>
                             </select>
                         `;
                     } else if (p.tipo === 'booleano') {
+                        const isTrue = safeVal === 'true' || safeVal === '1' || safeVal === 1 || safeVal === true;
                         inputMarkup = `
                             <select id="val-${p.chave}" class="form-control" style="font-size:13px; padding:6px 10px;">
-                                <option value="true" ${p.valor === 'true' || p.valor === '1' ? 'selected' : ''}>Ativo (Sim)</option>
-                                <option value="false" ${p.valor === 'false' || p.valor === '0' ? 'selected' : ''}>Inativo (Não)</option>
+                                <option value="true" ${isTrue ? 'selected' : ''}>Ativo (Sim)</option>
+                                <option value="false" ${!isTrue ? 'selected' : ''}>Inativo (Não)</option>
                             </select>
                         `;
                     } else if (p.tipo === 'numero') {
                         inputMarkup = `
-                            <input type="number" id="val-${p.chave}" class="form-control" value="${p.valor}" style="font-size:13px; padding:6px 10px;">
+                            <input type="number" id="val-${p.chave}" class="form-control" value="${safeVal}" style="font-size:13px; padding:6px 10px;">
                         `;
                     } else {
                         inputMarkup = `
-                            <input type="text" id="val-${p.chave}" class="form-control" value="${p.valor}" style="font-size:13px; padding:6px 10px;">
+                            <input type="text" id="val-${p.chave}" class="form-control" value="${safeVal}" style="font-size:13px; padding:6px 10px;">
                         `;
                     }
 
