@@ -92,7 +92,7 @@ class ChatLogController extends Controller
     public function listContacts(Request $request)
     {
         $user = Auth::user();
-        if (!$user->acesso_chat) {
+        if (!$user->hasChatAccess()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
@@ -145,7 +145,7 @@ class ChatLogController extends Controller
     public function getHistory($telefone)
     {
         $user = Auth::user();
-        if (!$user->acesso_chat) {
+        if (!$user->hasChatAccess()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 

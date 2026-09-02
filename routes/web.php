@@ -157,7 +157,7 @@ Route::middleware([
 
         // Chat Logs Auditor (WhatsApp Web style)
         Route::get('/conversas', function () {
-            if (!auth()->user()->acesso_chat) {
+            if (!auth()->user()->hasChatAccess()) {
                 return redirect('/dashboard');
             }
             return view('admin.chat_audit');

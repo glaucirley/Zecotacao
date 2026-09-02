@@ -109,23 +109,23 @@ class ParameterController extends Controller
             'intervalo' => 'required|in:DIARIO,CADA_12_HORAS,CADA_6_HORAS,HORARIO',
         ]);
 
-        ParametroSistema::where('chave', 'SANKHYA_CONN_TIPO')->update(['valor' => $request->tipo]);
-        ParametroSistema::where('chave', 'SANKHYA_DB_HOST')->update(['valor' => $request->host]);
-        ParametroSistema::where('chave', 'SANKHYA_DB_PORT')->update(['valor' => $request->port]);
-        ParametroSistema::where('chave', 'SANKHYA_DB_NAME')->update(['valor' => $request->name]);
-        ParametroSistema::where('chave', 'SANKHYA_DB_USER')->update(['valor' => $request->user]);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_CONN_TIPO'], ['valor' => $request->tipo, 'descricao' => 'Tipo de conexao com o banco de dados do Sankhya (DIRETO ou SSH_TUNNEL)', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_DB_HOST'], ['valor' => $request->host, 'descricao' => 'Endereço IP ou hostname do banco de dados Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_DB_PORT'], ['valor' => (string)$request->port, 'descricao' => 'Porta do banco de dados Oracle do Sankhya', 'tipo' => 'numero', 'editavel_por' => 'administrador']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_DB_NAME'], ['valor' => $request->name, 'descricao' => 'Nome do Serviço ou SID do Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_DB_USER'], ['valor' => $request->user, 'descricao' => 'Usuário do banco de dados Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
 
         if ($request->filled('pass')) {
             $encrypted = \Illuminate\Support\Facades\Crypt::encryptString($request->pass);
-            ParametroSistema::where('chave', 'SANKHYA_DB_PASS')->update(['valor' => $encrypted]);
+            ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_DB_PASS'], ['valor' => $encrypted, 'descricao' => 'Senha criptografada do banco de dados Oracle do Sankhya', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
         }
 
-        ParametroSistema::where('chave', 'SANKHYA_SSH_HOST')->update(['valor' => $request->ssh_host ?? '']);
-        ParametroSistema::where('chave', 'SANKHYA_SSH_PORT')->update(['valor' => $request->ssh_port ?? '22']);
-        ParametroSistema::where('chave', 'SANKHYA_SSH_USER')->update(['valor' => $request->ssh_user ?? '']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_SSH_HOST'], ['valor' => $request->ssh_host ?? '', 'descricao' => 'Host/IP do servidor SSH intermediário (informativo)', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_SSH_PORT'], ['valor' => (string)($request->ssh_port ?? '22'), 'descricao' => 'Porta do servidor SSH intermediário (informativo)', 'tipo' => 'numero', 'editavel_por' => 'administrador']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_SSH_USER'], ['valor' => $request->ssh_user ?? '', 'descricao' => 'Usuário do servidor SSH intermediário (informativo)', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
         
-        ParametroSistema::where('chave', 'SANKHYA_SYNC_AUTO')->update(['valor' => $request->auto_sync ? 'true' : 'false']);
-        ParametroSistema::where('chave', 'SANKHYA_SYNC_INTERVALO')->update(['valor' => $request->intervalo]);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_SYNC_AUTO'], ['valor' => $request->auto_sync ? 'true' : 'false', 'descricao' => 'Sincronização automática ativa', 'tipo' => 'booleano', 'editavel_por' => 'administrador']);
+        ParametroSistema::updateOrCreate(['chave' => 'SANKHYA_SYNC_INTERVALO'], ['valor' => $request->intervalo, 'descricao' => 'Intervalo de sincronização automática', 'tipo' => 'texto', 'editavel_por' => 'administrador']);
 
         return response()->json([
             'success' => true,

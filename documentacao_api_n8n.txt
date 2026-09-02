@@ -1,0 +1,146 @@
+================================================================================
+          MANUAL PASSO A PASSO DETALHADO — INTEGRAÇÃO N8N E ZÉ COTAÇÃO
+================================================================================
+
+DOMÍNIO BASE: https://painel-central-zecotacao.vqkpq4.easypanel.host
+HEADER DE AUTENTICAÇÃO: X-API-Key
+CHAVE DA API (API KEY): Ch_c0t@c3ntr@lv3t
+
+--------------------------------------------------------------------------------
+VISÃO GERAL DO FLUXO NO N8N
+--------------------------------------------------------------------------------
+O fluxo no n8n opera em 3 etapas principais:
+  1. Recebe a mensagem do cliente via WhatsApp (Evolution API / Baileys).
+  2. Envia a conversa para a API do Zé Cotação para ficar salva no repositório.
+  3. Quando a IA finaliza o pedido, dispara a Cotação Estruturada para o Zé Cotação, 
+     gerando a notificação e o link de edição no celular do vendedor.
+
+================================================================================
+PASSO 1: CRIAR A CREDENCIAL DE AUTENTICAÇÃO NO N8N
+================================================================================
+Antes de criar os nós, vamos salvar a chave de segurança no n8n:
+
+1. No menu lateral esquerdo do n8n, clique em "Credentials".
+2. Clique no botão superior direito "Create Credential".
+3. Na barra de pesquisa de credenciais, digite: Header Auth
+4. Selecione a opção "Header Auth".
+5. Preencha os campos exatamente assim:
+   - Credential Name: Zé Cotação Header Auth
+   - Header Name: X-API-Key
+   - Value: Ch_c0t@c3ntr@lv3t
+6. Clique no botão "Save" no canto superior direito.
+
+================================================================================
+PASSO 2: CONFIGURAR O NÓ DE LOG DE MENSAGENS (REPOSITÓRIO DE CONVERSAS)
+================================================================================
+Este nó grava cada mensagem do WhatsApp no histórico de conversas do Zé Cotação.
+
+1. No seu fluxo n8n, adicione um novo nó e escolha "HTTP Request".
+2. Renomeie o nó para: "Salvar Log de Chat (Zé Cotação)"
+3. Preencha a aba de configurações principais:
+   - Method: POST
+   - URL: https://painel-central-zecotacao.vqkpq4.easypanel.host/api/v1/chat/logs
+   - Authentication: Predefined Credential Type
+   - Credential Type: Header Auth
+   - Credential for Header Auth: Selecione "Zé Cotação Header Auth"
+
+4. Na seção "Send Body":
+   - Marque a opção: Send Body (Ativado)
+   - Body Content Type: JSON
+   - Specify Body: Using JSON
+
+5. No campo JSON, insira o modelo mapeado com os dados do seu WhatsApp:
+
+   PARA MENSAGEM RECEBIDA (Cliente -> Bot):
+   {
+     "telefone_cliente": "{{ $json.body.data.key.remoteJid.replace('@s.whatsapp.net', '') }}",
+     "nome_cliente": "{{ $json.body.data.pushName }}",
+     "direcao": "received",
+     "mensagem": "{{ $json.body.data.message.conversation }}",
+     "tipo": "texto"
+   }
+
+   PARA MENSAGEM ENVIADA (Bot -> Cliente):
+   {
+     "telefone_cliente": "{{ $node['Webhook WhatsApp'].json.body.data.key.remoteJid.replace('@s.whatsapp.net', '') }}",
+     "nome_cliente": "{{ $node['Webhook WhatsApp'].json.body.data.pushName }}",
+     "direcao": "sent",
+     "mensagem": "{{ $json.outputMessage }}",
+     "tipo": "texto"
+   }
+
+================================================================================
+PASSO 3: CONFIGURAR O NÓ DE ENVIO DA COTAÇÃO (CRIAR COTAÇÃO NO ZÉ COTAÇÃO)
+================================================================================
+Este nó pega a resposta final da sua IA e envia os itens cotados para o painel do vendedor.
+
+1. Adicione um novo nó "HTTP Request" ao final do fluxo de cotação.
+2. Renomeie o nó para: "Enviar Cotação (Zé Cotação)"
+3. Configuração dos campos:
+   - Method: POST
+   - URL: https://painel-central-zecotacao.vqkpq4.easypanel.host/api/v1/cotacoes
+   - Authentication: Predefined Credential Type
+   - Credential Type: Header Auth
+   - Credential for Header Auth: Selecione "Zé Cotação Header Auth"
+
+4. Na seção "Send Body":
+   - Marque a opção: Send Body (Ativado)
+   - Body Content Type: JSON
+   - Specify Body: Using JSON
+
+5. No campo JSON, cole o payload estruturado (gerado dinamicamente pela sua IA):
+
+{
+  "numero": "COT-{{ $now.toFormat('yyyyLLddHHmmss') }}",
+  "data_emissao": "{{ $now.toFormat('yyyy-LL-dd HH:mm:ss') }}",
+  "validade_horas": 24,
+  "forma_pagamento": "{{ $json.forma_pagamento ?? 'Boleto 28 Dias' }}",
+  "prazo_entrega": "{{ $json.prazo_entrega ?? '3 dias úteis' }}",
+  "frete_tipo": "CIF",
+  "subtotal": {{ $json.subtotal }},
+  "desconto": {{ $json.desconto ?? 0 }},
+  "total": {{ $json.total }},
+
+  "representante": {
+    "codigo_sankhya": "REP001",
+    "nome": "Roberto Vendedor Norte",
+    "email": "rep1@zecotacao.com.br",
+    "telefone": "11944443333"
+  },
+
+  "parceiro": {
+    "codigo_sankhya": "{{ $json.cliente.codigo_sankhya ?? 'PAR001' }}",
+    "razao_social": "{{ $json.cliente.razao_social }}",
+    "nome_fantasia": "{{ $json.cliente.nome_fantasia }}",
+    "cnpj": "{{ $json.cliente.cnpj }}",
+    "telefone": "{{ $json.cliente.telefone }}",
+    "email": "{{ $json.cliente.email }}",
+    "endereco": "{{ $json.cliente.endereco }}",
+    "cidade": "{{ $json.cliente.cidade }}",
+    "uf": "{{ $json.cliente.uf }}",
+    "cep": "{{ $json.cliente.cep }}"
+  },
+
+  "itens": {{ $json.itens }}
+}
+
+================================================================================
+PASSO 4: O QUE ACONTECE APÓS O DISPARO (RESPOSTA E NOTIFICAÇÃO)
+================================================================================
+Quando o n8n faz o disparo para `POST /api/v1/cotacoes`:
+
+1. O Zé Cotação valida o payload e cadastra a cotação com o status "EM_CRIACAO".
+2. O sistema gera uma notificação push instantânea para o vendedor responsável.
+3. A API retorna o link direto de acesso mobile:
+   {
+     "success": true,
+     "data": {
+       "id": 42,
+       "numero": "COT-20260902103000",
+       "token": "7f8e9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+       "url_acesso": "https://painel-central-zecotacao.vqkpq4.easypanel.host/cotacoes/token/7f8e9a0b1c2d3e4f5a6b7c8d9e0f1a2b"
+     }
+   }
+4. O n8n pode capturar o valor `url_acesso` e enviar via WhatsApp para o vendedor caso desejado!
+
+================================================================================

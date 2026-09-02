@@ -103,6 +103,18 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user has access to WhatsApp chat repository.
+     */
+    public function hasChatAccess(): bool
+    {
+        if ($this->acesso_chat) {
+            return true;
+        }
+
+        return $this->isAdministrador() || $this->isDiretor() || $this->isGestor();
+    }
+
+    /**
      * Check if user has granular dashboard widget permission.
      */
     public function hasDashPermission(string $perm): bool
