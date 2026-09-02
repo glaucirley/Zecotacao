@@ -16,8 +16,8 @@ class ParameterController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden. Only administrators can view or manage system parameters.'], 403);
+        if (!$user->isAdministrador() && !$user->isDiretor()) {
+            return response()->json(['error' => 'Forbidden. Only administrators and directors can view or manage system parameters.'], 403);
         }
 
         $params = ParametroSistema::all();
@@ -35,8 +35,8 @@ class ParameterController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden. Only administrators can edit system parameters.'], 403);
+        if (!$user->isAdministrador() && !$user->isDiretor()) {
+            return response()->json(['error' => 'Forbidden. Only administrators and directors can edit system parameters.'], 403);
         }
 
         $param = ParametroSistema::where('chave', $chave)->firstOrFail();

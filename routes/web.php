@@ -110,9 +110,9 @@ Route::middleware([
             return view('admin.billing_detail', ['id' => $id]);
         });
 
-        // Parameters (Administrador only)
+        // Parameters (Administrador and Diretor)
         Route::get('/parametros', function () {
-            if (!auth()->user()->isAdministrador()) {
+            if (!auth()->user()->isAdministrador() && !auth()->user()->isDiretor()) {
                 return redirect('/aprovacoes');
             }
             return view('admin.parameters');
