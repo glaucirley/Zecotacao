@@ -19,32 +19,28 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 1. Seed System Parameters
-        ParametroSistema::create([
-            'chave' => 'REENVIO_PARCIAL_MODO',
+        ParametroSistema::firstOrCreate(['chave' => 'REENVIO_PARCIAL_MODO'], [
             'valor' => 'RECALCULA_TUDO',
             'descricao' => 'Modo de processamento de cotacoes devolvidas ao reabrir para edicao (RECALCULA_TUDO ou SO_ITENS_ALTERADOS)',
             'tipo' => 'texto',
             'editavel_por' => 'diretor',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'VALIDADE_PADRAO_HORAS',
+        ParametroSistema::firstOrCreate(['chave' => 'VALIDADE_PADRAO_HORAS'], [
             'valor' => '24',
             'descricao' => 'Validade padrao em horas de uma nova cotacao',
             'tipo' => 'numero',
             'editavel_por' => 'diretor',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'EXIGE_ANEXO_JUSTIFICATIVA',
+        ParametroSistema::firstOrCreate(['chave' => 'EXIGE_ANEXO_JUSTIFICATIVA'], [
             'valor' => 'true',
             'descricao' => 'Exige anexo de comprovante/documento ao enviar justificativa de desconto abaixo do preco minimo',
             'tipo' => 'booleano',
             'editavel_por' => 'diretor',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'DESCONTO_AVALIACAO_MODO',
+        ParametroSistema::firstOrCreate(['chave' => 'DESCONTO_AVALIACAO_MODO'], [
             'valor' => 'ITEM_A_ITEM',
             'descricao' => 'Modo de avaliacao de desconto para alcada de aprovacao (ITEM_A_ITEM ou MEDIA_TOTAL)',
             'tipo' => 'texto',
@@ -52,72 +48,63 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Sankhya Oracle Connection Parameters
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_CONN_TIPO',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_CONN_TIPO'], [
             'valor' => 'DIRETO',
             'descricao' => 'Tipo de conexao com o banco de dados do Sankhya (DIRETO ou SSH_TUNNEL)',
             'tipo' => 'texto',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_DB_HOST',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_DB_HOST'], [
             'valor' => '127.0.0.1',
             'descricao' => 'Endereço IP ou hostname do banco de dados Oracle do Sankhya',
             'tipo' => 'texto',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_DB_PORT',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_DB_PORT'], [
             'valor' => '1521',
             'descricao' => 'Porta do banco de dados Oracle do Sankhya',
             'tipo' => 'numero',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_DB_NAME',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_DB_NAME'], [
             'valor' => 'XE',
             'descricao' => 'Nome do Serviço ou SID do Oracle do Sankhya',
             'tipo' => 'texto',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_DB_USER',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_DB_USER'], [
             'valor' => 'sankhya',
             'descricao' => 'Usuário do banco de dados Oracle do Sankhya',
             'tipo' => 'texto',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_DB_PASS',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_DB_PASS'], [
             'valor' => Crypt::encryptString('sankhya_senha_padrao'),
             'descricao' => 'Senha criptografada do banco de dados Oracle do Sankhya',
             'tipo' => 'texto',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_SSH_HOST',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_SSH_HOST'], [
             'valor' => '',
             'descricao' => 'Host/IP do servidor SSH intermediário (informativo)',
             'tipo' => 'texto',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_SSH_PORT',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_SSH_PORT'], [
             'valor' => '22',
             'descricao' => 'Porta do servidor SSH intermediário (informativo)',
             'tipo' => 'numero',
             'editavel_por' => 'administrador',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'SANKHYA_SSH_USER',
+        ParametroSistema::firstOrCreate(['chave' => 'SANKHYA_SSH_USER'], [
             'valor' => '',
             'descricao' => 'Usuário do servidor SSH intermediário (informativo)',
             'tipo' => 'texto',
@@ -125,24 +112,21 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Priority and Big Accounts parameters
-        ParametroSistema::create([
-            'chave' => 'ALCADA_GRANDE_CONTA_VALOR',
+        ParametroSistema::firstOrCreate(['chave' => 'ALCADA_GRANDE_CONTA_VALOR'], [
             'valor' => '10000.00',
             'descricao' => 'Valor total limite (igual ou maior) para classificar uma cotação como Grande Conta / Alta Prioridade',
             'tipo' => 'numero',
             'editavel_por' => 'diretor',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'ALCADA_GRANDE_CONTA_QTD',
+        ParametroSistema::firstOrCreate(['chave' => 'ALCADA_GRANDE_CONTA_QTD'], [
             'valor' => '100',
             'descricao' => 'Quantidade total de itens (igual ou maior) para classificar uma cotação como Grande Conta / Alta Prioridade',
             'tipo' => 'numero',
             'editavel_por' => 'diretor',
         ]);
 
-        ParametroSistema::create([
-            'chave' => 'ALCADA_GRANDE_CONTA_MARGEM',
+        ParametroSistema::firstOrCreate(['chave' => 'ALCADA_GRANDE_CONTA_MARGEM'], [
             'valor' => '15.00',
             'descricao' => 'Margem geral calculada (igual ou menor) para classificar uma cotação como Grande Conta / Alta Prioridade',
             'tipo' => 'numero',
