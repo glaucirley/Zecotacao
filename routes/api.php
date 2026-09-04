@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/cotacoes/todas', [QuoteController::class, 'listAll']);
             Route::get('/cotacoes/meta', [QuoteController::class, 'getMeta']);
             Route::post('/cotacoes/manual', [QuoteController::class, 'storeManual']);
+            Route::get('/produtos', [QuoteController::class, 'listProducts']);
             Route::delete('/cotacoes/{id}', [QuoteController::class, 'destroy']);
             Route::patch('/aprovacoes/{cotacao_id}/itens/{item_id}', [ApprovalController::class, 'simulatePrice']);
             Route::post('/aprovacoes/{cotacao_id}/vincular', [ApprovalController::class, 'bindItems']);
@@ -108,6 +109,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/cotacoes/token/{token}/perdida', [QuoteController::class, 'markAsLost']);
         Route::post('/cotacoes/token/{token}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/token/{token}/pdf', [QuoteController::class, 'generatePdf']);
-        Route::get('/produtos', [QuoteController::class, 'listProducts']);
+        Route::get('/cotacoes/token/{token}/produtos', [QuoteController::class, 'listProducts']);
     });
 });

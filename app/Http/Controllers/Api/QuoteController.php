@@ -799,7 +799,12 @@ class QuoteController extends Controller
      */
     public function listProducts()
     {
-        $products = Produto::where('ativo', true)->orderBy('descricao')->get();
+        $products = Produto::where(function($q) {
+            $q->where('ativo', true)
+              ->orWhere('ativo', 1)
+              ->orWhereNull('ativo');
+        })->orderBy('descricao')->get();
+
         return response()->json([
             'success' => true,
             'data' => $products

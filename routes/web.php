@@ -69,6 +69,9 @@ Route::middleware([
         
         // Master Quotations List (All authenticated users)
         Route::get('/cotacoes', function () {
+            if (auth()->user()->isRepresentante()) {
+                return redirect('/painel-representante');
+            }
             return view('admin.quotes');
         });
 

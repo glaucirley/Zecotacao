@@ -121,9 +121,13 @@
         <div class="main-wrapper">
             <!-- Navbar -->
             <header class="navbar">
-                <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
                     <button type="button" id="sidebar-toggle" style="background: none; border: none; cursor: pointer; color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 8px; transition: var(--transition);" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-text-muted)'" onclick="toggleSidebar()">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <button type="button" class="btn-go-back" onclick="appGoBack()" title="Voltar para a página anterior">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        <span>Voltar</span>
                     </button>
                     <h2 class="page-title" style="margin: 0;">@yield('page_title', 'Painel Geral')</h2>
                 </div>
@@ -143,6 +147,14 @@
 
     @yield('scripts')
     <script>
+        function appGoBack() {
+            if (window.history.length > 1 && document.referrer && document.referrer.includes(window.location.host)) {
+                window.history.back();
+            } else {
+                window.location.href = "{{ url('/dashboard') }}";
+            }
+        }
+
         function toggleSidebar() {
             const container = document.querySelector('.app-container');
             const isMobile = window.innerWidth <= 768;
