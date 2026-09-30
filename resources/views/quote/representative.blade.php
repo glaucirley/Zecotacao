@@ -1,4 +1,4 @@
-@extends('layouts.public')
+@extends(auth()->check() ? 'layouts.app' : 'layouts.public')
 
 @section('content')
 <div id="representative-panel" style="display: none;">
