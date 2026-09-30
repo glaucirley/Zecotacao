@@ -179,13 +179,72 @@ class ParameterController extends Controller
      */
     public function syncSankhyaCatalog()
     {
-        @set_time_limit(300);
-        @ini_set('memory_limit', '512M');
-
         $user = Auth::user();
         if (!$user->isAdministrador()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
+
+        // If running under FastCGI / PHP-FPM (Nginx), send HTTP 200 immediately to prevent 504 Gateway Time-out
+        if (function_exists('fastcgi_finish_request')) {
+            response()->json([
+                'success' => true,
+                'message' => 'Sincronização do catálogo iniciada com sucesso em segundo plano! O servidor continuará importando Produtos, Clientes, Vendedores, Tabelas de Preço e Condições de Pagamento do Sankhya.'
+            ])->send();
+
+            fastcgi_finish_request();
+
+            @set_time_limit(600);
+            @ini_set('memory_limit', '512M');
+
+            $db = resolve(\App\Services\SankhyaDatabaseService::class);
+
+            // 1. Sync Products
+            try {
+                $products = $db->fetchProducts();
+                foreach ($products as $p) { $db->saveProductFromRow($p); }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Async Sync Products Error: " . $e->getMessage());
+            }
+
+            // 2. Sync Partners (Clients)
+            try {
+                $partners = $db->fetchPartners();
+                foreach ($partners as $pa) { $db->savePartnerFromRow($pa); }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Async Sync Partners Error: " . $e->getMessage());
+            }
+
+            // 3. Sync Representatives (Sellers)
+            try {
+                $reps = $db->fetchRepresentatives();
+                foreach ($reps as $r) { $db->saveRepresentativeFromRow($r); }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Async Sync Reps Error: " . $e->getMessage());
+            }
+
+            // 4. Sync Price Tables
+            try {
+                $priceRows = $db->fetchPriceTablesFromView();
+                $db->savePriceTablesFromViewRows($priceRows);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Async Sync Prices Error: " . $e->getMessage());
+            }
+
+            // 5. Sync Payment Conditions
+            try {
+                $condRows = $db->fetchPaymentConditionsFromView();
+                $db->savePaymentConditionsFromViewRows($condRows);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Async Sync Conditions Error: " . $e->getMessage());
+            }
+
+            \Illuminate\Support\Facades\Log::info("Async Sankhya Catalog Sync Completed Successfully!");
+            exit;
+        }
+
+        // Synchronous fallback
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
 
         $db = resolve(\App\Services\SankhyaDatabaseService::class);
 

@@ -620,7 +620,8 @@ h1, h2, h3, h4, h5, h6 {
     transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sheet-overlay.open {
+.sheet-overlay.open,
+.sheet-overlay.active {
     opacity: 1;
     pointer-events: auto;
 }
@@ -644,7 +645,8 @@ h1, h2, h3, h4, h5, h6 {
     overflow-y: auto;
 }
 
-.sheet-drawer.open {
+.sheet-drawer.open,
+.sheet-drawer.active {
     transform: translateX(0);
 }
 

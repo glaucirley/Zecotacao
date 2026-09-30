@@ -1228,20 +1228,24 @@
 
     // Modal and Actions handlers
     function handleDetailClick(id, status, token) {
-        const quote = rawQuotes.find(q => q.id === id);
+        const quote = rawQuotes.find(q => q.id == id);
         if (!quote) return;
 
-        document.getElementById("modal-quote-num").innerText = quote.numero;
-        document.getElementById("modal-client").innerText = quote.parceiro.razao_social;
-        document.getElementById("modal-cnpj").innerText = quote.parceiro.cnpj || 'N/A';
-        document.getElementById("modal-rep").innerText = quote.representante.nome;
-        document.getElementById("modal-date").innerText = new Date(quote.created_at).toLocaleDateString('pt-BR');
+        const clientName = quote.parceiro ? (quote.parceiro.razao_social || quote.parceiro.nome_fantasia || 'Cliente Sem Nome') : 'Cliente Não Identificado';
+        const clientCnpj = (quote.parceiro && quote.parceiro.cnpj) ? quote.parceiro.cnpj : 'N/A';
+        const repName = quote.representante ? quote.representante.nome : 'Sem Vendedor';
+
+        document.getElementById("modal-quote-num").innerText = quote.numero || ('#' + quote.id);
+        document.getElementById("modal-client").innerText = clientName;
+        document.getElementById("modal-cnpj").innerText = clientCnpj;
+        document.getElementById("modal-rep").innerText = repName;
+        document.getElementById("modal-date").innerText = quote.created_at ? new Date(quote.created_at).toLocaleDateString('pt-BR') : 'N/A';
 
         document.getElementById("modal-payment").innerText = quote.condicao_pagamento || 'A combinar';
         document.getElementById("modal-delivery").innerText = quote.prazo_entrega || '3 dias';
         document.getElementById("modal-freight").innerText = quote.tipo_frete || 'CIF';
 
-        const statusText = quote.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : quote.status.replace(/_/g, ' ');
+        const statusText = quote.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : (quote.status ? quote.status.replace(/_/g, ' ') : 'N/A');
         document.getElementById("modal-status").innerText = statusText;
 
         const priorityBadge = document.getElementById("modal-priority");
@@ -1279,18 +1283,18 @@
             `;
         });
 
-        document.getElementById("modal-subtotal").innerText = "R$ " + parseFloat(quote.subtotal || quote.total).toLocaleString('pt-BR', {minimumFractionDigits:2});
+        document.getElementById("modal-subtotal").innerText = "R$ " + parseFloat(quote.subtotal || quote.total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
         document.getElementById("modal-discount").innerText = "R$ " + parseFloat(quote.desconto_total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
-        document.getElementById("modal-total").innerText = "R$ " + parseFloat(quote.total).toLocaleString('pt-BR', {minimumFractionDigits:2});
+        document.getElementById("modal-total").innerText = "R$ " + parseFloat(quote.total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
 
         // Open drawer
-        document.getElementById("detail-overlay").classList.add("active");
-        document.getElementById("detail-modal").classList.add("active");
+        document.getElementById("detail-overlay").classList.add("active", "open");
+        document.getElementById("detail-modal").classList.add("active", "open");
     }
 
     function closeDetailModal() {
-        document.getElementById("detail-overlay").classList.remove("active");
-        document.getElementById("detail-modal").classList.remove("active");
+        document.getElementById("detail-overlay").classList.remove("active", "open");
+        document.getElementById("detail-modal").classList.remove("active", "open");
     }
 
     async function deleteQuote(id) {
@@ -1322,14 +1326,14 @@
     }
 
     function openCreateModal() {
-        document.getElementById("create-overlay").classList.add("active");
-        document.getElementById("create-modal").classList.add("active");
+        document.getElementById("create-overlay").classList.add("active", "open");
+        document.getElementById("create-modal").classList.add("active", "open");
         loadModalSelectsData();
     }
 
     function closeCreateModal() {
-        document.getElementById("create-overlay").classList.remove("active");
-        document.getElementById("create-modal").classList.remove("active");
+        document.getElementById("create-overlay").classList.remove("active", "open");
+        document.getElementById("create-modal").classList.remove("active", "open");
     }
 
     async function loadModalSelectsData() {
