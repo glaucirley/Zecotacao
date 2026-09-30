@@ -95,47 +95,93 @@ class IntegrationController extends Controller
         try {
             $quote = DB::transaction(function () use ($data, $existingQuote) {
                 
-                // 2. Resolve Representative (Vendedor)
+                // 2. Resolve Representative (Vendedor) with payload auto-provisioning fallback
                 $repData = $data['representante'];
                 $representative = User::where('codigo_sankhya', $repData['codigo_sankhya'])->first();
                 if (!$representative) {
-                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                    $representative = $sankhyaDb->syncRepresentativeByCode($repData['codigo_sankhya']);
+                    try {
+                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                        $representative = $sankhyaDb->syncRepresentativeByCode($repData['codigo_sankhya']);
+                    } catch (\Throwable $e) {
+                        $representative = null;
+                    }
+
                     if (!$representative) {
-                        throw new \Exception("Representante com código Sankhya {$repData['codigo_sankhya']} não encontrado.");
+                        $representative = User::create([
+                            'nome'           => $repData['nome'] ?? ('Vendedor ' . $repData['codigo_sankhya']),
+                            'papel'          => 'representante',
+                            'email'          => $repData['email'] ?? ('vendedor_' . $repData['codigo_sankhya'] . '@zecotacao.com.br'),
+                            'telefone'       => $repData['telefone'] ?? null,
+                            'codigo_sankhya' => (string)$repData['codigo_sankhya'],
+                            'senha_hash'     => bcrypt(Str::random(16)),
+                            'ativo'          => true,
+                        ]);
                     }
                 } else {
                     $representative->update([
-                        'nome' => $repData['nome'],
-                        'email' => $repData['email'],
+                        'nome'  => $repData['nome'] ?? $representative->nome,
+                        'email' => $repData['email'] ?? $representative->email,
                     ]);
                 }
 
-                // 3. Resolve Partner (Cliente)
+                // 3. Resolve Partner (Cliente) with payload auto-provisioning fallback
                 $partnerData = $data['parceiro'];
                 $partner = Parceiro::where('codigo_sankhya', $partnerData['codigo_sankhya'])->first();
                 if (!$partner) {
-                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                    $partner = $sankhyaDb->syncPartnerByCode($partnerData['codigo_sankhya']);
+                    try {
+                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                        $partner = $sankhyaDb->syncPartnerByCode($partnerData['codigo_sankhya']);
+                    } catch (\Throwable $e) {
+                        $partner = null;
+                    }
+
                     if (!$partner) {
-                        throw new \Exception("Parceiro com código Sankhya {$partnerData['codigo_sankhya']} não encontrado.");
+                        $cleanCnpj = preg_replace('/[^0-9]/', '', $partnerData['cnpj'] ?? '');
+                        $cleanCep = preg_replace('/[^0-9]/', '', $partnerData['cep'] ?? '');
+
+                        $partner = Parceiro::create([
+                            'codigo_sankhya'    => (string)$partnerData['codigo_sankhya'],
+                            'razao_social'      => $partnerData['razao_social'] ?? ('Cliente ' . $partnerData['codigo_sankhya']),
+                            'nome_fantasia'     => $partnerData['nome_fantasia'] ?? $partnerData['razao_social'] ?? null,
+                            'cnpj'              => $cleanCnpj ?: null,
+                            'telefone'          => $partnerData['telefone'] ?? null,
+                            'email'             => $partnerData['email'] ?? null,
+                            'endereco'          => $partnerData['endereco'] ?? null,
+                            'cidade'            => $partnerData['cidade'] ?? null,
+                            'uf'                => $partnerData['uf'] ?? null,
+                            'cep'               => $cleanCep ?: null,
+                            'vendedor_1_codigo' => (string)$repData['codigo_sankhya'],
+                            'ativo'             => true,
+                        ]);
                     }
                 }
 
-                // 4. Resolve Products and map to local IDs
+                // 4. Resolve Products and map to local IDs with payload auto-provisioning fallback
                 $productIdsMap = [];
                 foreach ($data['itens'] as $item) {
                     $product = Produto::where('codigo_sankhya', $item['codigo_sankhya'])->first();
                     if (!$product) {
-                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                        $product = $sankhyaDb->syncProductByCode($item['codigo_sankhya']);
+                        try {
+                            $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                            $product = $sankhyaDb->syncProductByCode($item['codigo_sankhya']);
+                        } catch (\Throwable $e) {
+                            $product = null;
+                        }
+
                         if (!$product) {
                             \App\Models\ProdutoNaoEncontrado::registrar(
                                 $item['codigo_sankhya'],
                                 $item['descricao'],
                                 ($partner ? $partner->razao_social : 'Cliente Desconhecido')
                             );
-                            throw new \Exception("Produto com código Sankhya {$item['codigo_sankhya']} não encontrado.");
+
+                            $product = Produto::create([
+                                'codigo_sankhya'  => (string)$item['codigo_sankhya'],
+                                'descricao'       => $item['descricao'] ?? ('Produto ' . $item['codigo_sankhya']),
+                                'unidade'         => $item['unidade'] ?? 'UN',
+                                'custo_variavel'  => (float)($item['custo'] ?? 0),
+                                'ativo'           => true,
+                            ]);
                         }
                     }
                     $productIdsMap[$item['codigo_sankhya']] = $product->id;
