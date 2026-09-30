@@ -2,6 +2,13 @@
 
 @section('content')
 <div id="representative-panel" style="display: none;">
+    <!-- Top Action / Back Button Bar -->
+    <div style="margin-bottom: 16px;">
+        <button type="button" onclick="goBackToQuotes()" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; padding: 8px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #334155; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <span>←</span> Voltar para Cotações
+        </button>
+    </div>
+
     <!-- Title and Status Row -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
         <div>
@@ -839,6 +846,14 @@
         } catch (e) {
             console.error(e);
             alert("Erro de conexão.");
+        }
+    }
+
+    function goBackToQuotes() {
+        if (document.referrer && document.referrer.includes(window.location.host)) {
+            window.history.back();
+        } else {
+            window.location.href = "{{ url('/admin/cotacoes') }}";
         }
     }
 </script>
