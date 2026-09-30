@@ -179,6 +179,9 @@ class ParameterController extends Controller
      */
     public function syncSankhyaCatalog()
     {
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
+
         $user = Auth::user();
         if (!$user->isAdministrador()) {
             return response()->json(['error' => 'Forbidden.'], 403);

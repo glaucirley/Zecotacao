@@ -432,24 +432,35 @@
 
         const btn = document.getElementById("btn-sync-catalog");
         const originalHtml = btn.innerHTML;
-        btn.innerHTML = "Sincronizando...";
+        btn.innerHTML = "⏳ Sincronizando catálogo...";
         btn.disabled = true;
 
         try {
             const res = await fetch("{{ url('/api/v1/parametros/sankhya/sincronizar') }}", {
                 method: "POST",
                 headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
                     "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 }
             });
-            const data = await res.json();
+
+            const rawText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (e) {
+                throw new Error("O servidor respondeu com um formato inesperado (HTTP " + res.status + "). Detalhes: " + rawText.substring(0, 200));
+            }
+
             if (data.success) {
-                alert(data.message);
+                alert("✅ " + data.message);
             } else {
-                alert("Falha na sincronização: " + data.message);
+                alert("⚠️ " + (data.message || data.error || "Falha na sincronização."));
             }
         } catch(err) {
-            alert("Erro de rede ao tentar sincronizar catálogo.");
+            console.error("Sync catalog error:", err);
+            alert("Erro durante a sincronização: " + err.message);
         } finally {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
