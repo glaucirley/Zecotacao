@@ -175,13 +175,16 @@ class IntegrationController extends Controller
                                 ($partner ? $partner->razao_social : 'Cliente Desconhecido')
                             );
 
-                            $product = Produto::create([
+                            $productData = [
                                 'codigo_sankhya'  => (string)$item['codigo_sankhya'],
                                 'descricao'       => $item['descricao'] ?? ('Produto ' . $item['codigo_sankhya']),
                                 'unidade'         => $item['unidade'] ?? 'UN',
-                                'custo_variavel'  => (float)($item['custo'] ?? 0),
                                 'ativo'           => true,
-                            ]);
+                            ];
+                            if (\Illuminate\Support\Facades\Schema::hasColumn('produtos', 'custo_variavel')) {
+                                $productData['custo_variavel'] = (float)($item['custo'] ?? 0);
+                            }
+                            $product = Produto::create($productData);
                         }
                     }
                     $productIdsMap[$item['codigo_sankhya']] = $product->id;

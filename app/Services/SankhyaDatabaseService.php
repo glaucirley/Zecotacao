@@ -497,7 +497,7 @@ class SankhyaDatabaseService
             );
 
             // Optionally update product's custo_variavel if present
-            if ($produtoId && $custoVariavel > 0) {
+            if ($produtoId && $custoVariavel > 0 && \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'custo_variavel')) {
                 Produto::where('id', $produtoId)->update(['custo_variavel' => $custoVariavel]);
             }
 
