@@ -184,73 +184,84 @@ class ParameterController extends Controller
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
-        try {
-            $db = resolve(\App\Services\SankhyaDatabaseService::class);
-            
-            $products = $db->fetchProducts();
-            $partners = $db->fetchPartners();
-            $reps = $db->fetchRepresentatives();
+        $db = resolve(\App\Services\SankhyaDatabaseService::class);
 
-            $prodCount = 0;
+        $prodCount = 0;
+        $partnerCount = 0;
+        $repCount = 0;
+        $priceItemCount = 0;
+        $condCount = 0;
+        $warnings = [];
+
+        // 1. Sync Products
+        try {
+            $products = $db->fetchProducts();
             foreach ($products as $p) {
-                Produto::updateOrCreate(
-                    ['codigo_sankhya' => (string)$p['CODPROD']],
-                    [
-                        'descricao' => $p['DESCRPROD'],
-                        'unidade' => 'UN',
-                        'ativo' => $p['ATIVO'] === 'S'
-                    ]
-                );
+                $db->saveProductFromRow($p);
                 $prodCount++;
             }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Sync Error (Produtos): " . $e->getMessage());
+            $warnings[] = "Produtos (Tabela TGFPRO do Sankhya não acessível: " . $e->getMessage() . ")";
+        }
 
-            $partnerCount = 0;
+        // 2. Sync Partners (Clients)
+        try {
+            $partners = $db->fetchPartners();
             foreach ($partners as $pa) {
-                Parceiro::updateOrCreate(
-                    ['codigo_sankhya' => (string)$pa['CODPARC']],
-                    [
-                        'razao_social' => $pa['NOMEPARC'],
-                        'nome_fantasia' => $pa['NOMEPARC'],
-                        'cnpj' => preg_replace('/[^0-9]/', '', $pa['CGC_CPF'] ?? ''),
-                        'telefone' => $pa['TELEFONE'] ?? '',
-                        'email' => $pa['EMAIL'] ?? '',
-                        'cep' => preg_replace('/[^0-9]/', '', $pa['CEP'] ?? ''),
-                        'ativo' => true,
-                    ]
-                );
+                $db->savePartnerFromRow($pa);
                 $partnerCount++;
             }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Sync Error (Clientes): " . $e->getMessage());
+            $warnings[] = "Clientes (Tabela TGFPAR do Sankhya não acessível: " . $e->getMessage() . ")";
+        }
 
-            $repCount = 0;
+        // 3. Sync Representatives (Sellers)
+        try {
+            $reps = $db->fetchRepresentatives();
             foreach ($reps as $r) {
-                $user = User::where('codigo_sankhya', (string)$r['CODVEND'])->first();
-                if ($user) {
-                    $user->update([
-                        'nome' => $r['APELIDO'],
-                        'email' => $r['EMAIL'] ?? $user->email,
-                    ]);
-                } else {
-                    User::create([
-                        'nome' => $r['APELIDO'],
-                        'papel' => 'representante',
-                        'email' => $r['EMAIL'] ?? ('vendedor' . $r['CODVEND'] . '@zecotacao.com.br'),
-                        'senha_hash' => bcrypt(\Illuminate\Support\Str::random(16)),
-                        'codigo_sankhya' => (string)$r['CODVEND'],
-                        'ativo' => true,
-                    ]);
-                }
+                $db->saveRepresentativeFromRow($r);
                 $repCount++;
             }
-
-            return response()->json([
-                'success' => true,
-                'message' => "Sincronização efetuada com sucesso: {$prodCount} produtos, {$partnerCount} clientes e {$repCount} representantes sincronizados."
-            ]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Sync Error (Vendedores): " . $e->getMessage());
+            $warnings[] = "Vendedores (Tabela TGFVEN do Sankhya não acessível: " . $e->getMessage() . ")";
+        }
+
+        // 4. Sync Price Tables View
+        try {
+            $priceRows = $db->fetchPriceTablesFromView();
+            $priceItemCount = $db->savePriceTablesFromViewRows($priceRows);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Sync Error (Tabelas de Preço): " . $e->getMessage());
+            $warnings[] = "Tabelas de Preço (View VGF_PRECOAPP não encontrada no Oracle)";
+        }
+
+        // 5. Sync Payment Conditions View
+        try {
+            $condRows = $db->fetchPaymentConditionsFromView();
+            $condCount = $db->savePaymentConditionsFromViewRows($condRows);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Sync Error (Condições de Pagamento): " . $e->getMessage());
+            $warnings[] = "Condições de Pagamento (View TIPONEG_APP não encontrada no Oracle)";
+        }
+
+        if ($prodCount == 0 && $partnerCount == 0 && $repCount == 0 && $priceItemCount == 0 && $condCount == 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erro durante a sincronização: ' . $e->getMessage()
+                'message' => "Falha na sincronização. Detalhes: " . implode(" | ", $warnings)
             ], 500);
         }
+
+        $msg = "Sincronização efetuada com sucesso: {$prodCount} produtos, {$partnerCount} clientes, {$repCount} representantes, {$priceItemCount} itens de preço e {$condCount} condições de pagamento.";
+        if (count($warnings) > 0) {
+            $msg .= " Avisos: " . implode(" | ", $warnings);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $msg
+        ]);
     }
 }

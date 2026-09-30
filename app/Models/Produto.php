@@ -11,12 +11,33 @@ class Produto extends Model
     protected $fillable = [
         'codigo_sankhya',
         'descricao',
+        'marca',
+        'base',
+        'base_loja_virtual',
+        'descricao_longa',
+        'descricao_tecnica',
+        'descricao_interna',
+        'nome_loja_virtual',
+        'indicacao',
+        'principio_ativo',
+        'aplicacao',
+        'peso_bruto',
+        'peso_liquido',
+        'margem_lucro',
+        'custo_variavel',
+        'ncm',
         'unidade',
+        'metadados_sankhya',
         'ativo',
     ];
 
     protected $casts = [
+        'peso_bruto' => 'float',
+        'peso_liquido' => 'float',
+        'margem_lucro' => 'float',
+        'custo_variavel' => 'float',
         'ativo' => 'boolean',
+        'metadados_sankhya' => 'array',
     ];
 
     public function itensCotacao()
