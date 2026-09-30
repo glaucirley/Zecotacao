@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('telefone_cliente')->index();
             $table->string('nome_cliente')->nullable();
             $table->enum('direcao', ['received', 'sent']);
-            $table->text('mensagem');
+            $table->longText('mensagem');
             $table->string('tipo')->default('texto');
             $table->unsignedBigInteger('cotacao_id')->nullable();
             $table->timestamps();
