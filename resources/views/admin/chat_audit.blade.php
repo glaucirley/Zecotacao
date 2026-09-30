@@ -303,11 +303,10 @@
             let msgHtml = `<div>${escapeHtml(m.mensagem).replace(/\n/g, '<br>')}</div>`;
 
             // Handle audio/media messages
-            if (m.tipo === 'audio') {
+            if (m.tipo === 'audio' || m.tipo === 'voice' || m.tipo === 'ptt') {
                 msgHtml = `
                     <div style="margin-bottom: 5px; font-weight: 500; font-size:11px; color:var(--color-primary);">🎤 Mensagem de Voz</div>
-                    <audio controls style="max-width: 100%; height: 36px; margin-top: 5px;">
-                        <source src="${m.mensagem}" type="audio/mpeg">
+                    <audio controls style="max-width: 100%; height: 36px; margin-top: 5px; outline: none;" src="${m.mensagem}">
                         Seu navegador não suporta player de áudio.
                     </audio>
                 `;
