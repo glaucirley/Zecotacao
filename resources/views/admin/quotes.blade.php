@@ -1096,13 +1096,9 @@
                         </div>
                     </td>
                     <td class="col-acoes text-center">
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-                            <button class="btn-abrir-row" onclick="handleDetailClick(${q.id}, '${q.status}', '${q.token_representante}')">
-                                Abrir
-                            </button>
-                            
+                        <div style="display: flex; align-items: center; justify-content: center;">
                             <div class="dropdown-dots-wrapper">
-                                <button class="btn-dots-row" onclick="toggleDotsMenu(event, ${q.id})">⋮</button>
+                                <button class="btn-dots-row" onclick="toggleDotsMenu(event, ${q.id})" title="Ações">⋮</button>
                                 <div class="dropdown-dots-menu" id="dots-menu-${q.id}">
                                     ${canEdit ? `<a href="{{ url('/cotacoes/token') }}/${q.token_representante}" class="dropdown-dots-item">✏️ Editar Cotação</a>` : ''}
                                     <button class="dropdown-dots-item" onclick="handleDetailClick(${q.id}, '${q.status}', '${q.token_representante}')">👁️ Ver Detalhes</button>
