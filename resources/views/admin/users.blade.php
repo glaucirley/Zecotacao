@@ -3,9 +3,58 @@
 @section('page_title', 'Gestão de Usuários e Acessos')
 
 @section('content')
+<!-- Filter Bar for Sellers / Users -->
+<div class="filters-bar-card" style="background:#ffffff; border-radius:14px; border:1px solid #e2e8f0; padding:14px 18px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+    <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+        
+        <!-- Search Name/Email -->
+        <div style="position:relative; flex:1 1 220px; min-width:200px;">
+            <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:14px;">🔍</span>
+            <input type="text" id="search-input" placeholder="Buscar por Nome ou E-mail..." oninput="filterUsers()" style="width:100%; padding:9px 12px 9px 36px; border-radius:10px; border:1px solid #e2e8f0; font-size:13px; color:#1e293b; background:#f8fafc; outline:none;">
+        </div>
+
+        <!-- Filter Code Sankhya -->
+        <div style="position:relative; flex:0 1 170px; min-width:140px;">
+            <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:13px;">🔢</span>
+            <input type="text" id="code-filter" placeholder="Cód. Sankhya..." oninput="filterUsers()" style="width:100%; padding:9px 12px 9px 34px; border-radius:10px; border:1px solid #e2e8f0; font-size:13px; color:#1e293b; background:#ffffff; outline:none;">
+        </div>
+
+        <!-- Filter Role (Papel) -->
+        <select id="role-filter" onchange="filterUsers()" style="padding:9px 12px; border-radius:10px; border:1px solid #e2e8f0; font-size:13px; color:#334155; background:#ffffff; outline:none; cursor:pointer; min-width:160px;">
+            <option value="">Todos os Papéis</option>
+            <option value="representante">Representante Comercial</option>
+            <option value="gestor">Gestor de Equipe</option>
+            <option value="faturamento">Faturamento / Conf.</option>
+            <option value="diretor">Diretor Comercial</option>
+            <option value="administrador">Administrador Geral</option>
+        </select>
+
+        <!-- Filter Team -->
+        <select id="team-filter" onchange="filterUsers()" style="padding:9px 12px; border-radius:10px; border:1px solid #e2e8f0; font-size:13px; color:#334155; background:#ffffff; outline:none; cursor:pointer; min-width:160px;">
+            <option value="">Todas as Equipes</option>
+            <!-- Dynamic options -->
+        </select>
+
+        <!-- Filter Status -->
+        <select id="status-filter" onchange="filterUsers()" style="padding:9px 12px; border-radius:10px; border:1px solid #e2e8f0; font-size:13px; color:#334155; background:#ffffff; outline:none; cursor:pointer; min-width:130px;">
+            <option value="">Todos os Status</option>
+            <option value="1">Ativos</option>
+            <option value="0">Bloqueados / Inativos</option>
+        </select>
+
+        <!-- Clear Button -->
+        <button type="button" onclick="clearAllFilters()" style="color:#2563eb; font-size:13px; font-weight:600; background:none; border:none; cursor:pointer; padding:6px 10px; margin-left:auto;">
+            Limpar Filtros
+        </button>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header">
-        <h3>Colaboradores Cadastrados</h3>
+        <div>
+            <h3 style="margin:0;">Colaboradores Cadastrados</h3>
+            <span id="users-count-info" style="font-size: 12px; color: #64748b; font-weight: 500;">Mostrando 0 de 0 colaboradores</span>
+        </div>
         <button class="btn btn-primary" onclick="openCreateModal()" style="font-size:13px; padding: 8px 16px;">
             + Novo Usuário
         </button>
@@ -29,6 +78,11 @@
                 <!-- Dynamic rows -->
             </tbody>
         </table>
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" style="display: none; text-align: center; padding: 40px 20px; color: #64748b;">
+        Nenhum colaborador encontrado com os filtros aplicados.
     </div>
 
     <!-- Loading spinner -->
@@ -190,11 +244,24 @@
         }
     }
 
-    function renderUsers() {
+    function renderUsers(list = usersList) {
         const body = document.getElementById("users-table-body");
+        const countInfo = document.getElementById("users-count-info");
+        const emptyState = document.getElementById("empty-state");
         body.innerHTML = "";
 
-        usersList.forEach(u => {
+        if (countInfo) {
+            countInfo.innerText = `Mostrando ${list.length} de ${usersList.length} colaboradores`;
+        }
+
+        if (list.length === 0) {
+            if (emptyState) emptyState.style.display = "block";
+            return;
+        } else {
+            if (emptyState) emptyState.style.display = "none";
+        }
+
+        list.forEach(u => {
             const activeClass = u.ativo ? "background-color:#d1fae5; color:#065f46;" : "background-color:#fee2e2; color:#991b1b;";
             const activeText = u.ativo ? "Ativo" : "Inativo";
             
@@ -236,11 +303,61 @@
         });
     }
 
+    function filterUsers() {
+        const search = (document.getElementById("search-input").value || "").toLowerCase();
+        const codeSearch = (document.getElementById("code-filter").value || "").toLowerCase();
+        const role = document.getElementById("role-filter").value;
+        const teamId = document.getElementById("team-filter").value;
+        const status = document.getElementById("status-filter").value;
+
+        const filtered = usersList.filter(u => {
+            // Text search (Nome or Email)
+            const nome = (u.nome || "").toLowerCase();
+            const email = (u.email || "").toLowerCase();
+            const matchesSearch = search === "" || nome.includes(search) || email.includes(search);
+
+            // Code Sankhya search
+            const sankhyaCode = (u.codigo_sankhya || "").toLowerCase();
+            const matchesCode = codeSearch === "" || sankhyaCode.includes(codeSearch);
+
+            // Role search
+            const matchesRole = role === "" || u.papel === role;
+
+            // Team search
+            const matchesTeam = teamId === "" || (u.equipe_id && u.equipe_id == teamId);
+
+            // Status search
+            const matchesStatus = status === "" || (status === "1" ? u.ativo : !u.ativo);
+
+            return matchesSearch && matchesCode && matchesRole && matchesTeam && matchesStatus;
+        });
+
+        renderUsers(filtered);
+    }
+
+    function clearAllFilters() {
+        document.getElementById("search-input").value = "";
+        document.getElementById("code-filter").value = "";
+        document.getElementById("role-filter").value = "";
+        document.getElementById("team-filter").value = "";
+        document.getElementById("status-filter").value = "";
+        renderUsers(usersList);
+    }
+
     function populateTeamsDropdown() {
-        const select = document.getElementById("user-equipe");
-        select.innerHTML = '<option value="">Nenhuma equipe</option>';
+        const modalSelect = document.getElementById("user-equipe");
+        const filterSelect = document.getElementById("team-filter");
+        
+        modalSelect.innerHTML = '<option value="">Nenhuma equipe</option>';
+        if (filterSelect) {
+            filterSelect.innerHTML = '<option value="">Todas as Equipes</option>';
+        }
+
         teamsList.forEach(t => {
-            select.innerHTML += `<option value="${t.id}">${t.nome}</option>`;
+            modalSelect.innerHTML += `<option value="${t.id}">${t.nome}</option>`;
+            if (filterSelect) {
+                filterSelect.innerHTML += `<option value="${t.id}">${t.nome}</option>`;
+            }
         });
     }
 
