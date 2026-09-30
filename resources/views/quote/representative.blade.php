@@ -298,26 +298,41 @@
         try {
             // 1. Fetch Quote Details
             const quoteRes = await fetch(`${API_URL}/cotacoes/token/${TOKEN}`);
+            if (!quoteRes.ok) {
+                const errText = await quoteRes.text();
+                let errMsg = "Erro HTTP " + quoteRes.status;
+                try {
+                    const parsed = JSON.parse(errText);
+                    if (parsed.error || parsed.message) errMsg = parsed.error || parsed.message;
+                } catch(e) {}
+                alert("Erro ao carregar a cotação: " + errMsg);
+                return;
+            }
+
             const quoteData = await quoteRes.json();
             if (!quoteData.success) {
-                alert("Erro ao carregar a cotação: " + (quoteData.error || "Token inválido"));
+                alert("Erro ao carregar a cotação: " + (quoteData.error || quoteData.message || "Token inválido"));
                 return;
             }
             quote = quoteData.data;
 
-            // 2. Fetch Products Catalog for addition
-            const prodRes = await fetch(`${API_URL}/produtos`, {
-                headers: { "X-API-Key": "default_n8n_key_123" } // public auth check
-            });
-            const prodData = await prodRes.json();
-            if (prodData.success) {
-                productsList = prodData.data;
+            // 2. Fetch Products Catalog for addition using token endpoint
+            try {
+                const prodRes = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/produtos`);
+                if (prodRes.ok) {
+                    const prodData = await prodRes.json();
+                    if (prodData.success) {
+                        productsList = prodData.data;
+                    }
+                }
+            } catch (errProd) {
+                console.warn("Não foi possível carregar o catálogo de produtos:", errProd);
             }
 
             renderView();
         } catch (e) {
-            console.error(e);
-            alert("Falha na conexão com o servidor.");
+            console.error("Erro em loadData:", e);
+            alert("Falha na conexão com o servidor: " + (e.message || "Erro de rede"));
         }
     }
 
