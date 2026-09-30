@@ -302,26 +302,38 @@
 
             let msgHtml = `<div>${escapeHtml(m.mensagem).replace(/\n/g, '<br>')}</div>`;
 
-            const isAudio = m.tipo === 'audio' || m.tipo === 'voice' || m.tipo === 'ptt' || (m.mensagem && m.mensagem.startsWith('data:audio/'));
-            const isImage = m.tipo === 'imagem' || m.tipo === 'image' || (m.mensagem && m.mensagem.startsWith('data:image/'));
-            const isDoc   = m.tipo === 'documento' || m.tipo === 'document' || m.tipo === 'pdf' || (m.mensagem && (m.mensagem.startsWith('data:application/') || m.mensagem.startsWith('data:text/')));
+            const tipoLower = String(m.tipo || '').toLowerCase();
+            const isAudio = tipoLower.includes('audio') || tipoLower.includes('voice') || tipoLower.includes('ptt') || tipoLower.includes('gravacao') || (m.mensagem && (m.mensagem.startsWith('data:audio/') || m.mensagem.startsWith('T2dnUw') || m.mensagem.startsWith('SUQz')));
+            const isImage = tipoLower.includes('imagem') || tipoLower.includes('image') || tipoLower.includes('foto') || (m.mensagem && (m.mensagem.startsWith('data:image/') || m.mensagem.startsWith('/9j/') || m.mensagem.startsWith('iVBORw')));
+            const isDoc   = tipoLower.includes('documento') || tipoLower.includes('document') || tipoLower.includes('pdf') || tipoLower.includes('arquivo') || (m.mensagem && (m.mensagem.startsWith('data:application/') || m.mensagem.startsWith('JVBER')));
 
             if (isAudio) {
+                const audioSrc = formatMediaSrc(m.mensagem, 'audio');
                 msgHtml = `
-                    <div style="margin-bottom: 5px; font-weight: 500; font-size:11px; color:var(--color-primary);">🎤 Mensagem de Voz</div>
-                    <audio controls style="max-width: 100%; height: 36px; margin-top: 5px; outline: none;" src="${m.mensagem}">
+                    <div style="margin-bottom: 5px; font-weight: 600; font-size:12px; color:var(--color-primary); display: flex; align-items: center; gap: 4px;">
+                        🎤 Mensagem de Voz
+                    </div>
+                    <audio controls style="max-width: 100%; height: 38px; margin-top: 5px; outline: none; border-radius: 20px;" preload="auto">
+                        <source src="${audioSrc}" type="audio/ogg; codecs=opus">
+                        <source src="${audioSrc}" type="audio/ogg">
+                        <source src="${audioSrc}" type="audio/mpeg">
+                        <source src="${audioSrc}" type="audio/wav">
+                        <source src="${audioSrc}" type="audio/mp4">
+                        <source src="${audioSrc}">
                         Seu navegador não suporta player de áudio.
                     </audio>
                 `;
             } else if (isImage) {
+                const imgSrc = formatMediaSrc(m.mensagem, 'image');
                 msgHtml = `
                     <div style="margin-bottom: 5px; font-weight: 500; font-size:11px; color:var(--color-primary);">📷 Imagem</div>
-                    <img src="${m.mensagem}" style="max-width: 100%; max-height: 320px; border-radius: 8px; margin-top: 5px; cursor: pointer; display: block;" onclick="window.open(this.src, '_blank')" alt="Imagem">
+                    <img src="${imgSrc}" style="max-width: 100%; max-height: 320px; border-radius: 8px; margin-top: 5px; cursor: pointer; display: block;" onclick="window.open(this.src, '_blank')" alt="Imagem">
                 `;
             } else if (isDoc) {
+                const docSrc = formatMediaSrc(m.mensagem, 'document');
                 msgHtml = `
                     <div style="margin-bottom: 5px; font-weight: 500; font-size:11px; color:var(--color-primary);">📄 Documento</div>
-                    <a href="${m.mensagem}" target="_blank" download="documento" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(0,0,0,0.05); border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; color: inherit; margin-top: 5px;">
+                    <a href="${docSrc}" target="_blank" download="documento" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(0,0,0,0.05); border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; color: inherit; margin-top: 5px;">
                         <span>📎 Abrir / Baixar Documento</span>
                     </a>
                 `;
@@ -351,6 +363,52 @@
     }
 
     // Helper functions
+    function formatMediaSrc(dataStr, defaultType = 'audio') {
+        if (!dataStr) return '';
+        let str = String(dataStr).trim();
+
+        // Check if JSON encoded
+        if ((str.startsWith('{') && str.endsWith('}')) || (str.startsWith('[') && str.endsWith(']'))) {
+            try {
+                const parsed = JSON.parse(str);
+                str = parsed.url || parsed.base64 || parsed.link || parsed.file || parsed.mediaUrl || str;
+            } catch(e) {}
+        }
+
+        // Direct HTTP(S) URL or data: URI
+        if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('data:')) {
+            return str;
+        }
+
+        // Clean whitespace/newlines from raw base64
+        str = str.replace(/\s+/g, '');
+
+        // Magic Bytes Detection for Audio:
+        if (defaultType === 'audio') {
+            if (str.startsWith('T2dnUw')) return `data:audio/ogg;base64,${str}`;
+            if (str.startsWith('SUQz') || str.startsWith('//OI') || str.startsWith('//NI') || str.startsWith('//MU') || str.startsWith('/+NI')) return `data:audio/mp3;base64,${str}`;
+            if (str.startsWith('UklGR')) return `data:audio/wav;base64,${str}`;
+            if (str.startsWith('GkXf')) return `data:audio/webm;base64,${str}`;
+            if (str.startsWith('AAAA')) return `data:audio/mp4;base64,${str}`;
+            return `data:audio/ogg;base64,${str}`;
+        }
+
+        if (defaultType === 'image') {
+            if (str.startsWith('/9j/')) return `data:image/jpeg;base64,${str}`;
+            if (str.startsWith('iVBORw')) return `data:image/png;base64,${str}`;
+            if (str.startsWith('R0lGOD')) return `data:image/gif;base64,${str}`;
+            if (str.startsWith('UklGR')) return `data:image/webp;base64,${str}`;
+            return `data:image/png;base64,${str}`;
+        }
+
+        if (defaultType === 'document') {
+            if (str.startsWith('JVBER')) return `data:application/pdf;base64,${str}`;
+            return `data:application/octet-stream;base64,${str}`;
+        }
+
+        return str;
+    }
+
     function formatPhone(phone) {
         if (!phone) return "";
         let cleaned = phone.replace(/\D/g, "");
