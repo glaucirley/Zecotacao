@@ -2,12 +2,14 @@
 
 @section('content')
 <div id="representative-panel" style="display: none;">
+    @if(auth()->check())
     <!-- Top Action / Back Button Bar -->
     <div style="margin-bottom: 16px;">
         <button type="button" onclick="goBackToQuotes()" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; padding: 8px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #334155; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
             <span>←</span> Voltar para Cotações
         </button>
     </div>
+    @endif
 
     <!-- Title and Status Row -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
@@ -359,9 +361,13 @@
         badge.innerText = quote.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : quote.status.replace(/_/g, ' ');
 
         // Bind Client profile
+        const clientCity = (quote.parceiro && quote.parceiro.cidade && quote.parceiro.cidade !== 'null') ? quote.parceiro.cidade : '';
+        const clientUf = (quote.parceiro && quote.parceiro.uf && quote.parceiro.uf !== 'null') ? quote.parceiro.uf : '';
+        const locationText = (clientCity || clientUf) ? `${clientCity}${clientCity && clientUf ? ' - ' : ''}${clientUf}` : 'Não informada';
+
         document.getElementById("client-name").innerText = quote.parceiro.razao_social;
         document.getElementById("client-cnpj").innerText = "CNPJ/CPF: " + (quote.parceiro.cnpj || 'Não cadastrado');
-        document.getElementById("client-location").innerText = "Localidade: " + quote.parceiro.cidade + " - " + quote.parceiro.uf;
+        document.getElementById("client-location").innerText = "Localidade: " + locationText;
         document.getElementById("client-contact").innerText = "Contato: " + (quote.parceiro.telefone || quote.parceiro.email || 'N/A');
 
         // Bind Rep profile
