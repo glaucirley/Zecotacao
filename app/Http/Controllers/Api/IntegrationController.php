@@ -177,7 +177,15 @@ class IntegrationController extends Controller
                     }
                 }
 
-                // 4. Resolve Products: Always sync with Sankhya first to get official description
+                // 4. Resolve Products: Bulk pre-fetch local products to prevent slow remote queries and 504 Gateway Time-out
+                $itemCodes = array_values(array_unique(array_filter(array_map(function ($i) {
+                    return isset($i['codigo_sankhya']) ? (string)$i['codigo_sankhya'] : null;
+                }, $data['itens']))));
+
+                $localProducts = Produto::whereIn('codigo_sankhya', $itemCodes)
+                    ->get()
+                    ->keyBy('codigo_sankhya');
+
                 $productIdsMap = [];
                 $resolvedProductsCache = [];
                 $registeredMissingCodes = [];
@@ -188,19 +196,17 @@ class IntegrationController extends Controller
                     if (isset($resolvedProductsCache[$itemCode])) {
                         $product = $resolvedProductsCache[$itemCode];
                     } else {
-                        $product = null;
+                        // A. Check local DB first for instant response
+                        $product = $localProducts[$itemCode] ?? null;
 
-                        // A. Prioritize official description from Sankhya
-                        try {
-                            $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                            $product = $sankhyaDb->syncProductByCode($itemCode);
-                        } catch (\Throwable $e) {
-                            $product = null;
-                        }
-
-                        // B. Check local DB fallback
+                        // B. If not in local DB, attempt Sankhya sync
                         if (!$product) {
-                            $product = Produto::where('codigo_sankhya', $itemCode)->first();
+                            try {
+                                $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                                $product = $sankhyaDb->syncProductByCode($itemCode);
+                            } catch (\Throwable $e) {
+                                $product = null;
+                            }
                         }
 
                         // C. If product code does NOT exist anywhere, register in ProdutoNaoEncontrado and create local fallback
