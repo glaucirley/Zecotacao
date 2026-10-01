@@ -36,6 +36,20 @@
 <!-- Main Dashboard Container -->
 <div id="dashboard-content" style="display: none; flex-direction: column; gap: 24px;">
     
+    <!-- SLA Alerts Banner -->
+    <div id="sla-alerts-container" style="display: none; width: 100%;">
+        <div style="background-color: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-left: 5px solid #ef4444; border-radius: 12px; padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #dc2626;">
+                    <span>⚠️ ALERTA DE SLA DE APROVAÇÃO</span>
+                    <span id="sla-count-badge" class="badge-status" style="background-color: #fee2e2; color: #dc2626;">0 Cotações Paradas</span>
+                </div>
+            </div>
+            <div id="sla-list" style="font-size: 13px; color: #475569; display: flex; flex-direction: column; gap: 8px;">
+            </div>
+        </div>
+    </div>
+
     <!-- Module 1: Grouped KPIs (Always visible at the top) -->
     <div class="card" id="widget-kpi-container" style="padding: 20px; width: 100%;">
         <div class="kpi-grid">
@@ -422,6 +436,27 @@
         // Apply dynamic visibility logic
         switchAnalysisView();
 
+        // 1.5. Render SLA Alerts if any
+        const slaContainer = document.getElementById("sla-alerts-container");
+        const slaList = document.getElementById("sla-list");
+        if (data.sla_alerts && data.sla_alerts.length > 0) {
+            slaContainer.style.display = "block";
+            document.getElementById("sla-count-badge").innerText = `${data.sla_alerts.length} Cotação(ões) Parada(s)`;
+            slaList.innerHTML = data.sla_alerts.map(a => `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #fecdd3; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <strong>${a.numero}</strong> (${a.client}) - Vendedor: <em>${a.rep}</em>
+                    </div>
+                    <div>
+                        <span class="badge-status priority" style="background-color: #fee2e2; color: #dc2626;">Parada há ${a.hours_stuck}h (SLA: ${a.threshold}h)</span>
+                        <a href="{{ url('/aprovacoes') }}/${a.id}" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; margin-left: 8px;">Analisar</a>
+                    </div>
+                </div>
+            `).join("");
+        } else if (slaContainer) {
+            slaContainer.style.display = "none";
+        }
+
         // 2. Populate General KPIs
         if (perms.ver_kpis && data.summary) {
             const sum = data.summary;
@@ -509,7 +544,8 @@
                 'PDF_GERADO': '#0ea5e9',
                 'FINALIZADA_COM_PEDIDO': '#111827',
                 'FATURADA': '#1a56db',
-                'PERDIDA': '#ef4444'
+                'PERDIDA': '#ef4444',
+                'EXPIRADA': '#64748b'
             };
 
             const labelsMapping = {
@@ -520,7 +556,8 @@
                 'PDF_GERADO': 'Aprovada (PDF)',
                 'FINALIZADA_COM_PEDIDO': 'Fechada',
                 'FATURADA': 'Faturada',
-                'PERDIDA': 'Perdida'
+                'PERDIDA': 'Perdida',
+                'EXPIRADA': 'Expirada'
             };
 
             for (const [status, count] of Object.entries(dist)) {

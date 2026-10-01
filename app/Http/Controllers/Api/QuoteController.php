@@ -32,8 +32,12 @@ class QuoteController extends Controller
         // Trigger automatic expiration check for overdue quotes
         \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
 
-        $query = Cotacao::with(['parceiro', 'representante.equipe'])
-            ->orderBy('created_at', 'desc');
+        // Lightweight eager loading for listing performance
+        $query = Cotacao::with([
+            'parceiro:id,codigo_sankhya,razao_social,nome_fantasia,cnpj',
+            'representante:id,nome,email,equipe_id',
+            'representante.equipe:id,nome'
+        ])->orderBy('created_at', 'desc');
 
         // Access Control
         if ($user->isGestor()) {
@@ -51,22 +55,61 @@ class QuoteController extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
         }
+
+        if ($request->filled('origem')) {
+            $query->where('origem', $request->input('origem'));
+        }
+
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('numero', 'like', "%{$search}%")
                   ->orWhereHas('parceiro', function ($p) use ($search) {
                       $p->where('razao_social', 'like', "%{$search}%")
-                        ->orWhere('nome_fantasia', 'like', "%{$search}%");
+                        ->orWhere('nome_fantasia', 'like', "%{$search}%")
+                        ->orWhere('cnpj', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('representante', function ($r) use ($search) {
+                      $r->where('nome', 'like', "%{$search}%");
                   });
             });
+        }
+
+        if ($request->filled('data_inicio')) {
+            $query->whereDate('created_at', '>=', $request->input('data_inicio'));
+        }
+        if ($request->filled('data_fim')) {
+            $query->whereDate('created_at', '<=', $request->input('data_fim'));
+        }
+
+        // Server-side Pagination & Light Payload
+        if ($request->has('page') || $request->has('per_page')) {
+            $perPage = max(1, (int)$request->input('per_page', 15));
+            $paginated = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => $paginated->items(),
+                'meta' => [
+                    'current_page' => $paginated->currentPage(),
+                    'last_page' => $paginated->lastPage(),
+                    'per_page' => $paginated->perPage(),
+                    'total' => $paginated->total(),
+                ]
+            ]);
         }
 
         $quotes = $query->get();
 
         return response()->json([
             'success' => true,
-            'data' => $quotes
+            'data' => $quotes,
+            'meta' => [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => $quotes->count(),
+                'total' => $quotes->count(),
+            ]
         ]);
     }
 
@@ -143,8 +186,8 @@ class QuoteController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $repId, $user) {
-                // Generate unique number
-                $num = 'COT-M-' . strtoupper(Str::random(6)) . '-' . time();
+                // Generate sequential number: COT-YYYY-XXXXXX
+                $num = Cotacao::generateNextNumero();
                 
                 // Expiry time (read from parameters or default 24h)
                 $hoursParam = \App\Models\ParametroSistema::where('chave', 'VALIDADE_PADRAO_HORAS')->first();

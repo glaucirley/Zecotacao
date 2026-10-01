@@ -75,17 +75,18 @@ class DashboardController extends Controller
                 ->whereIn('status', ['FINALIZADA_COM_PEDIDO', 'FATURADA'])
                 ->sum('total');
 
-            $totalPrecoSugerido = (clone $baseQuery)
-                ->whereIn('status', ['PDF_GERADO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'])
-                ->sum('subtotal');
+            $sumSubtotal = (clone $baseQuery)->sum('subtotal');
+            $sumDesconto = (clone $baseQuery)->sum('desconto');
 
-            $totalPrecoProposto = (clone $baseQuery)
-                ->whereIn('status', ['PDF_GERADO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'])
-                ->sum('total');
-
-            $descontoMedio = 0;
-            if ($totalPrecoSugerido > 0) {
-                $descontoMedio = (($totalPrecoSugerido - $totalPrecoProposto) / $totalPrecoSugerido) * 100;
+            $descontoMedio = 0.0;
+            if ($sumSubtotal > 0 && $sumDesconto > 0) {
+                $descontoMedio = ($sumDesconto / $sumSubtotal) * 100;
+            } else {
+                $totalPrecoSugerido = (clone $baseQuery)->sum('subtotal');
+                $totalPrecoProposto = (clone $baseQuery)->sum('total');
+                if ($totalPrecoSugerido > 0 && $totalPrecoSugerido > $totalPrecoProposto) {
+                    $descontoMedio = (($totalPrecoSugerido - $totalPrecoProposto) / $totalPrecoSugerido) * 100;
+                }
             }
 
             $convertedCount = (clone $baseQuery)
@@ -110,7 +111,7 @@ class DashboardController extends Controller
                 ->pluck('count', 'status')
                 ->toArray();
 
-            $allStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA'];
+            $allStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'];
             $distribution = [];
             foreach ($allStatuses as $st) {
                 $distribution[$st] = $statusCounts[$st] ?? 0;
@@ -136,10 +137,10 @@ class DashboardController extends Controller
                 return [
                     'name' => $s->representante->nome ?? 'N/A',
                     'team' => $s->representante->equipe->nome ?? 'Sem Equipe',
-                    'total_quotes' => $s->total_quotes,
+                    'total_quotes' => (int)$s->total_quotes,
                     'value_quotes' => (float)$s->value_quotes,
                     'value_billed' => (float)$s->value_billed,
-                    'conversao' => $s->total_quotes > 0 ? ($s->count_billed / $s->total_quotes) * 100 : 0
+                    'conversao' => $s->total_quotes > 0 ? (float)(($s->count_billed / $s->total_quotes) * 100) : 0.0
                 ];
             })->sortByDesc('value_billed')->values()->take(5);
 
@@ -162,7 +163,7 @@ class DashboardController extends Controller
                 return [
                     'name' => $p->parceiro->razao_social ?? 'N/A',
                     'code' => $p->parceiro->codigo_sankhya ?? 'N/A',
-                    'total_quotes' => $p->total_quotes,
+                    'total_quotes' => (int)$p->total_quotes,
                     'value' => (float)$p->value_quotes
                 ];
             })->sortByDesc('value')->values()->take(5);
@@ -170,9 +171,9 @@ class DashboardController extends Controller
             $data['top_partners'] = $topPartners;
         }
 
-        // E. Timeline
+        // E. Timeline (Type-safe numbers)
         if ($user->hasDashPermission('ver_evolucao_temporal')) {
-            $timeline = (clone $baseQuery)
+            $timelineRaw = (clone $baseQuery)
                 ->select(
                     DB::raw('DATE(created_at) as date'),
                     DB::raw('count(*) as count'),
@@ -183,8 +184,42 @@ class DashboardController extends Controller
                 ->orderBy('date')
                 ->get();
 
-            $data['timeline'] = $timeline;
+            $data['timeline'] = $timelineRaw->map(function ($t) {
+                return [
+                    'date' => (string)$t->date,
+                    'count' => (int)$t->count,
+                    'value' => (float)$t->value,
+                    'value_billed' => (float)$t->value_billed,
+                ];
+            })->values();
         }
+
+        // F. SLA Alerts for stuck quotations
+        $slaAlerts = [];
+        $stuckQuotes = (clone $baseQuery)
+            ->whereIn('status', ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR'])
+            ->with(['parceiro:id,razao_social', 'representante:id,nome'])
+            ->get();
+
+        foreach ($stuckQuotes as $sq) {
+            $hoursStuck = $sq->updated_at ? $sq->updated_at->diffInHours(now()) : $sq->created_at->diffInHours(now());
+            $threshold = 24;
+            if ($sq->status === 'AGUARDANDO_GESTOR') $threshold = 4;
+            if ($sq->status === 'COM_DIRETOR') $threshold = 12;
+
+            if ($hoursStuck >= $threshold) {
+                $slaAlerts[] = [
+                    'id' => $sq->id,
+                    'numero' => $sq->numero,
+                    'status' => $sq->status,
+                    'hours_stuck' => (int)$hoursStuck,
+                    'threshold' => (int)$threshold,
+                    'client' => $sq->parceiro->razao_social ?? 'N/A',
+                    'rep' => $sq->representante->nome ?? 'N/A',
+                ];
+            }
+        }
+        $data['sla_alerts'] = $slaAlerts;
 
         // F. Product Analysis for Purchase and Sales Planning
         $data['product_analysis'] = [

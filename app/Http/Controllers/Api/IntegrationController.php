@@ -269,12 +269,16 @@ class IntegrationController extends Controller
                 } else {
                     // Create new
                     $quoteToken = Str::random(40);
+                    $quoteNum = (!empty($data['numero']) && preg_match('/^COT-\d{4}-\d{6}$/', $data['numero']))
+                        ? $data['numero']
+                        : Cotacao::generateNextNumero();
+
                     $quote = Cotacao::create([
-                        'numero' => $data['numero'],
+                        'numero' => $quoteNum,
                         'parceiro_id' => $partner->id,
                         'representante_id' => $representative->id,
                         'status' => 'EM_CRIACAO',
-                        'origem' => 'whatsapp_ia',
+                        'origem' => $data['origem'] ?? 'whatsapp_ia',
                         'data_emissao' => $emissionDate,
                         'validade_horas' => $validityHours,
                         'data_validade' => $validityDate,

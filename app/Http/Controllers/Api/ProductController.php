@@ -21,7 +21,27 @@ class ProductController extends Controller
             return response()->json(['error' => 'Forbidden. Only administrators can manage products.'], 403);
         }
 
-        $products = Produto::orderBy('descricao')->get();
+        $query = Produto::query();
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('codigo_sankhya', 'like', "%{$search}%")
+                  ->orWhere('descricao', 'like', "%{$search}%")
+                  ->orWhere('unidade', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $st = $request->input('status');
+            if ($st === 'ativo') {
+                $query->where('ativo', true);
+            } elseif ($st === 'inativo') {
+                $query->where('ativo', false);
+            }
+        }
+
+        $products = $query->orderBy('descricao')->get();
 
         return response()->json([
             'success' => true,

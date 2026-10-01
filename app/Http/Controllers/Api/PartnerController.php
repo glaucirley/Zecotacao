@@ -16,7 +16,29 @@ class PartnerController extends Controller
      */
     public function index(Request $request)
     {
-        $partners = Parceiro::orderBy('razao_social')->get();
+        $query = Parceiro::query();
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('codigo_sankhya', 'like', "%{$search}%")
+                  ->orWhere('razao_social', 'like', "%{$search}%")
+                  ->orWhere('nome_fantasia', 'like', "%{$search}%")
+                  ->orWhere('cnpj', 'like', "%{$search}%")
+                  ->orWhere('cidade', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $st = $request->input('status');
+            if ($st === 'ativo') {
+                $query->where('ativo', true);
+            } elseif ($st === 'inativo') {
+                $query->where('ativo', false);
+            }
+        }
+
+        $partners = $query->orderBy('razao_social')->get();
 
         return response()->json([
             'success' => true,

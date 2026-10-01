@@ -83,4 +83,24 @@ class Cotacao extends Model
     {
         return $this->hasOne(PedidoExterno::class, 'cotacao_id');
     }
+
+    /**
+     * Generate the next short sequential quotation number: COT-YYYY-XXXXXX
+     */
+    public static function generateNextNumero(): string
+    {
+        $year = date('Y');
+        $prefix = "COT-{$year}-";
+
+        $latest = self::where('numero', 'like', "{$prefix}%")
+            ->orderByDesc('id')
+            ->value('numero');
+
+        $nextSeq = 1;
+        if ($latest && preg_match('/COT-\d{4}-(\d+)/', $latest, $matches)) {
+            $nextSeq = ((int)$matches[1]) + 1;
+        }
+
+        return $prefix . str_pad($nextSeq, 6, '0', STR_PAD_LEFT);
+    }
 }

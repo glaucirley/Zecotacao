@@ -430,4 +430,36 @@ class ApprovalController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * List quotations evaluated by the logged-in user.
+     */
+    public function getEvaluatedByMe(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user->isGestor() && !$user->isDiretor() && !$user->isAdministrador()) {
+            return response()->json(['error' => 'Forbidden.'], 403);
+        }
+
+        // Find quote IDs where user has audit history actions (evaluations)
+        $quoteIds = CotacaoHistorico::where('usuario_id', $user->id)
+            ->whereIn('evento', [
+                'APROVADA_GESTOR',
+                'APROVADA_DIRETOR',
+                'DEVOLVIDA_AO_REPRESENTANTE',
+                'ESCALADA_PARA_DIRETORIA',
+                'ITEM_APROVADO',
+                'ITEM_RECUSADO'
+            ])
+            ->pluck('cotacao_id')
+            ->unique();
+
+        $quotes = Cotacao::whereIn('id', $quoteIds)
+            ->with(['parceiro', 'representante'])
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return response()->json(['success' => true, 'data' => $quotes]);
+    }
 }

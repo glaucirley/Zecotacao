@@ -11,6 +11,20 @@
         </button>
     </div>
 
+    <!-- Filter Bar -->
+    <div style="padding: 15px 24px; background: #f8fafc; border-bottom: 1px solid var(--color-border); display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+        <div style="flex-grow: 1; min-width: 250px;">
+            <input type="text" id="partner-search-input" class="form-control" placeholder="🔍 Buscar por Razão Social, CNPJ, Cód. Sankhya, Cidade..." onkeyup="filterPartnersDebounced()">
+        </div>
+        <div style="width: 160px;">
+            <select id="partner-status-filter" class="form-control" onchange="loadPartners()">
+                <option value="">Status: Todos</option>
+                <option value="ativo">Ativos</option>
+                <option value="inativo">Inativos</option>
+            </select>
+        </div>
+    </div>
+
     <!-- Table Clientes -->
     <div class="table-responsive">
         <table class="table-premium">
@@ -124,13 +138,30 @@
     const API_URL = "{{ url('/api/v1') }}";
     let partnersList = [];
 
+    let searchTimer = null;
+
     document.addEventListener("DOMContentLoaded", () => {
         loadPartners();
     });
 
+    function filterPartnersDebounced() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            loadPartners();
+        }, 300);
+    }
+
     async function loadPartners() {
+        document.getElementById("loading-spinner").style.display = "block";
+        const search = document.getElementById("partner-search-input") ? document.getElementById("partner-search-input").value : '';
+        const status = document.getElementById("partner-status-filter") ? document.getElementById("partner-status-filter").value : '';
+
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status) params.append('status', status);
+
         try {
-            const res = await fetch(`${API_URL}/clientes`);
+            const res = await fetch(`${API_URL}/clientes?${params.toString()}`);
             if (res.status === 401 || res.status === 403) {
                 window.location.href = "{{ url('/login') }}";
                 return;

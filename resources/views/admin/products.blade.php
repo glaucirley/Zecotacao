@@ -11,9 +11,18 @@
         </button>
     </div>
 
-    <!-- Filter input -->
-    <div style="margin-bottom: 20px; max-width: 300px; padding: 0 15px;">
-        <input type="text" id="search-input" class="form-control" placeholder="Buscar por código ou descrição..." oninput="filterProducts()">
+    <!-- Filter Bar -->
+    <div style="padding: 15px 24px; background: #f8fafc; border-bottom: 1px solid var(--color-border); display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+        <div style="flex-grow: 1; min-width: 250px;">
+            <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por código Sankhya, descrição do produto ou unidade..." onkeyup="filterProductsDebounced()">
+        </div>
+        <div style="width: 160px;">
+            <select id="status-filter-select" class="form-control" onchange="loadProducts()">
+                <option value="">Status: Todos</option>
+                <option value="ativo">Ativos</option>
+                <option value="inativo">Inativos</option>
+            </select>
+        </div>
     </div>
 
     <!-- Table Produtos -->
@@ -90,13 +99,30 @@
     let productsList = [];
     let filteredList = [];
 
+    let searchTimer = null;
+
     document.addEventListener("DOMContentLoaded", () => {
         loadProducts();
     });
 
+    function filterProductsDebounced() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            loadProducts();
+        }, 300);
+    }
+
     async function loadProducts() {
+        document.getElementById("loading-spinner").style.display = "block";
+        const search = document.getElementById("search-input") ? document.getElementById("search-input").value : '';
+        const status = document.getElementById("status-filter-select") ? document.getElementById("status-filter-select").value : '';
+
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status) params.append('status', status);
+
         try {
-            const res = await fetch(`${API_URL}/produtos-admin`);
+            const res = await fetch(`${API_URL}/produtos-admin?${params.toString()}`);
             if (res.status === 401 || res.status === 403) {
                 window.location.href = "{{ url('/login') }}";
                 return;
