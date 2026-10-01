@@ -28,6 +28,7 @@
     --status-finalizada: #06b6d4;
     --status-faturada: #0f766e;
     --status-perdida: #ef4444;
+    --status-expirada: #64748b;
     
     /* Layout Constants */
     --radius-sm: 8px;
@@ -418,6 +419,7 @@ h1, h2, h3, h4, h5, h6 {
 .badge-status.finalizada { background-color: rgba(6, 182, 212, 0.1); color: var(--status-finalizada); }
 .badge-status.faturada { background-color: rgba(15, 118, 110, 0.1); color: var(--status-faturada); }
 .badge-status.perdida { background-color: rgba(239, 68, 68, 0.1); color: var(--status-perdida); }
+.badge-status.expirada { background-color: rgba(100, 116, 139, 0.12); color: var(--status-expirada); }
 
 /* Custom items grid features for representatives */
 .item-card-row {

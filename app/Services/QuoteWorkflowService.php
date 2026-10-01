@@ -278,4 +278,57 @@ class QuoteWorkflowService
             ];
         }
     }
+
+    /**
+     * Check and expire quotes whose validity has passed.
+     *
+     * @return int Number of expired quotes processed
+     */
+    public static function checkAndExpireQuotes(): int
+    {
+        $activeStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
+
+        $now = now();
+
+        $expiredQuotes = Cotacao::whereIn('status', $activeStatuses)
+            ->where(function ($query) use ($now) {
+                $query->where(function ($q1) use ($now) {
+                    $q1->whereNotNull('data_validade')
+                       ->where('data_validade', '<', $now);
+                })->orWhere(function ($q2) use ($now) {
+                    $q2->whereNull('data_validade')
+                       ->whereRaw('DATE_ADD(COALESCE(data_emissao, created_at), INTERVAL COALESCE(validade_horas, 24) HOUR) < ?', [$now]);
+                });
+            })
+            ->get();
+
+        $count = 0;
+        foreach ($expiredQuotes as $quote) {
+            $quote->update(['status' => 'EXPIRADA']);
+
+            $validityLabel = $quote->data_validade ? $quote->data_validade->format('d/m/Y H:i') : ($quote->validade_horas . 'h');
+
+            CotacaoHistorico::create([
+                'cotacao_id' => $quote->id,
+                'evento' => 'COTACAO_EXPIRADA',
+                'usuario_id' => null,
+                'papel' => 'sistema',
+                'condicao' => "Cotação expirada automaticamente por atingir o limite de validade ({$validityLabel}).",
+            ]);
+
+            if ($quote->representante_id) {
+                \App\Models\Notificacao::create([
+                    'usuario_id' => $quote->representante_id,
+                    'titulo' => '⏰ Cotação Expirada!',
+                    'mensagem' => "A cotação {$quote->numero} expirou por ter ultrapassado a validade configurada.",
+                    'link' => "/cotacoes/id/{$quote->id}",
+                    'lida' => false,
+                ]);
+            }
+
+            $count++;
+        }
+
+        return $count;
+    }
 }

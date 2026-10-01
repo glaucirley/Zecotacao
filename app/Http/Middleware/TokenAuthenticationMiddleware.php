@@ -28,8 +28,8 @@ class TokenAuthenticationMiddleware
             return response()->json(['error' => 'Invalid or expired access token.'], 404);
         }
 
-        // Lock modifications if status is finalized
-        $lockedStatuses = ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA'];
+        // Lock modifications if status is finalized or expired
+        $lockedStatuses = ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'];
         if (in_array($quote->status, $lockedStatuses) && !$request->isMethod('GET')) {
             return response()->json([
                 'error' => 'Locked quote',

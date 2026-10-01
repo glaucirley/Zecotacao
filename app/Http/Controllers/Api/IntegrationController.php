@@ -106,7 +106,7 @@ class IntegrationController extends Controller
 
         // Check if quote exists and lock status checks
         $existingQuote = Cotacao::where('numero', $data['numero'])->first();
-        if ($existingQuote && in_array($existingQuote->status, ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA'])) {
+        if ($existingQuote && in_array($existingQuote->status, ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'])) {
             return response()->json([
                 'error' => 'Locked quote',
                 'message' => "The quote {$data['numero']} is in status {$existingQuote->status} and cannot be modified."

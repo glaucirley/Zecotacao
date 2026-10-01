@@ -29,6 +29,9 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
+        // Trigger automatic expiration check for overdue quotes
+        \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
+
         $query = Cotacao::with(['parceiro', 'representante.equipe'])
             ->orderBy('created_at', 'desc');
 

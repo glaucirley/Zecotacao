@@ -23,6 +23,9 @@ class ApprovalController extends Controller
     {
         $user = Auth::user();
 
+        // Trigger automatic expiration check for overdue quotes
+        \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
+
         if ($user->isGestor()) {
             // Find quotes waiting for gestor where representative belongs to the manager's team
             $teamIds = $user->equipesGerenciadas->pluck('id');

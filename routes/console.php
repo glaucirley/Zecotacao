@@ -33,3 +33,6 @@ if (Schema::hasTable('parametros_sistema')) {
         }
     }
 }
+
+// Automatic quotation validity check every 15 minutes
+Schedule::command('cotacoes:expirar')->everyFifteenMinutes();

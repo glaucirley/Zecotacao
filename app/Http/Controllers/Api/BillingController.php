@@ -23,6 +23,9 @@ class BillingController extends Controller
             return response()->json(['error' => 'Forbidden. Only billing staff, directors, and administrators can view the billing queue.'], 403);
         }
 
+        // Trigger automatic expiration check for overdue quotes
+        \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
+
         $quotes = Cotacao::whereIn('status', ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'])
             ->with(['parceiro', 'representante', 'pedidoExterno'])
             ->orderBy('updated_at', 'desc')
