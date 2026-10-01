@@ -20,8 +20,29 @@ class IntegrationController extends Controller
 {
     public function store(Request $request)
     {
+        $rawInput = $request->all();
+
+        // Pre-process numeric fields to handle PT-BR commas and 3-decimal strings from n8n / Sankhya
+        if (array_key_exists('subtotal', $rawInput)) $rawInput['subtotal'] = $this->sanitizeFloat($rawInput['subtotal']);
+        if (array_key_exists('desconto', $rawInput)) $rawInput['desconto'] = $this->sanitizeFloat($rawInput['desconto']);
+        if (array_key_exists('total', $rawInput))    $rawInput['total']    = $this->sanitizeFloat($rawInput['total']);
+
+        if (isset($rawInput['itens']) && is_array($rawInput['itens'])) {
+            foreach ($rawInput['itens'] as $idx => $item) {
+                if (array_key_exists('qtd', $item))                  $rawInput['itens'][$idx]['qtd']                  = (int)$this->sanitizeFloat($item['qtd']);
+                if (array_key_exists('preco_unit_sugerido', $item)) $rawInput['itens'][$idx]['preco_unit_sugerido'] = $this->sanitizeFloat($item['preco_unit_sugerido']);
+                if (array_key_exists('preco_minimo', $item))        $rawInput['itens'][$idx]['preco_minimo']        = $this->sanitizeFloat($item['preco_minimo']);
+                if (array_key_exists('preco_unit_proposto', $item)) $rawInput['itens'][$idx]['preco_unit_proposto'] = $this->sanitizeFloat($item['preco_unit_proposto']);
+                if (array_key_exists('ajuste_percentual', $item))   $rawInput['itens'][$idx]['ajuste_percentual']   = $this->sanitizeFloat($item['ajuste_percentual']);
+                if (array_key_exists('subtotal', $item))            $rawInput['itens'][$idx]['subtotal']            = $this->sanitizeFloat($item['subtotal']);
+                if (array_key_exists('margem_calculada', $item))    $rawInput['itens'][$idx]['margem_calculada']    = $this->sanitizeFloat($item['margem_calculada']);
+                if (array_key_exists('custo', $item))               $rawInput['itens'][$idx]['custo']               = $this->sanitizeFloat($item['custo']);
+                if (array_key_exists('imposto', $item))             $rawInput['itens'][$idx]['imposto']             = $this->sanitizeFloat($item['imposto']);
+            }
+        }
+
         // 1. Validate incoming payload
-        $validator = Validator::make($request->all(), [
+        $validator = Validator::make($rawInput, [
             'numero' => 'required|string',
             'data_emissao' => 'nullable|string',
             'validade_horas' => 'nullable|integer',
@@ -81,7 +102,7 @@ class IntegrationController extends Controller
             ], 422);
         }
 
-        $data = $request->all();
+        $data = $rawInput;
 
         // Check if quote exists and lock status checks
         $existingQuote = Cotacao::where('numero', $data['numero'])->first();
@@ -308,5 +329,31 @@ class IntegrationController extends Controller
                 'message' => 'Failed to import quote. ' . $e->getMessage()
             ], $code);
         }
+    }
+
+    /**
+     * Convert strings with PT-BR comma or 3-decimal period formatting (e.g. "12.000" or "12,000" or "1.234,56") to clean float values.
+     */
+    private function sanitizeFloat($value)
+    {
+        if (is_null($value) || $value === '') {
+            return 0.0;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (float)$value;
+        }
+
+        $str = trim((string)$value);
+
+        // If string has both thousand '.' and decimal ',' (e.g. "1.234,56" or "1.234,500")
+        if (strpos($str, '.') !== false && strpos($str, ',') !== false) {
+            $str = str_replace('.', '', $str);
+            $str = str_replace(',', '.', $str);
+        } elseif (strpos($str, ',') !== false) {
+            // Only comma present (e.g. "12,000" or "12,50")
+            $str = str_replace(',', '.', $str);
+        }
+
+        return (float)$str;
     }
 }
