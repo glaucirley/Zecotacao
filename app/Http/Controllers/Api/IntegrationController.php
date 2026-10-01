@@ -179,30 +179,41 @@ class IntegrationController extends Controller
 
                 // 4. Resolve Products: Always sync with Sankhya first to get official description
                 $productIdsMap = [];
+                $resolvedProductsCache = [];
+                $registeredMissingCodes = [];
+
                 foreach ($data['itens'] as $item) {
                     $itemCode = (string)$item['codigo_sankhya'];
-                    $product = null;
 
-                    // A. Prioritize official description from Sankhya
-                    try {
-                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                        $product = $sankhyaDb->syncProductByCode($itemCode);
-                    } catch (\Throwable $e) {
+                    if (isset($resolvedProductsCache[$itemCode])) {
+                        $product = $resolvedProductsCache[$itemCode];
+                    } else {
                         $product = null;
-                    }
 
-                    // B. If product code does NOT exist in Sankhya, register in ProdutoNaoEncontrado and use n8n fallback
-                    if (!$product) {
-                        \App\Models\ProdutoNaoEncontrado::registrar(
-                            $itemCode,
-                            $item['descricao'] ?? ('Produto ' . $itemCode),
-                            ($partner ? $partner->razao_social : 'Cliente Desconhecido')
-                        );
+                        // A. Prioritize official description from Sankhya
+                        try {
+                            $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                            $product = $sankhyaDb->syncProductByCode($itemCode);
+                        } catch (\Throwable $e) {
+                            $product = null;
+                        }
 
-                        // Check local DB fallback
-                        $product = Produto::where('codigo_sankhya', $itemCode)->first();
-
+                        // B. Check local DB fallback
                         if (!$product) {
+                            $product = Produto::where('codigo_sankhya', $itemCode)->first();
+                        }
+
+                        // C. If product code does NOT exist anywhere, register in ProdutoNaoEncontrado and create local fallback
+                        if (!$product) {
+                            if (!isset($registeredMissingCodes[$itemCode])) {
+                                \App\Models\ProdutoNaoEncontrado::registrar(
+                                    $itemCode,
+                                    $item['descricao'] ?? ('Produto ' . $itemCode),
+                                    ($partner ? $partner->razao_social : 'Cliente Desconhecido')
+                                );
+                                $registeredMissingCodes[$itemCode] = true;
+                            }
+
                             $productData = [
                                 'codigo_sankhya'  => $itemCode,
                                 'descricao'       => $item['descricao'] ?? ('Produto ' . $itemCode),
@@ -214,6 +225,8 @@ class IntegrationController extends Controller
                             }
                             $product = Produto::create($productData);
                         }
+
+                        $resolvedProductsCache[$itemCode] = $product;
                     }
 
                     $productIdsMap[$itemCode] = $product->id;

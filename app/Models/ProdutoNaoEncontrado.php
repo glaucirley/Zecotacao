@@ -20,20 +20,32 @@ class ProdutoNaoEncontrado extends Model
      */
     public static function registrar($codigo, $descricao, $requester)
     {
-        $record = self::where('codigo_sankhya', $codigo)->first();
-        if ($record) {
-            $record->increment('requisicoes', 1, [
-                'descricao' => $descricao,
-                'ultimo_solicitante' => $requester,
-                'updated_at' => now(),
-            ]);
-        } else {
-            self::create([
-                'codigo_sankhya' => $codigo,
-                'descricao' => $descricao,
-                'requisicoes' => 1,
-                'ultimo_solicitante' => $requester
-            ]);
+        try {
+            $existing = \Illuminate\Support\Facades\DB::table('produtos_nao_encontrados')
+                ->where('codigo_sankhya', $codigo)
+                ->first();
+
+            if ($existing) {
+                \Illuminate\Support\Facades\DB::table('produtos_nao_encontrados')
+                    ->where('id', $existing->id)
+                    ->update([
+                        'requisicoes' => \Illuminate\Support\Facades\DB::raw('requisicoes + 1'),
+                        'descricao' => $descricao,
+                        'ultimo_solicitante' => $requester,
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                \Illuminate\Support\Facades\DB::table('produtos_nao_encontrados')->insert([
+                    'codigo_sankhya' => $codigo,
+                    'descricao' => $descricao,
+                    'requisicoes' => 1,
+                    'ultimo_solicitante' => $requester,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("ProdutoNaoEncontrado::registrar error for code {$codigo}: " . $e->getMessage());
         }
     }
 }
