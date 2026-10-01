@@ -177,28 +177,35 @@ class IntegrationController extends Controller
                     }
                 }
 
-                // 4. Resolve Products and map to local IDs with payload auto-provisioning fallback
+                // 4. Resolve Products: Always sync with Sankhya first to get official description
                 $productIdsMap = [];
                 foreach ($data['itens'] as $item) {
-                    $product = Produto::where('codigo_sankhya', $item['codigo_sankhya'])->first();
+                    $itemCode = (string)$item['codigo_sankhya'];
+                    $product = null;
+
+                    // A. Prioritize official description from Sankhya
+                    try {
+                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                        $product = $sankhyaDb->syncProductByCode($itemCode);
+                    } catch (\Throwable $e) {
+                        $product = null;
+                    }
+
+                    // B. If product code does NOT exist in Sankhya, register in ProdutoNaoEncontrado and use n8n fallback
                     if (!$product) {
-                        try {
-                            $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                            $product = $sankhyaDb->syncProductByCode($item['codigo_sankhya']);
-                        } catch (\Throwable $e) {
-                            $product = null;
-                        }
+                        \App\Models\ProdutoNaoEncontrado::registrar(
+                            $itemCode,
+                            $item['descricao'] ?? ('Produto ' . $itemCode),
+                            ($partner ? $partner->razao_social : 'Cliente Desconhecido')
+                        );
+
+                        // Check local DB fallback
+                        $product = Produto::where('codigo_sankhya', $itemCode)->first();
 
                         if (!$product) {
-                            \App\Models\ProdutoNaoEncontrado::registrar(
-                                $item['codigo_sankhya'],
-                                $item['descricao'],
-                                ($partner ? $partner->razao_social : 'Cliente Desconhecido')
-                            );
-
                             $productData = [
-                                'codigo_sankhya'  => (string)$item['codigo_sankhya'],
-                                'descricao'       => $item['descricao'] ?? ('Produto ' . $item['codigo_sankhya']),
+                                'codigo_sankhya'  => $itemCode,
+                                'descricao'       => $item['descricao'] ?? ('Produto ' . $itemCode),
                                 'unidade'         => $item['unidade'] ?? 'UN',
                                 'ativo'           => true,
                             ];
@@ -208,7 +215,8 @@ class IntegrationController extends Controller
                             $product = Produto::create($productData);
                         }
                     }
-                    $productIdsMap[$item['codigo_sankhya']] = $product->id;
+
+                    $productIdsMap[$itemCode] = $product->id;
                 }
 
                 // 5. Create or Update Quotation
