@@ -243,6 +243,27 @@
         body {
             padding-bottom: 70px;
         }
+
+        /* Actions Panel Vertical Stacking for Mobile */
+        .actions-panel-card {
+            flex-direction: column-reverse !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+            padding: 16px !important;
+        }
+        .actions-panel-card .left-actions,
+        .actions-panel-card .right-actions {
+            flex-direction: column-reverse !important;
+            width: 100% !important;
+            gap: 10px !important;
+        }
+        .actions-panel-card button {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 12px 16px !important;
+            font-size: 14px !important;
+            margin: 0 !important;
+        }
     }
 </style>
 @endsection
@@ -472,11 +493,11 @@
     </div>
 
     <!-- Floating Actions Panel -->
-    <div class="card" style="display: flex; justify-content: space-between; align-items: center; background-color: var(--color-card); box-shadow: var(--shadow-lg);">
-        <div>
+    <div class="card actions-panel-card" style="display: flex; justify-content: space-between; align-items: center; background-color: var(--color-card); box-shadow: var(--shadow-lg);">
+        <div class="left-actions">
             <button id="btn-lost" class="btn btn-danger" onclick="openLostModal()">Marcar como Perdida</button>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="right-actions" style="display: flex; gap: 12px; align-items: center;">
             <button id="btn-draft" class="btn btn-outline" onclick="saveDraft(true)">Salvar Rascunho</button>
             <button id="btn-pdf" class="btn btn-secondary" onclick="downloadPdf()" disabled>Gerar PDF</button>
             <button id="btn-release" class="btn btn-primary" onclick="openReleaseModal()" style="background-color: #0d9488; border-color: #0d9488; display: none;">Liberar para Faturamento</button>
