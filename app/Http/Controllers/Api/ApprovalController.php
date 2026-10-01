@@ -315,7 +315,7 @@ class ApprovalController extends Controller
                         'usuario_id' => $quote->representante_id,
                         'titulo' => 'Cotação Devolvida!',
                         'mensagem' => "A cotação {$quote->numero} foi devolvida pelo avaliador para correções.",
-                        'link' => url("/cotacoes/token/{$quote->token_representante}"),
+                        'link' => url("/cotacoes/id/{$quote->id}"),
                         'lida' => false,
                     ]);
                 } 
@@ -407,7 +407,7 @@ class ApprovalController extends Controller
                             'usuario_id' => $quote->representante_id,
                             'titulo' => 'Cotação Aprovada!',
                             'mensagem' => "A cotação {$quote->numero} foi revisada e liberada! PDF pronto para faturamento.",
-                            'link' => url("/cotacoes/token/{$quote->token_representante}"),
+                            'link' => url("/cotacoes/id/{$quote->id}"),
                             'lida' => false,
                         ]);
                     }

@@ -311,7 +311,7 @@ class IntegrationController extends Controller
                     'usuario_id' => $representative->id,
                     'titulo' => 'Nova Cotação Recebida!',
                     'mensagem' => "A cotação {$quote->numero} para " . ($partner->razao_social ?? 'Cliente') . " foi criada via WhatsApp e está pronta para edição.",
-                    'link' => url("/cotacoes/token/{$quote->token_representante}"),
+                    'link' => url("/cotacoes/id/{$quote->id}"),
                     'lida' => false,
                 ]);
 

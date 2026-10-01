@@ -31,6 +31,10 @@ class Cotacao extends Model
         'token_acesso_em',
     ];
 
+    protected $hidden = [
+        'token_representante',
+    ];
+
     protected $casts = [
         'data_emissao' => 'datetime',
         'data_validade' => 'datetime',

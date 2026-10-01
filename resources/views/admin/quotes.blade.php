@@ -1100,8 +1100,8 @@
                             <div class="dropdown-dots-wrapper">
                                 <button class="btn-dots-row" onclick="toggleDotsMenu(event, ${q.id})" title="Ações">⋮</button>
                                 <div class="dropdown-dots-menu" id="dots-menu-${q.id}">
-                                    ${canEdit ? `<a href="{{ url('/cotacoes/token') }}/${q.token_representante}" class="dropdown-dots-item">✏️ Editar Cotação</a>` : ''}
-                                    <button class="dropdown-dots-item" onclick="handleDetailClick(${q.id}, '${q.status}', '${q.token_representante}')">👁️ Ver Detalhes</button>
+                                    ${canEdit ? `<a href="{{ url('/cotacoes/id') }}/${q.id}" class="dropdown-dots-item">✏️ Editar Cotação</a>` : ''}
+                                    <button class="dropdown-dots-item" onclick="handleDetailClick(${q.id}, '${q.status}')">👁️ Ver Detalhes</button>
                                     ${canDelete ? `<button class="dropdown-dots-item danger" onclick="deleteQuote(${q.id})">🗑️ Excluir</button>` : ''}
                                 </div>
                             </div>
@@ -1223,7 +1223,7 @@
     }
 
     // Modal and Actions handlers
-    function handleDetailClick(id, status, token) {
+    function handleDetailClick(id, status) {
         const quote = rawQuotes.find(q => q.id == id);
         if (!quote) return;
 

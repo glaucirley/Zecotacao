@@ -1251,7 +1251,7 @@
                 const valStr = parseFloat(q.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
                 
                 container.innerHTML += `
-                    <a href="${PUBLIC_URL}/cotacoes/token/${q.token_representante}" class="quote-card">
+                    <a href="${PUBLIC_URL}/cotacoes/id/${q.id}" class="quote-card">
                         <div class="card-row-top">
                             <span class="quote-num">${q.numero}</span>
                             <span class="status-badge status-${statusClass}">${statusText}</span>

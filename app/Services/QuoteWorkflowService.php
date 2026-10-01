@@ -89,7 +89,7 @@ class QuoteWorkflowService
                 'usuario_id' => $quote->representante_id,
                 'titulo' => '⚡ Cotacao Prioritaria (Grande Conta)',
                 'mensagem' => "A cotacao no. {$quote->numero} foi classificada como Grande Conta / Prioritaria devido a limites comerciais atingidos.",
-                'link' => "/cotacoes/token/{$quote->token_representante}",
+                'link' => "/cotacoes/id/{$quote->id}",
                 'lida' => false
             ]);
 

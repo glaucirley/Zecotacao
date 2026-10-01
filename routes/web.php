@@ -170,6 +170,15 @@ Route::middleware([
         Route::get('/cotacoes/{id}/auditoria', function ($id) {
             return view('admin.quote_audit', ['id' => $id]);
         });
+
+        // Authenticated View/Edit Quote by ID
+        Route::get('/cotacoes/id/{id}', function ($id) {
+            $quote = \App\Models\Cotacao::findOrFail($id);
+            if (auth()->user()->isRepresentante() && $quote->representante_id !== auth()->user()->id) {
+                abort(403, 'Acesso não autorizado.');
+            }
+            return view('quote.representative', ['token' => $quote->token_representante]);
+        });
         
     });
 });
