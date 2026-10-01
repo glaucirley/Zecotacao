@@ -1,5 +1,252 @@
 @extends(auth()->check() ? 'layouts.app' : 'layouts.public')
 
+@section('styles')
+<style>
+    /* Items Search and Filter Bar */
+    .items-filter-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+    .search-box-wrapper {
+        position: relative;
+        flex-grow: 1;
+        min-width: 250px;
+    }
+    .search-box-wrapper .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 14px;
+    }
+    .search-items-input {
+        width: 100%;
+        padding: 9px 12px 9px 36px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        font-size: 13px;
+        outline: none;
+        transition: all 0.15s ease;
+        background: #ffffff;
+    }
+    .search-items-input:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .filter-tabs-wrapper {
+        display: flex;
+        gap: 6px;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 10px;
+    }
+    .filter-tab-btn {
+        border: none;
+        background: transparent;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .filter-tab-btn.active {
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .filter-tab-btn .tab-badge {
+        background: #e2e8f0;
+        color: #475569;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-size: 11px;
+    }
+    .filter-tab-btn.tab-attention.active {
+        color: #dc2626;
+    }
+    .filter-tab-btn.tab-attention .tab-badge {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    /* Stepper Quantity Control */
+    .qty-stepper {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #ffffff;
+    }
+    .qty-stepper .qty-btn {
+        border: none;
+        background: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+        font-size: 14px;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .qty-stepper .qty-btn:hover:not(:disabled) {
+        background: #e2e8f0;
+    }
+    .qty-stepper .qty-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .qty-stepper .qty-input {
+        border: none !important;
+        border-left: 1px solid #e2e8f0 !important;
+        border-right: 1px solid #e2e8f0 !important;
+        border-radius: 0 !important;
+        width: 48px !important;
+        height: 32px !important;
+        padding: 0 !important;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .btn-min-fix {
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        border-color: #cbd5e1;
+        color: #2563eb;
+    }
+
+    /* Mobile sub-info label */
+    .mobile-sub-info {
+        display: none;
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 3px;
+    }
+    .mobile-label {
+        display: none;
+        font-weight: 600;
+        font-size: 11px;
+        color: #64748b;
+    }
+
+    /* Mobile sticky floating bar */
+    .sticky-mobile-total-bar {
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #0f172a;
+        color: #ffffff;
+        padding: 12px 20px;
+        z-index: 999;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    @media (max-width: 768px) {
+        .desktop-only {
+            display: none !important;
+        }
+        .mobile-sub-info {
+            display: block;
+        }
+        .mobile-label {
+            display: inline-block;
+            margin-right: 4px;
+        }
+
+        #items-table table, #items-table thead, #items-table tbody, #items-table th, #items-table td, #items-table tr {
+            display: block;
+        }
+        #items-table thead {
+            display: none;
+        }
+        
+        .item-card-row {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            position: relative;
+        }
+        .item-card-row.below-min-card {
+            border-color: #fca5a5;
+            background: #fef2f2;
+        }
+
+        .item-card-row td {
+            padding: 4px 0 !important;
+            border: none !important;
+            text-align: left !important;
+        }
+
+        .item-card-row td.col-code {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 2px;
+        }
+        .item-card-row td.col-desc {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 8px;
+            padding-right: 36px !important;
+        }
+        .item-card-row td.col-un {
+            display: inline-block;
+            margin-right: 15px;
+        }
+        .item-card-row td.col-qtd {
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        .item-card-row td.col-proposto {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            padding-top: 8px !important;
+            border-top: 1px dashed #e2e8f0 !important;
+        }
+        .item-card-row td.col-status {
+            display: inline-block;
+            margin-top: 6px;
+        }
+        .item-card-row td.col-actions {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+        }
+        
+        .sticky-mobile-total-bar {
+            display: flex;
+        }
+        body {
+            padding-bottom: 70px;
+        }
+    }
+</style>
+@endsection
+
 @section('content')
 <div id="representative-panel" style="display: none;">
     @if(auth()->check())
@@ -53,9 +300,23 @@
 
     <!-- Items Grid Card -->
     <div class="card">
-        <div class="card-header">
-            <h3>Itens da Cotação</h3>
-            <span style="font-size: 13px; color: var(--color-text-muted);" id="items-count">0 itens</span>
+        <!-- Live Search and Filter Bar -->
+        <div class="items-filter-bar" style="margin-bottom: 16px;">
+            <div class="search-box-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="item-search-input" class="search-items-input" placeholder="Buscar por código ou produto..." oninput="onSearchInput(this.value)">
+            </div>
+            <div class="filter-tabs-wrapper">
+                <button type="button" class="filter-tab-btn active" id="tab-all" onclick="setFilterTab('all')">
+                    Todos <span class="tab-badge" id="count-all">0</span>
+                </button>
+                <button type="button" class="filter-tab-btn tab-attention" id="tab-attention" onclick="setFilterTab('attention')">
+                    ⚠️ Requer Atenção <span class="tab-badge" id="count-attention">0</span>
+                </button>
+                <button type="button" class="filter-tab-btn" id="tab-approved" onclick="setFilterTab('approved')">
+                    ✅ Normais <span class="tab-badge" id="count-approved">0</span>
+                </button>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -63,14 +324,14 @@
                 <thead>
                     <tr>
                         <th style="width: 8%;">Código</th>
-                        <th style="width: 32%;">Descrição</th>
+                        <th style="width: 30%;">Descrição</th>
                         <th style="width: 8%; text-align: center;">Un.</th>
-                        <th style="width: 10%; text-align: center;">Qtd</th>
-                        <th style="width: 12%; text-align: right;">Preço Sugerido</th>
-                        <th style="width: 12%; text-align: right;">Preço Mínimo</th>
-                        <th style="width: 12%; text-align: right;">Preço Proposto</th>
-                        <th style="width: 10%; text-align: center;">Situação</th>
-                        <th style="width: 6%; text-align: center;">Ações</th>
+                        <th style="width: 12%; text-align: center;">Qtd</th>
+                        <th style="width: 11%; text-align: right;" class="desktop-only">Preço Sugerido</th>
+                        <th style="width: 11%; text-align: right;" class="desktop-only">Preço Mínimo</th>
+                        <th style="width: 14%; text-align: right;">Preço Proposto</th>
+                        <th style="width: 9%; text-align: center;">Situação</th>
+                        <th style="width: 7%; text-align: center;">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="items-table-body">
@@ -282,6 +543,19 @@
         </div>
     </div>
 </div>
+
+<!-- Floating Sticky Total Bar for Mobile -->
+<div id="sticky-mobile-bar" class="sticky-mobile-total-bar">
+    <div>
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Total da Cotação</div>
+        <div id="mobile-sticky-total" style="font-size: 18px; font-weight: 700;">R$ 0,00</div>
+    </div>
+    <div>
+        <button type="button" class="btn btn-primary" onclick="submitQuote()" style="padding: 8px 16px; font-size: 13px; background: #2563eb; border: none; border-radius: 8px; font-weight: 600;">
+            Enviar Cotação
+        </button>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -422,63 +696,149 @@
         });
     }
 
+    let currentFilterTab = 'all'; // 'all', 'attention', 'approved'
+    let currentSearchQuery = '';
+
+    function onSearchInput(val) {
+        currentSearchQuery = (val || '').trim().toLowerCase();
+        renderItems();
+    }
+
+    function setFilterTab(tabName) {
+        currentFilterTab = tabName;
+        document.querySelectorAll('.filter-tab-btn').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = document.getElementById(`tab-${tabName}`);
+        if (activeBtn) activeBtn.classList.add('active');
+        renderItems();
+    }
+
+    function stepQty(itemId, delta) {
+        const item = quote.itens.find(i => i.id === itemId);
+        if (!item) return;
+        const current = parseInt(item.qtd) || 1;
+        const updated = Math.max(1, current + delta);
+        updateItemCalculations(itemId, updated, null);
+        renderItems();
+    }
+
     function renderItems() {
         const body = document.getElementById("items-table-body");
         body.innerHTML = "";
         
         let hasItemBelowMin = false;
-
-        document.getElementById("items-count").innerText = `${quote.itens.length} itens`;
+        let countAll = quote.itens.length;
+        let countAttention = 0;
+        let countApproved = 0;
 
         quote.itens.forEach(item => {
             const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
             if (isBelowMin && item.status_item !== 'aprovado') {
                 hasItemBelowMin = true;
+                countAttention++;
+            } else {
+                countApproved++;
+            }
+        });
+
+        // Update Tab Badges
+        const elAll = document.getElementById("count-all");
+        const elAtt = document.getElementById("count-attention");
+        const elApp = document.getElementById("count-approved");
+        if (elAll) elAll.innerText = countAll;
+        if (elAtt) elAtt.innerText = countAttention;
+        if (elApp) elApp.innerText = countApproved;
+
+        // Filter items for display
+        const filtered = quote.itens.filter(item => {
+            if (currentSearchQuery) {
+                const q = currentSearchQuery;
+                const code = String(item.produto.codigo_sankhya).toLowerCase();
+                const desc = String(item.produto.descricao).toLowerCase();
+                if (!code.includes(q) && !desc.includes(q)) return false;
             }
 
-            const inputClass = isBelowMin ? "price-below-min" : "";
-            const isItemLocked = isEditingLocked || item.status_item === 'recusado';
-            const rowClass = item.status_item === 'recusado' ? "recusado" : (item.status_item === 'aprovado' ? "aprovado" : "");
+            const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
+            if (currentFilterTab === 'attention') {
+                return isBelowMin && item.status_item !== 'aprovado';
+            }
+            if (currentFilterTab === 'approved') {
+                return !isBelowMin || item.status_item === 'aprovado';
+            }
+            return true;
+        });
 
-            body.innerHTML += `
-                <tr class="item-card-row ${rowClass}" id="row-${item.id}">
-                    <td><strong>${item.produto.codigo_sankhya}</strong></td>
-                    <td>
-                        ${item.produto.descricao}
-                        ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="display:inline-block; margin-left:8px;">Campanha</span>' : ''}
-                    </td>
-                    <td class="text-center">${item.produto.unidade}</td>
-                    <td class="text-center">
-                        <input type="number" class="form-control text-center" value="${item.qtd}" min="1" 
-                            style="width: 70px; padding: 4px;" 
-                            ${isItemLocked ? 'disabled' : ''} 
-                            oninput="updateItemCalculations(${item.id}, this.value, null)">
-                    </td>
-                    <td class="text-right">R$ ${parseFloat(item.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    <td class="text-right" style="color: #64748b;">R$ ${parseFloat(item.preco_minimo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    <td class="text-right">
-                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
-                            <input type="number" class="form-control text-right ${inputClass}" 
-                                value="${parseFloat(item.preco_unit_proposto)}" step="0.01" min="0.01"
-                                style="width: 100px; padding: 4px;" 
-                                ${isItemLocked ? 'disabled' : ''} 
-                                oninput="updateItemCalculations(${item.id}, null, this.value)">
-                            ${!isItemLocked && isBelowMin ? `<button class="btn btn-outline" style="padding: 4px 8px; font-size:10px;" onclick="resetToMin(${item.id}, ${item.preco_minimo})">Mín</button>` : ''}
-                        </div>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge-status ${item.status_item}">${item.status_item}</span>
-                    </td>
-                    <td class="text-center">
-                        ${!isItemLocked ? `
-                            <button class="btn btn-outline" style="padding: 6px 10px; border-color: #fecaca; color: #ef4444;" onclick="deleteItem(${item.id})">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                            </button>
-                        ` : '-'}
+        if (filtered.length === 0) {
+            body.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align: center; color: var(--color-text-muted); padding: 30px 10px;">
+                        Nenhum item encontrado com os filtros aplicados.
                     </td>
                 </tr>
             `;
-        });
+        } else {
+            filtered.forEach(item => {
+                const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
+                const inputClass = isBelowMin ? "price-below-min" : "";
+                const isItemLocked = isEditingLocked || item.status_item === 'recusado';
+                const rowClass = item.status_item === 'recusado' ? "recusado" : (item.status_item === 'aprovado' ? "aprovado" : "");
+
+                body.innerHTML += `
+                    <tr class="item-card-row ${rowClass} ${isBelowMin ? 'below-min-card' : ''}" id="row-${item.id}">
+                        <td class="col-code">
+                            <span class="mobile-label">Código:</span>
+                            <strong class="code-badge">${item.produto.codigo_sankhya}</strong>
+                        </td>
+                        <td class="col-desc">
+                            <div class="product-desc-title">
+                                ${item.produto.descricao}
+                                ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="display:inline-block; margin-left:8px;">Campanha</span>' : ''}
+                            </div>
+                            <div class="mobile-sub-info">
+                                Sug: R$ ${parseFloat(item.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2})} | 
+                                Mín: R$ ${parseFloat(item.preco_minimo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                            </div>
+                        </td>
+                        <td class="text-center col-un">
+                            <span class="mobile-label">Unidade:</span>
+                            <span class="un-badge">${item.produto.unidade}</span>
+                        </td>
+                        <td class="text-center col-qtd">
+                            <span class="mobile-label">Qtd:</span>
+                            <div class="qty-stepper">
+                                ${!isItemLocked ? `<button type="button" class="qty-btn" onclick="stepQty(${item.id}, -1)">–</button>` : ''}
+                                <input type="number" class="form-control text-center qty-input" value="${item.qtd}" min="1" 
+                                    ${isItemLocked ? 'disabled' : ''} 
+                                    oninput="updateItemCalculations(${item.id}, this.value, null)">
+                                ${!isItemLocked ? `<button type="button" class="qty-btn" onclick="stepQty(${item.id}, 1)">+</button>` : ''}
+                            </div>
+                        </td>
+                        <td class="text-right col-sugerido desktop-only">R$ ${parseFloat(item.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        <td class="text-right col-minimo desktop-only" style="color: #64748b;">R$ ${parseFloat(item.preco_minimo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        <td class="text-right col-proposto">
+                            <span class="mobile-label">Preço Proposto:</span>
+                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+                                <input type="number" class="form-control text-right ${inputClass}" 
+                                    value="${parseFloat(item.preco_unit_proposto)}" step="0.01" min="0.01"
+                                    style="width: 105px; padding: 5px 8px; font-size: 14px; font-weight: 600;" 
+                                    ${isItemLocked ? 'disabled' : ''} 
+                                    oninput="updateItemCalculations(${item.id}, null, this.value)">
+                                ${!isItemLocked && isBelowMin ? `<button type="button" class="btn btn-outline btn-min-fix" onclick="resetToMin(${item.id}, ${item.preco_minimo})">Mín</button>` : ''}
+                            </div>
+                        </td>
+                        <td class="text-center col-status">
+                            <span class="badge-status ${item.status_item}">${item.status_item}</span>
+                        </td>
+                        <td class="text-center col-actions">
+                            ${!isItemLocked ? `
+                                <button type="button" class="btn btn-outline" style="padding: 6px 10px; border-color: #fecaca; color: #ef4444;" onclick="deleteItem(${item.id})" title="Remover item">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                </button>
+                            ` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
 
         // Show/hide justification box
         document.getElementById("justification-panel").style.display = hasItemBelowMin && !isEditingLocked ? "block" : "none";
@@ -553,6 +913,11 @@
         document.getElementById("total-sugerido").innerText = "R$ " + subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
         document.getElementById("total-desconto").innerText = "- R$ " + (desconto > 0 ? desconto : 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
         document.getElementById("total-liquido").innerText = "R$ " + total.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+
+        const mobileTotalEl = document.getElementById("mobile-sticky-total");
+        if (mobileTotalEl) {
+            mobileTotalEl.innerText = "R$ " + total.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        }
     }
 
     // Add Item Flow
