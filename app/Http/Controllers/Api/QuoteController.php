@@ -123,8 +123,8 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
-        $partners = \App\Models\Parceiro::where('ativo', true)->orderBy('razao_social')->get();
-        $products = \App\Models\Produto::where('ativo', true)->orderBy('descricao')->get();
+        $partners = \App\Models\Parceiro::where('ativo', true)->orderBy('razao_social')->take(50)->get();
+        $products = \App\Models\Produto::where('ativo', true)->orderBy('descricao')->take(50)->get();
 
         // Representatives based on role
         if ($user->isAdministrador() || $user->isDiretor() || $user->isFaturamento()) {
@@ -841,15 +841,27 @@ class QuoteController extends Controller
     }
 
     /**
-     * List all active products.
+     * List active products for quotation addition (limited to 50 by default).
      */
-    public function listProducts()
+    public function listProducts(Request $request)
     {
-        $products = Produto::where(function($q) {
+        $query = Produto::where(function($q) {
             $q->where('ativo', true)
               ->orWhere('ativo', 1)
               ->orWhereNull('ativo');
-        })->orderBy('descricao')->get();
+        });
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('codigo_sankhya', 'like', "%{$search}%")
+                  ->orWhere('descricao', 'like', "%{$search}%")
+                  ->orWhere('marca', 'like', "%{$search}%");
+            });
+        }
+
+        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
+        $products = $query->orderBy('descricao')->take($limit)->get();
 
         return response()->json([
             'success' => true,
