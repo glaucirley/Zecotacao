@@ -881,10 +881,6 @@
         <header class="app-header" style="padding-bottom: 12px;">
             <div class="header-top">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <button type="button" onclick="appGoBack()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:white; padding:5px 10px; border-radius:10px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:4px; cursor:pointer;" title="Voltar para a página anterior">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-                        Voltar
-                    </button>
                     <div class="logo-title">Zé <span>Cotação</span></div>
                 </div>
                 <div class="user-info">
@@ -1921,20 +1917,22 @@
             }
         }
 
+        let prodSearchTimer = null;
+
         async function loadProductsForQuote(forceReload = false) {
             if (allProductsList && allProductsList.length > 0 && !forceReload) {
-                filterProducts();
+                renderProductSearchResults(allProductsList.slice(0, 40));
                 return;
             }
 
             isProductsLoading = true;
             const container = document.getElementById("prod-search-results");
             if (container) {
-                container.innerHTML = '<div style="font-size:13px; color:var(--color-primary); text-align:center; padding:16px; font-weight:600;">🔄 Carregando catálogo de produtos...</div>';
+                container.innerHTML = '<div style="font-size:13px; color:var(--color-primary); text-align:center; padding:16px; font-weight:600;">🔄 Carregando catálogo...</div>';
             }
 
             try {
-                const res = await fetch(`${API_URL}/produtos`);
+                const res = await fetch(`${API_URL}/produtos?limit=40`);
                 const data = await res.json();
                 isProductsLoading = false;
 
@@ -1948,7 +1946,7 @@
                     allProductsList = [];
                 }
 
-                filterProducts();
+                renderProductSearchResults(allProductsList);
             } catch(e) {
                 isProductsLoading = false;
                 console.error("Error loading products:", e);
@@ -1964,39 +1962,54 @@
         }
 
         function filterProducts() {
+            clearTimeout(prodSearchTimer);
             const rawQuery = document.getElementById("prod-search-input").value;
-            const normalizedQuery = normalizeStr(rawQuery).trim();
+            const query = rawQuery.trim();
 
-            if (isProductsLoading) {
+            if (!query) {
+                renderProductSearchResults(allProductsList ? allProductsList.slice(0, 40) : []);
                 return;
             }
 
-            if (!allProductsList || allProductsList.length === 0) {
-                renderProductSearchResults([]);
-                return;
-            }
-
-            if (!normalizedQuery) {
-                renderProductSearchResults(allProductsList.slice(0, 30));
-                return;
-            }
-
+            // Perform local search first on pre-loaded items
+            const normalizedQuery = normalizeStr(query);
             const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-
-            const filtered = allProductsList.filter(p => {
+            const localMatches = (allProductsList || []).filter(p => {
                 const searchables = [
                     normalizeStr(p.descricao),
                     normalizeStr(p.codigo_sankhya),
                     normalizeStr(p.codprod),
                     normalizeStr(p.marca),
-                    normalizeStr(p.complemento),
-                    normalizeStr(p.referencia)
                 ].join(" ");
-
                 return terms.every(term => searchables.includes(term));
             });
 
-            renderProductSearchResults(filtered);
+            if (localMatches.length > 0) {
+                renderProductSearchResults(localMatches);
+            }
+
+            // Debounced live server query across ALL 6,141 products in MySQL
+            prodSearchTimer = setTimeout(() => {
+                executeServerProductSearch(query);
+            }, 250);
+        }
+
+        async function executeServerProductSearch(query) {
+            try {
+                const res = await fetch(`${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=40`);
+                const data = await res.json();
+                
+                let results = [];
+                if (data.success && Array.isArray(data.data)) {
+                    results = data.data;
+                } else if (Array.isArray(data)) {
+                    results = data;
+                }
+
+                renderProductSearchResults(results);
+            } catch(e) {
+                console.error("Error searching server products:", e);
+            }
         }
 
         function renderProductSearchResults(products) {
@@ -2004,16 +2017,6 @@
             const query = document.getElementById("prod-search-input").value.trim();
 
             if (!container) return;
-
-            if (!allProductsList || allProductsList.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align:center; padding:14px; background:#f8fafc; border-radius:8px; border:1px dashed var(--color-border);">
-                        <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:8px;">Nenhum produto carregado no sistema.</div>
-                        <button type="button" onclick="loadProductsForQuote(true)" style="background:var(--color-primary); color:white; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">🔄 Recarregar Produtos</button>
-                    </div>
-                `;
-                return;
-            }
 
             if (!products || products.length === 0) {
                 container.innerHTML = `
@@ -2027,7 +2030,7 @@
 
             container.innerHTML = "";
             products.forEach(p => {
-                const price = parseFloat(p.preco_tabela || 0);
+                const price = parseFloat(p.preco_sugerido || p.preco_tabela || 0);
                 const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'Sob consulta';
                 const codeStr = p.codigo_sankhya || p.codprod || p.id;
                 const brandStr = p.marca ? ` | ${p.marca}` : '';
@@ -2045,7 +2048,7 @@
 
         function clearProdSearch() {
             document.getElementById("prod-search-input").value = "";
-            filterProducts();
+            renderProductSearchResults(allProductsList ? allProductsList.slice(0, 40) : []);
         }
 
         function addToCart(prodId) {
