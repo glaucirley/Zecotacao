@@ -1036,14 +1036,19 @@
         </button>
 
         <!-- New Quote Modal Overlay & Drawer -->
-        <div id="new-quote-overlay" class="modal-overlay" onclick="closeNewQuoteModal()" style="display:none;"></div>
+        <div id="new-quote-overlay" class="modal-overlay" onclick="handleDrawerClose()" style="display:none;"></div>
         <div id="new-quote-drawer" class="mobile-drawer" style="display:none;">
             <div class="drawer-header">
                 <div class="drawer-title">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                     Incluir Nova Cotação
                 </div>
-                <button type="button" class="btn-close-drawer" onclick="closeNewQuoteModal()">&times;</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" onclick="saveDraftQuote(false)" style="background:#0284c7; color:white; border:none; padding:5px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(0,0,0,0.15);">
+                        💾 Salvar Rascunho
+                    </button>
+                    <button type="button" class="btn-close-drawer" onclick="handleDrawerClose()">&times;</button>
+                </div>
             </div>
 
             <!-- Stepper Navigation -->
@@ -1110,9 +1115,10 @@
                         <strong id="cart-total-val" style="color:var(--color-primary); font-size:18px;">R$ 0,00</strong>
                     </div>
 
-                    <div style="display:flex; gap:10px; margin-top:16px;">
+                    <div style="display:flex; gap:8px; margin-top:16px;">
                         <button type="button" class="btn-secondary-mobile" onclick="goToStep(1)">&larr; Voltar</button>
-                        <button type="button" class="btn-primary-mobile" onclick="validateStep2AndNext()">Condições &rarr;</button>
+                        <button type="button" style="background:#0284c7; color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;" onclick="saveDraftQuote(false)">💾 Salvar</button>
+                        <button type="button" class="btn-primary-mobile" style="flex:1;" onclick="validateStep2AndNext()">Condições &rarr;</button>
                     </div>
                 </div>
 
@@ -1162,9 +1168,10 @@
                         </div>
                     </div>
 
-                    <div style="display:flex; gap:10px; margin-top:16px;">
+                    <div style="display:flex; gap:8px; margin-top:16px;">
                         <button type="button" class="btn-secondary-mobile" onclick="goToStep(2)">&larr; Voltar</button>
-                        <button type="button" id="btn-submit-quote" class="btn-success-mobile" onclick="submitNewQuote()">
+                        <button type="button" style="background:#0284c7; color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;" onclick="saveDraftQuote(false)">💾 Rascunho</button>
+                        <button type="button" id="btn-submit-quote" class="btn-success-mobile" style="flex:1;" onclick="submitNewQuote()">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                             Gerar Cotação
                         </button>
@@ -1755,6 +1762,97 @@
             ]);
         }
 
+        let isSavingDraft = false;
+
+        async function saveDraftQuote(isClosing = false) {
+            if (isSavingDraft) return false;
+
+            if (!selectedPartner) {
+                if (!isClosing) {
+                    alert("Por favor, selecione um cliente no Passo 1 para salvar como rascunho.");
+                    goToStep(1);
+                }
+                return false;
+            }
+
+            if (quoteCartItems.length === 0) {
+                if (!isClosing) {
+                    alert("Por favor, adicione pelo menos 1 produto no Passo 2 para salvar como rascunho.");
+                    goToStep(2);
+                }
+                return false;
+            }
+
+            isSavingDraft = true;
+            const repId = Number("{{ auth()->user()->id }}");
+
+            let freteVal = document.getElementById("nq-frete-tipo") ? document.getElementById("nq-frete-tipo").value : 'CIF';
+            if (!['CIF', 'FOB'].includes(freteVal)) {
+                freteVal = 'CIF';
+            }
+
+            const payload = {
+                parceiro_id: selectedPartner.id,
+                representante_id: repId,
+                forma_pagamento: (document.getElementById("nq-forma-pagamento") && document.getElementById("nq-forma-pagamento").value) || "A combinar",
+                prazo_entrega: (document.getElementById("nq-prazo-entrega") && document.getElementById("nq-prazo-entrega").value) || "3 dias uteis",
+                frete_tipo: freteVal,
+                observacao_cliente: (document.getElementById("nq-obs-cliente") && document.getElementById("nq-obs-cliente").value) || null,
+                itens: quoteCartItems.map(item => ({
+                    produto_id: item.product_id,
+                    qtd: Math.max(1, parseInt(item.qty || 1)),
+                    preco_unit_proposto: Math.max(0.01, parseFloat(item.price || 0))
+                }))
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/cotacoes/manual`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                isSavingDraft = false;
+
+                if (res.ok || data.id || data.success) {
+                    selectedPartner = null;
+                    quoteCartItems = [];
+                    closeNewQuoteModal();
+                    alert("💾 Cotação salva com sucesso em 'Em Criação'!");
+                    loadQuotes();
+                    switchTab('quotes');
+                    return true;
+                } else {
+                    if (!isClosing) {
+                        let errMsg = data.error || data.message || "Erro de validação ao salvar rascunho.";
+                        if (data.messages && typeof data.messages === 'object') {
+                            const details = Object.values(data.messages).flat().join("\n• ");
+                            errMsg += "\n\n• " + details;
+                        }
+                        alert("Erro ao salvar rascunho: " + errMsg);
+                    }
+                    return false;
+                }
+            } catch(e) {
+                console.error("Error saving draft quote:", e);
+                isSavingDraft = false;
+                return false;
+            }
+        }
+
+        async function handleDrawerClose() {
+            if (selectedPartner && quoteCartItems.length > 0) {
+                const saved = await saveDraftQuote(true);
+                if (saved) return;
+            }
+            closeNewQuoteModal();
+        }
+
         function closeNewQuoteModal() {
             document.getElementById("new-quote-overlay").style.display = "none";
             document.getElementById("new-quote-drawer").style.display = "none";
@@ -2225,6 +2323,8 @@
                 btn.disabled = false;
 
                 if (res.ok || data.id || data.success) {
+                    selectedPartner = null;
+                    quoteCartItems = [];
                     closeNewQuoteModal();
                     alert("✅ Cotação criada com sucesso!");
                     loadQuotes(); // Refresh quotes list
