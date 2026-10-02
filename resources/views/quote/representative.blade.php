@@ -38,6 +38,54 @@
         border-color: #2563eb;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
+    /* Product Autocomplete Search Dropdown */
+    .product-autocomplete-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+        max-height: 260px;
+        overflow-y: auto;
+        margin-top: 4px;
+    }
+    .product-autocomplete-item {
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .product-autocomplete-item:hover {
+        background: #f8fafc;
+    }
+    .product-autocomplete-item .prod-code {
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 12px;
+        background: #e2e8f0;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-right: 8px;
+    }
+    .product-autocomplete-item .prod-title {
+        font-weight: 600;
+        color: #0f172a;
+        font-size: 13px;
+    }
+    .product-autocomplete-item .prod-price {
+        font-size: 12px;
+        color: #2563eb;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
     .filter-tabs-wrapper {
         display: flex;
         gap: 6px;
@@ -363,37 +411,60 @@
 
         <!-- Add Item Row -->
         <div id="add-item-form-container" style="margin-top: 20px; background-color: var(--color-bg); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
-            <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--color-primary);">Adicionar Novo Produto</h4>
+            <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--color-primary); display: flex; align-items: center; gap: 6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Adicionar Produto à Cotação
+            </h4>
+            
             <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
-                <div style="flex-grow: 1; min-width: 250px;">
-                    <label class="form-label" style="font-size: 12px;">Selecione o Produto</label>
-                    <select id="new-item-product" class="form-control" onchange="onProductSelect()">
-                        <option value="">Selecione um produto...</option>
-                        <!-- Dynamic Options -->
-                    </select>
+                <!-- Live Product Search Box with Dropdown -->
+                <div style="flex-grow: 1; min-width: 280px; position: relative;">
+                    <label class="form-label" style="font-size: 12px; font-weight: 600;">Buscar Produto (Código, Nome ou Marca)</label>
+                    <input type="hidden" id="selected-product-id">
+                    <div style="position: relative;">
+                        <input type="text" id="add-product-search-input" class="form-control" 
+                               placeholder="🔍 Digite para buscar qualquer produto..." 
+                               oninput="onAddProductSearchInput(this.value)" 
+                               onfocus="onAddProductSearchFocus()" 
+                               autocomplete="off" 
+                               style="padding-right: 30px;">
+                        <button type="button" id="clear-selected-prod-btn" onclick="clearSelectedProduct()" 
+                                style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: none; background: none; color: #94a3b8; font-size: 18px; cursor: pointer; line-height: 1;">&times;</button>
+                    </div>
+                    <!-- Dynamic Autocomplete Results Menu -->
+                    <div id="add-product-results-menu" class="product-autocomplete-results" style="display: none;"></div>
                 </div>
+
                 <div style="width: 100px;">
                     <label class="form-label" style="font-size: 12px;">Quantidade</label>
-                    <input type="number" id="new-item-qtd" class="form-control" value="1" min="1" oninput="calculateNewItemSubtotal()">
+                    <input type="number" id="new-item-qtd" class="form-control text-center" value="1" min="1" oninput="calculateNewItemSubtotal()">
                 </div>
-                <div style="width: 130px;">
+                <div style="width: 120px;">
                     <label class="form-label" style="font-size: 12px;">Preço Sugerido</label>
-                    <input type="number" id="new-item-sugerido" class="form-control" readonly style="background-color: #e2e8f0;">
+                    <input type="number" id="new-item-sugerido" class="form-control text-right" readonly style="background-color: #f1f5f9; font-weight: 600;">
                 </div>
-                <div style="width: 130px;">
+                <div style="width: 120px;">
                     <label class="form-label" style="font-size: 12px;">Preço Mínimo</label>
-                    <input type="number" id="new-item-minimo" class="form-control" readonly style="background-color: #e2e8f0;">
+                    <input type="number" id="new-item-minimo" class="form-control text-right" readonly style="background-color: #f1f5f9; color: #64748b;">
                 </div>
                 <div style="width: 130px;">
                     <label class="form-label" style="font-size: 12px;">Preço Proposto</label>
-                    <input type="number" id="new-item-proposto" class="form-control" step="0.01" min="0.01" oninput="calculateNewItemSubtotal()">
+                    <input type="number" id="new-item-proposto" class="form-control text-right" step="0.01" min="0.01" style="font-weight: 700; color: var(--color-primary);" oninput="calculateNewItemSubtotal()">
                 </div>
                 <div>
-                    <button class="btn btn-secondary" onclick="addNewItem()" style="padding: 10px 16px;">Adicionar</button>
+                    <button type="button" class="btn btn-secondary" onclick="addNewItem()" style="padding: 9px 18px; font-weight: 600; font-size: 13px;">
+                        + Adicionar
+                    </button>
                 </div>
             </div>
-            <div style="margin-top: 8px; font-size: 12px; color: var(--color-text-muted);" id="new-item-subtotal-label">
-                Subtotal Proposto: R$ 0,00
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                <div id="selected-product-badge" style="display: none; font-size: 12px; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px;">
+                    ✓ Produto selecionado: <strong id="selected-product-label"></strong>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--color-primary); margin-left: auto;" id="new-item-subtotal-label">
+                    Subtotal Proposto: R$ 0,00
+                </div>
             </div>
         </div>
     </div>
@@ -941,26 +1012,146 @@
         }
     }
 
-    // Add Item Flow
-    function onProductSelect() {
-        const productId = document.getElementById("new-item-product").value;
-        if (!productId) {
-            clearNewItemForm();
+    // Live Autocomplete Product Search for Add Item Flow
+    let addProductSearchTimer = null;
+    let currentSearchedProducts = [];
+
+    function onAddProductSearchInput(query) {
+        clearTimeout(addProductSearchTimer);
+        if (!query || query.trim().length < 1) {
+            hideAddProductDropdown();
             return;
         }
+        addProductSearchTimer = setTimeout(() => {
+            fetchSearchProductsForAdd(query.trim());
+        }, 250);
+    }
 
-        // Mock default pricing for selected product
-        // In a real application, pricing rules (suggested/min) come from ERP payload
-        // We simulate basic calculations: suggested = 150, min = 120, proposed = 150
-        const defaultSuggested = 150.00;
-        const defaultMin = 120.00;
+    function onAddProductSearchFocus() {
+        const input = document.getElementById("add-product-search-input");
+        if (input && input.value.trim().length >= 1) {
+            fetchSearchProductsForAdd(input.value.trim());
+        }
+    }
 
-        document.getElementById("new-item-sugerido").value = defaultSuggested;
-        document.getElementById("new-item-minimo").value = defaultMin;
-        document.getElementById("new-item-proposto").value = defaultSuggested;
+    async function fetchSearchProductsForAdd(query) {
+        const menu = document.getElementById("add-product-results-menu");
+        if (!menu) return;
+        menu.style.display = "block";
+        menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #64748b; font-size: 12px;">🔍 Buscando no catálogo...</div>`;
 
+        try {
+            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/produtos?search=${encodeURIComponent(query)}&limit=30`);
+            if (!res.ok) {
+                menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Erro ao buscar produtos.</div>`;
+                return;
+            }
+
+            const data = await res.json();
+            if (data.success && data.data.length > 0) {
+                currentSearchedProducts = data.data;
+                renderAddProductSearchResults(data.data);
+            } else {
+                menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Nenhum produto encontrado para "${query}".</div>`;
+            }
+        } catch (e) {
+            menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Erro de conexão.</div>`;
+        }
+    }
+
+    function renderAddProductSearchResults(products) {
+        const menu = document.getElementById("add-product-results-menu");
+        if (!menu) return;
+        menu.innerHTML = "";
+
+        products.forEach(p => {
+            const div = document.createElement("div");
+            div.className = "product-autocomplete-item";
+            div.onclick = () => selectProductForAdd(p.id);
+
+            const sugVal = p.preco_sugerido ? parseFloat(p.preco_sugerido) : 150.00;
+            const sugText = sugVal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+
+            div.innerHTML = `
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px;">
+                    <span class="prod-code">${p.codigo_sankhya}</span>
+                    <span class="prod-title">${p.descricao}</span>
+                    ${p.marca ? `<span style="font-size: 11px; color: #64748b; margin-left: 6px;">(${p.marca})</span>` : ''}
+                </div>
+                <div class="prod-price">R$ ${sugText}</div>
+            `;
+            menu.appendChild(div);
+        });
+    }
+
+    function selectProductForAdd(productId) {
+        const p = currentSearchedProducts.find(item => item.id === productId);
+        if (!p) return;
+
+        document.getElementById("selected-product-id").value = p.id;
+        document.getElementById("add-product-search-input").value = `${p.codigo_sankhya} - ${p.descricao}`;
+        document.getElementById("clear-selected-prod-btn").style.display = "block";
+        
+        // Set pricing from database or default
+        const sugerido = p.preco_sugerido ? parseFloat(p.preco_sugerido) : 150.00;
+        const minimo = p.preco_minimo ? parseFloat(p.preco_minimo) : roundNumber(sugerido * 0.90, 2);
+
+        document.getElementById("new-item-sugerido").value = sugerido.toFixed(2);
+        document.getElementById("new-item-minimo").value = minimo.toFixed(2);
+        document.getElementById("new-item-proposto").value = sugerido.toFixed(2);
+
+        // Show selected badge
+        const badge = document.getElementById("selected-product-badge");
+        if (badge) {
+            badge.style.display = "inline-block";
+            document.getElementById("selected-product-label").innerText = `${p.codigo_sankhya} | ${p.descricao} (${p.unidade})`;
+        }
+
+        hideAddProductDropdown();
         calculateNewItemSubtotal();
     }
+
+    function clearSelectedProduct() {
+        document.getElementById("selected-product-id").value = "";
+        document.getElementById("add-product-search-input").value = "";
+        document.getElementById("clear-selected-prod-btn").style.display = "none";
+        document.getElementById("new-item-sugerido").value = "";
+        document.getElementById("new-item-minimo").value = "";
+        document.getElementById("new-item-proposto").value = "";
+        document.getElementById("new-item-qtd").value = "1";
+        document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ 0,00";
+        
+        const badge = document.getElementById("selected-product-badge");
+        if (badge) badge.style.display = "none";
+        
+        hideAddProductDropdown();
+    }
+
+    function hideAddProductDropdown() {
+        const menu = document.getElementById("add-product-results-menu");
+        if (menu) menu.style.display = "none";
+    }
+
+    function roundNumber(num, scale) {
+        if (!("" + num).includes("e")) {
+            return +(Math.round(num + "e+" + scale) + "e-" + scale);
+        } else {
+            const arr = ("" + num).split("e");
+            let sig = "";
+            if (+arr[1] + scale > 0) {
+                sig = "+";
+            }
+            return +(Math.round(+arr[0] + "e" + sig + (+arr[1] + scale)) + "e-" + scale);
+        }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+        const container = document.getElementById("add-item-form-container");
+        if (container && !container.contains(e.target)) {
+            hideAddProductDropdown();
+        }
+    });
 
     function calculateNewItemSubtotal() {
         const qtd = parseInt(document.getElementById("new-item-qtd").value) || 0;
@@ -969,30 +1160,31 @@
         document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ " + sub.toLocaleString('pt-BR', {minimumFractionDigits: 2});
     }
 
-    function clearNewItemForm() {
-        document.getElementById("new-item-sugerido").value = "";
-        document.getElementById("new-item-minimo").value = "";
-        document.getElementById("new-item-proposto").value = "";
-        document.getElementById("new-item-qtd").value = "1";
-        document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ 0,00";
-    }
-
     async function addNewItem() {
-        const productId = document.getElementById("new-item-product").value;
+        const productId = document.getElementById("selected-product-id").value;
         if (!productId) {
-            alert("Selecione um produto.");
+            alert("Por favor, digite no campo de busca e selecione um produto da lista.");
+            return;
+        }
+
+        const sugerido = parseFloat(document.getElementById("new-item-sugerido").value) || 0;
+        const minimo = parseFloat(document.getElementById("new-item-minimo").value) || 0;
+        const proposto = parseFloat(document.getElementById("new-item-proposto").value) || 0;
+
+        if (proposto <= 0) {
+            alert("Por favor, informe um preço proposto válido.");
             return;
         }
 
         const payload = {
             produto_id: parseInt(productId),
-            qtd: parseInt(document.getElementById("new-item-qtd").value),
-            preco_unit_proposto: parseFloat(document.getElementById("new-item-proposto").value),
-            preco_unit_sugerido: parseFloat(document.getElementById("new-item-sugerido").value),
-            preco_minimo: parseFloat(document.getElementById("new-item-minimo").value),
-            margem_calculada: 30.00, // mock margin
-            custo: parseFloat(document.getElementById("new-item-minimo").value) * 0.7, // mock cost
-            imposto: 18.00, // mock tax
+            qtd: parseInt(document.getElementById("new-item-qtd").value) || 1,
+            preco_unit_proposto: proposto,
+            preco_unit_sugerido: sugerido,
+            preco_minimo: minimo,
+            margem_calculada: 30.00,
+            custo: minimo * 0.7,
+            imposto: 18.00,
         };
 
         try {
@@ -1005,13 +1197,12 @@
             if (data.success) {
                 quote.itens = data.data.itens;
                 renderItems();
-                clearNewItemForm();
-                document.getElementById("new-item-product").value = "";
+                clearSelectedProduct();
             } else {
-                alert("Erro ao adicionar item: " + data.message);
+                alert("Erro ao adicionar item: " + (data.message || data.error));
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            alert("Erro de conexão ao adicionar produto.");
         }
     }
 

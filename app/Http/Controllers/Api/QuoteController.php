@@ -841,7 +841,7 @@ class QuoteController extends Controller
     }
 
     /**
-     * List active products for quotation addition (limited to 50 by default).
+     * List active products for quotation addition (limited to 50 by default, with live search & price lookup).
      */
     public function listProducts(Request $request)
     {
@@ -856,12 +856,29 @@ class QuoteController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('codigo_sankhya', 'like', "%{$search}%")
                   ->orWhere('descricao', 'like', "%{$search}%")
-                  ->orWhere('marca', 'like', "%{$search}%");
+                  ->orWhere('marca', 'like', "%{$search}%")
+                  ->orWhere('ncm', 'like', "%{$search}%");
             });
         }
 
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
         $products = $query->orderBy('descricao')->take($limit)->get();
+
+        // Attach price info from TabelaPrecoItem if present, or provide standard fallback
+        foreach ($products as $p) {
+            $priceItem = \App\Models\TabelaPrecoItem::where('produto_id', $p->id)->first()
+                      ?? \App\Models\TabelaPrecoItem::where('codigo_sankhya_produto', $p->codigo_sankhya)->first();
+            
+            if ($priceItem && (float)$priceItem->preco_venda > 0) {
+                $p->preco_sugerido = (float)$priceItem->preco_venda;
+                $p->preco_minimo = (float)$priceItem->preco_minimo > 0 ? (float)$priceItem->preco_minimo : round((float)$priceItem->preco_venda * 0.90, 2);
+                $p->custo = (float)$priceItem->custo_variavel;
+            } else {
+                $p->preco_sugerido = 100.00;
+                $p->preco_minimo = 90.00;
+                $p->custo = 60.00;
+            }
+        }
 
         return response()->json([
             'success' => true,
