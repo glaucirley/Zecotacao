@@ -15,9 +15,9 @@ class PdfService
      */
     public function generateQuotePdf(Cotacao $quote)
     {
-        // Load only approved items, which will be outputted to the PDF
+        // Load active items (not refused) for outputting to the PDF
         $quote->load(['parceiro', 'representante.equipe', 'itens' => function ($q) {
-            $q->where('status_item', 'aprovado')->with('produto');
+            $q->where('status_item', '!=', 'recusado')->with('produto');
         }]);
 
         $pdf = Pdf::loadView('pdf.cotacao', [
