@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 class ProductController extends Controller
 {
     /**
-     * List all products. Restricted to Administrators.
+     * List products. Restricted to Administrators. Limited to 20 items by default.
      */
     public function index(Request $request)
     {
@@ -28,7 +28,9 @@ class ProductController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('codigo_sankhya', 'like', "%{$search}%")
                   ->orWhere('descricao', 'like', "%{$search}%")
-                  ->orWhere('unidade', 'like', "%{$search}%");
+                  ->orWhere('unidade', 'like', "%{$search}%")
+                  ->orWhere('marca', 'like', "%{$search}%")
+                  ->orWhere('ncm', 'like', "%{$search}%");
             });
         }
 
@@ -41,7 +43,9 @@ class ProductController extends Controller
             }
         }
 
-        $products = $query->orderBy('descricao')->get();
+        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
+
+        $products = $query->orderBy('descricao')->take($limit)->get();
 
         return response()->json([
             'success' => true,

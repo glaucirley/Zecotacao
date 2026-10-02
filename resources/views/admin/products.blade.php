@@ -14,7 +14,7 @@
     <!-- Filter Bar -->
     <div style="padding: 15px 24px; background: #f8fafc; border-bottom: 1px solid var(--color-border); display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
         <div style="flex-grow: 1; min-width: 250px;">
-            <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por código Sankhya, descrição do produto ou unidade..." onkeyup="filterProductsDebounced()">
+            <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por código Sankhya, descrição do produto, marca ou NCM..." onkeyup="filterProductsDebounced()">
         </div>
         <div style="width: 160px;">
             <select id="status-filter-select" class="form-control" onchange="loadProducts()">
@@ -22,6 +22,9 @@
                 <option value="ativo">Ativos</option>
                 <option value="inativo">Inativos</option>
             </select>
+        </div>
+        <div style="width: 100%; font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">
+            💡 Exibindo até 20 resultados por vez. Digite no campo de busca para encontrar qualquer produto do catálogo.
         </div>
     </div>
 

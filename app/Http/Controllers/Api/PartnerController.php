@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 class PartnerController extends Controller
 {
     /**
-     * List all partners/clients. Restricted to Administrators.
+     * List partners/clients. Restricted to Administrators. Limited to 20 items by default.
      */
     public function index(Request $request)
     {
@@ -38,7 +38,9 @@ class PartnerController extends Controller
             }
         }
 
-        $partners = $query->orderBy('razao_social')->get();
+        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
+
+        $partners = $query->orderBy('razao_social')->take($limit)->get();
 
         return response()->json([
             'success' => true,

@@ -23,6 +23,9 @@
                 <option value="inativo">Inativos</option>
             </select>
         </div>
+        <div style="width: 100%; font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">
+            💡 Exibindo até 20 resultados por vez. Digite no campo de busca para encontrar qualquer cliente.
+        </div>
     </div>
 
     <!-- Table Clientes -->
