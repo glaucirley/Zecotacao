@@ -570,7 +570,7 @@
         </div>
         <div class="right-actions" style="display: flex; gap: 12px; align-items: center;">
             <button id="btn-draft" class="btn btn-outline" onclick="saveDraft(true)">Salvar Rascunho</button>
-            <button id="btn-pdf" class="btn btn-secondary" onclick="downloadPdf()" disabled>Gerar PDF</button>
+            <button id="btn-pdf" class="btn btn-secondary" onclick="downloadPdf()" style="background-color: #10b981; border-color: #10b981; color: white;">📄 Gerar PDF</button>
             <button id="btn-release" class="btn btn-primary" onclick="openReleaseModal()" style="background-color: #0d9488; border-color: #0d9488; display: none;">Liberar para Faturamento</button>
             <button id="btn-submit" class="btn btn-primary" onclick="submitQuote()">Enviar para Aprovação</button>
         </div>
@@ -773,9 +773,8 @@
             btnRelease.style.display = "none";
         }
 
-        // Enable PDF only if ready
-        const pdfStatuses = ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
-        document.getElementById("btn-pdf").disabled = !pdfStatuses.includes(quote.status);
+        // Enable PDF for all quotations
+        document.getElementById("btn-pdf").disabled = false;
 
         // Bind Items List
         renderItems();
@@ -1445,6 +1444,19 @@
             window.history.back();
         } else {
             window.location.href = "{{ url('/admin/cotacoes') }}";
+        }
+    }
+
+    function downloadPdf() {
+        if (!quote) {
+            alert("Aguarde o carregamento da cotação.");
+            return;
+        }
+        const tokenToUse = quote.token_representante || TOKEN;
+        if (tokenToUse) {
+            window.open(`${API_URL}/cotacoes/token/${tokenToUse}/pdf`, '_blank');
+        } else {
+            window.open(`${API_URL}/cotacoes/${quote.id}/pdf`, '_blank');
         }
     }
 </script>

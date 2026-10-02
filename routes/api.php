@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/aprovacoes/{cotacao_id}', [ApprovalController::class, 'show']);
             Route::get('/cotacoes/todas', [QuoteController::class, 'listAll']);
             Route::get('/cotacoes/meta', [QuoteController::class, 'getMeta']);
+            Route::get('/cotacoes/{id}/pdf', [QuoteController::class, 'generatePdf']);
             Route::post('/cotacoes/manual', [QuoteController::class, 'storeManual']);
             Route::get('/produtos', [QuoteController::class, 'listProducts']);
             Route::delete('/cotacoes/{id}', [QuoteController::class, 'destroy']);

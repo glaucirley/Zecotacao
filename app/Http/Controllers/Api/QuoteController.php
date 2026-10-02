@@ -729,17 +729,23 @@ class QuoteController extends Controller
         ]);
     }
 
-    public function generatePdf(Request $request, \App\Services\PdfService $pdfService)
+    public function generatePdf(Request $request, \App\Services\PdfService $pdfService, $tokenOrId = null)
     {
         $quote = $request->cotacao;
 
-        // Check if the quotation has been approved or is ready for PDF generation
-        $allowedStatuses = ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
-        if (!in_array($quote->status, $allowedStatuses)) {
+        if (!$quote && $tokenOrId) {
+            $quote = Cotacao::where('token_representante', $tokenOrId)->orWhere('id', $tokenOrId)->first();
+        }
+
+        if (!$quote && $request->route('id')) {
+            $quote = Cotacao::find($request->route('id'));
+        }
+
+        if (!$quote) {
             return response()->json([
-                'error' => 'PDF not ready',
-                'message' => "PDF can only be generated for quotations in status PDF_GERADO or finalized. Current status: {$quote->status}."
-            ], 422);
+                'error' => 'Not found',
+                'message' => 'Cotação não encontrada.'
+            ], 404);
         }
 
         $pdf = $pdfService->generateQuotePdf($quote);
