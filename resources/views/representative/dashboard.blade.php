@@ -2006,6 +2006,15 @@
                     results = data;
                 }
 
+                // Cache all search results into allProductsList so addToCart can find them by ID
+                if (Array.isArray(results)) {
+                    results.forEach(prod => {
+                        if (!allProductsList.some(p => p.id == prod.id)) {
+                            allProductsList.push(prod);
+                        }
+                    });
+                }
+
                 renderProductSearchResults(results);
             } catch(e) {
                 console.error("Error searching server products:", e);
@@ -2030,8 +2039,8 @@
 
             container.innerHTML = "";
             products.forEach(p => {
-                const price = parseFloat(p.preco_sugerido || p.preco_tabela || 0);
-                const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'Sob consulta';
+                const price = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
+                const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'R$ 100,00 (padrão)';
                 const codeStr = p.codigo_sankhya || p.codprod || p.id;
                 const brandStr = p.marca ? ` | ${p.marca}` : '';
                 container.innerHTML += `
@@ -2053,7 +2062,14 @@
 
         function addToCart(prodId) {
             const prod = allProductsList.find(p => p.id == prodId);
-            if (!prod) return;
+            if (!prod) {
+                alert("Produto não encontrado no catálogo.");
+                return;
+            }
+
+            // Extract valid price from product properties (preco_sugerido, preco_tabela, preco_venda, preco)
+            const rawPrice = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
+            const unitPrice = (isNaN(rawPrice) || rawPrice <= 0) ? 100.00 : rawPrice;
 
             const existingIndex = quoteCartItems.findIndex(item => item.product_id == prodId);
             if (existingIndex >= 0) {
@@ -2063,8 +2079,8 @@
                     product_id: prod.id,
                     sku: prod.codigo_sankhya || '',
                     name: prod.descricao,
-                    unit: prod.unidade_medida || 'UN',
-                    price: parseFloat(prod.preco_tabela || 0),
+                    unit: prod.unidade || prod.unidade_medida || 'UN',
+                    price: unitPrice,
                     qty: 1
                 });
             }
@@ -2173,17 +2189,23 @@
             btn.disabled = true;
 
             const repId = Number("{{ auth()->user()->id }}");
+
+            let freteVal = document.getElementById("nq-frete-tipo").value;
+            if (!['CIF', 'FOB'].includes(freteVal)) {
+                freteVal = 'CIF';
+            }
+
             const payload = {
                 parceiro_id: selectedPartner.id,
                 representante_id: repId,
-                forma_pagamento: document.getElementById("nq-forma-pagamento").value,
-                prazo_entrega: document.getElementById("nq-prazo-entrega").value,
-                frete_tipo: document.getElementById("nq-frete-tipo").value,
-                observacao_cliente: document.getElementById("nq-obs-cliente").value,
+                forma_pagamento: document.getElementById("nq-forma-pagamento").value || "A combinar",
+                prazo_entrega: document.getElementById("nq-prazo-entrega").value || "3 dias uteis",
+                frete_tipo: freteVal,
+                observacao_cliente: document.getElementById("nq-obs-cliente").value || null,
                 itens: quoteCartItems.map(item => ({
                     produto_id: item.product_id,
-                    qtd: item.qty,
-                    preco_unit_proposto: item.price
+                    qtd: Math.max(1, parseInt(item.qty || 1)),
+                    preco_unit_proposto: Math.max(0.01, parseFloat(item.price || 0))
                 }))
             };
 
@@ -2192,6 +2214,7 @@
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
+                        "Accept": "application/json",
                         "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
                     body: JSON.stringify(payload)
@@ -2207,7 +2230,12 @@
                     loadQuotes(); // Refresh quotes list
                     switchTab('quotes');
                 } else {
-                    alert("Erro ao criar cotação: " + (data.message || data.error || JSON.stringify(data)));
+                    let errMsg = data.error || data.message || "Erro de validação ao criar cotação.";
+                    if (data.messages && typeof data.messages === 'object') {
+                        const details = Object.values(data.messages).flat().join("\n• ");
+                        errMsg += "\n\n• " + details;
+                    }
+                    alert("Erro ao criar cotação: " + errMsg);
                 }
             } catch(e) {
                 console.error("Error submitting quote:", e);
