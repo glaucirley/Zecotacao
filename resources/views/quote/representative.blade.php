@@ -779,13 +779,6 @@
 
         // Bind Items List
         renderItems();
-
-        // Populate Products Select catalog
-        const select = document.getElementById("new-item-product");
-        select.innerHTML = '<option value="">Selecione um produto...</option>';
-        productsList.forEach(p => {
-            select.innerHTML += `<option value="${p.id}">${p.codigo_sankhya} - ${p.descricao}</option>`;
-        });
     }
 
     let currentFilterTab = 'all'; // 'all', 'attention', 'approved'
