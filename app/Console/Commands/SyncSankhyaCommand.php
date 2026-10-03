@@ -40,36 +40,55 @@ class SyncSankhyaCommand extends Command
                 $this->info("Fetching products from Oracle...");
                 $products = $db->fetchProducts();
                 $this->output->progressStart(count($products));
+                $prodSuccess = 0;
                 foreach ($products as $p) {
-                    $db->saveProductFromRow($p);
+                    try {
+                        $db->saveProductFromRow($p);
+                        $prodSuccess++;
+                    } catch (\Throwable $e) {
+                        // Log row failure and continue
+                    }
                     $this->output->progressAdvance();
                 }
                 $this->output->progressFinish();
-                $this->info("Synced " . count($products) . " products successfully.");
+                $this->info("Synced {$prodSuccess}/" . count($products) . " products successfully.");
             }
 
             if (in_array($type, ['all', 'partners'])) {
                 $this->info("Fetching partners (clients) from Oracle...");
                 $partners = $db->fetchPartners();
                 $this->output->progressStart(count($partners));
+                $partnerSuccess = 0;
+                $partnerErrors = 0;
                 foreach ($partners as $pa) {
-                    $db->savePartnerFromRow($pa);
+                    try {
+                        $db->savePartnerFromRow($pa);
+                        $partnerSuccess++;
+                    } catch (\Throwable $e) {
+                        $partnerErrors++;
+                    }
                     $this->output->progressAdvance();
                 }
                 $this->output->progressFinish();
-                $this->info("Synced " . count($partners) . " partners successfully.");
+                $this->info("Synced {$partnerSuccess}/" . count($partners) . " partners successfully" . ($partnerErrors > 0 ? " ({$partnerErrors} skipped due to row errors)." : "."));
             }
 
             if (in_array($type, ['all', 'reps'])) {
                 $this->info("Fetching representatives (sellers) from Oracle...");
                 $reps = $db->fetchRepresentatives();
                 $this->output->progressStart(count($reps));
+                $repSuccess = 0;
                 foreach ($reps as $r) {
-                    $db->saveRepresentativeFromRow($r);
+                    try {
+                        $db->saveRepresentativeFromRow($r);
+                        $repSuccess++;
+                    } catch (\Throwable $e) {
+                        // Log row failure and continue
+                    }
                     $this->output->progressAdvance();
                 }
                 $this->output->progressFinish();
-                $this->info("Synced " . count($reps) . " representatives successfully.");
+                $this->info("Synced {$repSuccess}/" . count($reps) . " representatives successfully.");
             }
 
             if (in_array($type, ['all', 'prices', 'tabelas'])) {
