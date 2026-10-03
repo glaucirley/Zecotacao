@@ -782,6 +782,23 @@
             flex-direction: column;
             gap: 8px;
         }
+        .partner-item-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            background: #ffffff;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, transform 0.1s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .partner-item-card:active {
+            background: #f0f7ff;
+            border-color: var(--color-primary);
+            transform: scale(0.99);
+        }
         .product-item-row {
             display: flex;
             justify-content: space-between;
@@ -1074,18 +1091,29 @@
                 <div id="step-content-1" class="step-panel active">
                     <div class="form-group-mobile">
                         <label class="form-label-mobile">Selecione o Cliente / Parceiro <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="partner-search-input" class="input-mobile" placeholder="🔍 Buscar cliente por nome ou CNPJ/CPF..." oninput="filterPartnerOptions()">
-                        <select id="nq-parceiro-select" class="select-mobile" size="5" style="height: 170px; margin-top: 8px;" onchange="onPartnerSelected()">
-                            <option value="">Carregando clientes...</option>
-                        </select>
-                    </div>
-                    
-                    <div id="selected-partner-card" class="info-card-mobile" style="display:none; margin-top: 10px;">
-                        <div style="font-weight:600; color:var(--color-primary);" id="sp-name">-</div>
-                        <div style="font-size:12px; color:var(--color-text-muted);" id="sp-doc">-</div>
+                        <input type="text" id="partner-search-input" class="input-mobile" placeholder="🔍 Buscar cliente por nome, CNPJ ou código..." oninput="filterPartnerOptions()">
+                        
+                        <!-- Selected Client Confirmation Card -->
+                        <div id="selected-partner-card" style="display:none; margin-top:10px; background:#f0fdf4; border:1px solid #86efac; border-radius:12px; padding:12px 14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-size:11px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:4px;">
+                                        <span>✓</span> Cliente Selecionado
+                                    </div>
+                                    <div style="font-weight:700; font-size:14px; color:#14532d; margin-top:3px;" id="sp-name">-</div>
+                                    <div style="font-size:11px; color:#15803d; margin-top:2px;" id="sp-doc">-</div>
+                                </div>
+                                <button type="button" onclick="clearSelectedPartner()" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Alterar</button>
+                            </div>
+                        </div>
+
+                        <!-- Results List Container (Replaces old HTML select) -->
+                        <div id="partner-search-results" class="products-list-mobile" style="max-height:220px; overflow-y:auto; margin-top:8px; gap:8px;">
+                            <!-- partner micro-cards loaded dynamically -->
+                        </div>
                     </div>
 
-                    <button type="button" class="btn-primary-mobile" onclick="validateStep1AndNext()" style="margin-top:20px;">
+                    <button type="button" class="btn-primary-mobile" onclick="validateStep1AndNext()" style="margin-top:16px;">
                         Avançar para Adicionar Produtos &rarr;
                     </button>
                 </div>
@@ -1746,11 +1774,10 @@
             // Reset wizard
             currentWizardStep = 1;
             quoteCartItems = [];
-            selectedPartner = null;
+            clearSelectedPartner();
             document.getElementById("partner-search-input").value = "";
             document.getElementById("prod-search-input").value = "";
             document.getElementById("nq-obs-cliente").value = "";
-            document.getElementById("selected-partner-card").style.display = "none";
             
             updateStepView();
             renderCart();
@@ -1907,15 +1934,8 @@
         }
 
         function validateStep1AndNext() {
-            const select = document.getElementById("nq-parceiro-select");
-            const val = select.value;
-            if (!val) {
-                alert("Selecione um cliente para continuar.");
-                return;
-            }
-            selectedPartner = allPartnersList.find(p => p.id == val);
             if (!selectedPartner) {
-                alert("Cliente inválido selecionado.");
+                alert("Por favor, selecione um cliente para continuar.");
                 return;
             }
             goToStep(2);
@@ -1929,13 +1949,11 @@
             goToStep(3);
         }
 
-        let partnerSearchTimer = null;
-
         async function loadPartnersForQuote() {
             try {
-                const select = document.getElementById("nq-parceiro-select");
-                if (select) {
-                    select.innerHTML = '<option value="">Carregando clientes...</option>';
+                const container = document.getElementById("partner-search-results");
+                if (container) {
+                    container.innerHTML = '<div style="font-size:12px; color:var(--color-primary); text-align:center; padding:16px; font-weight:600;">🔄 Carregando clientes...</div>';
                 }
                 const res = await fetch(`${API_URL}/clientes?limit=50`);
                 const data = await res.json();
@@ -1949,28 +1967,84 @@
                 renderPartnerSelectOptions(allPartnersList);
             } catch(e) {
                 console.error("Error loading partners for quote:", e);
-                const select = document.getElementById("nq-parceiro-select");
-                if (select) {
-                    select.innerHTML = '<option value="">Erro ao carregar clientes</option>';
+                const container = document.getElementById("partner-search-results");
+                if (container) {
+                    container.innerHTML = '<div style="font-size:12px; color:#ef4444; text-align:center; padding:16px;">Erro ao carregar clientes</div>';
                 }
             }
         }
 
         function renderPartnerSelectOptions(list) {
-            const select = document.getElementById("nq-parceiro-select");
-            if (!select) return;
-            select.innerHTML = '<option value="">-- Selecione o Cliente --</option>';
+            const container = document.getElementById("partner-search-results");
+            if (!container) return;
+
+            if (selectedPartner) {
+                container.style.display = "none";
+                return;
+            } else {
+                container.style.display = "flex";
+            }
+
+            const query = document.getElementById("partner-search-input").value.trim();
+
             if (!list || list.length === 0) {
-                select.innerHTML += '<option value="" disabled>Nenhum cliente encontrado</option>';
+                container.innerHTML = `
+                    <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px dashed var(--color-border); font-size:12px; color:var(--color-text-muted);">
+                        ${query ? `Nenhum cliente encontrado para "<strong>${query}</strong>".` : 'Sem clientes para exibir.'}
+                    </div>
+                `;
                 return;
             }
+
+            container.innerHTML = "";
             list.forEach(p => {
-                const code = p.codigo_sankhya ? ` [Cód: ${p.codigo_sankhya}]` : '';
+                const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
                 const docVal = p.cnpj || p.cnpj_cpf;
-                const doc = docVal ? ` - CNPJ/CPF: ${docVal}` : '';
-                const city = (p.cidade || p.uf) ? ` (${p.cidade || ''}${p.uf ? '/' + p.uf : ''})` : '';
-                select.innerHTML += `<option value="${p.id}">${p.razao_social}${code}${city}${doc}</option>`;
+                const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
+                const cityStr = (p.cidade || p.uf) ? ` &bull; ${p.cidade || ''}${p.uf ? '/' + p.uf : ''}` : '';
+
+                container.innerHTML += `
+                    <div class="partner-item-card" onclick="selectPartnerById(${p.id})">
+                        <div style="flex-grow:1; padding-right:8px;">
+                            <div style="font-weight:700; font-size:13.5px; color:var(--color-text); line-height:1.3;">${p.razao_social}</div>
+                            <div style="font-size:11px; color:var(--color-text-muted); margin-top:3px;">${code}${cityStr}</div>
+                            <div style="font-size:11px; color:var(--color-primary); font-weight:600; margin-top:2px;">${docStr}</div>
+                        </div>
+                        <div style="background:#e0f2fe; color:#0284c7; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; flex-shrink:0;">
+                            Selecionar
+                        </div>
+                    </div>
+                `;
             });
+        }
+
+        function selectPartnerById(id) {
+            selectedPartner = allPartnersList.find(p => p.id == id);
+            if (!selectedPartner) return;
+
+            const card = document.getElementById("selected-partner-card");
+            const container = document.getElementById("partner-search-results");
+
+            const docStr = selectedPartner.cnpj || selectedPartner.cnpj_cpf || 'Não informado';
+            const codeStr = selectedPartner.codigo_sankhya || 'N/A';
+            const cityStr = selectedPartner.cidade ? ` | ${selectedPartner.cidade}${selectedPartner.uf ? '/' + selectedPartner.uf : ''}` : '';
+
+            document.getElementById("sp-name").innerText = selectedPartner.razao_social;
+            document.getElementById("sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;
+            
+            if (card) card.style.display = "block";
+            if (container) container.style.display = "none";
+        }
+
+        function clearSelectedPartner() {
+            selectedPartner = null;
+            const card = document.getElementById("selected-partner-card");
+            const container = document.getElementById("partner-search-results");
+            if (card) card.style.display = "none";
+            if (container) container.style.display = "flex";
+            document.getElementById("partner-search-input").value = "";
+            renderPartnerSelectOptions(allPartnersList ? allPartnersList.slice(0, 50) : []);
+            document.getElementById("partner-search-input").focus();
         }
 
         function filterPartnerOptions() {
@@ -2030,25 +2104,6 @@
                 }
             } catch(e) {
                 console.error("Error searching server partners:", e);
-            }
-        }
-
-        function onPartnerSelected() {
-            const val = document.getElementById("nq-parceiro-select").value;
-            const card = document.getElementById("selected-partner-card");
-            if (!val) {
-                selectedPartner = null;
-                if (card) card.style.display = "none";
-                return;
-            }
-            selectedPartner = allPartnersList.find(p => p.id == val);
-            if (selectedPartner && card) {
-                const docStr = selectedPartner.cnpj || selectedPartner.cnpj_cpf || 'Não informado';
-                const codeStr = selectedPartner.codigo_sankhya || 'N/A';
-                const cityStr = selectedPartner.cidade ? ` | ${selectedPartner.cidade}${selectedPartner.uf ? '/' + selectedPartner.uf : ''}` : '';
-                document.getElementById("sp-name").innerText = selectedPartner.razao_social;
-                document.getElementById("sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;
-                card.style.display = "block";
             }
         }
 
