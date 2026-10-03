@@ -738,66 +738,88 @@
 
 <!-- Create Manual Quote Sheet Drawer -->
 <div id="create-overlay" class="sheet-overlay" onclick="closeCreateModal()"></div>
-<div id="create-modal" class="sheet-drawer" style="width: 550px;">
+<div id="create-modal" class="sheet-drawer" style="width: 680px; max-width: 95vw;">
     <div class="sheet-header">
-        <h3 style="margin: 0; color: var(--color-primary);">Incluir Nova Cotação Manual</h3>
+        <h3 style="margin: 0; color: var(--color-primary); font-size: 18px; font-weight:700;">Incluir Nova Cotação Manual</h3>
         <button type="button" class="sheet-close-btn" onclick="closeCreateModal()">&times;</button>
     </div>
-    <div class="sheet-body">
+    <div class="sheet-body" style="padding: 16px 20px;">
 
         <form id="create-quote-form" onsubmit="submitManualQuote(event)">
-            <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label for="create-parceiro" class="form-label">Cliente (Parceiro)</label>
-                    <select id="create-parceiro" class="form-control" required style="font-size: 13px;">
-                        <option value="">Selecione um cliente...</option>
-                    </select>
+            <!-- Cliente (Parceiro) Selection -->
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" style="font-weight: 600;">Cliente (Parceiro) <span style="color:#ef4444;">*</span></label>
+                <div id="admin-selected-partner-card" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:10px 14px; margin-bottom:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div id="admin-sp-name" style="font-weight:700; font-size:14px; color:#166534;">-</div>
+                            <div id="admin-sp-doc" style="font-size:11.5px; color:#15803d; margin-top:2px;">-</div>
+                        </div>
+                        <button type="button" onclick="clearAdminSelectedPartner()" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">Alterar</button>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-bottom:0;" id="rep-group-container">
-                    <label for="create-representante" class="form-label">Representante Comercial</label>
-                    <select id="create-representante" class="form-control" required style="font-size: 13px;">
-                        <option value="">Selecione um vendedor...</option>
-                    </select>
+                
+                <div id="admin-partner-search-box">
+                    <input type="text" id="admin-partner-search-input" class="form-control" placeholder="🔍 Digite iniciais, razão social, CNPJ ou código do cliente..." oninput="filterAdminPartnerOptions()" style="font-size: 13px;">
+                    <div id="admin-partner-search-results" style="max-height:180px; overflow-y:auto; margin-top:6px; display:flex; flex-direction:column; gap:6px; border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#fff;">
+                        <!-- Partner search cards dynamically rendered -->
+                    </div>
                 </div>
             </div>
 
-            <div class="grid-3" style="gap: 12px; margin-bottom: 12px;">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label for="create-pagamento" class="form-label">Forma Pagamento</label>
-                    <input type="text" id="create-pagamento" class="form-control" placeholder="Ex: 30/60 dias" value="A combinar" style="font-size: 13px;">
+            <!-- Representante Comercial & Condições -->
+            <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
+                <div class="form-group" style="margin-bottom:0;" id="rep-group-container">
+                    <label for="create-representante" class="form-label" style="font-weight: 600;">Representante Comercial <span style="color:#ef4444;">*</span></label>
+                    <select id="create-representante" class="form-control" required style="font-size: 13px;">
+                        <option value="">🔄 Carregando vendedores...</option>
+                    </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                    <label for="create-prazo" class="form-label">Prazo de Entrega</label>
+                    <label for="create-pagamento" class="form-label" style="font-weight: 600;">Forma de Pagamento</label>
+                    <input type="text" id="create-pagamento" class="form-control" placeholder="Ex: 30/60 dias" value="A combinar" style="font-size: 13px;">
+                </div>
+            </div>
+
+            <div class="grid-2" style="gap: 12px; margin-bottom: 14px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="create-prazo" class="form-label" style="font-weight: 600;">Prazo de Entrega</label>
                     <input type="text" id="create-prazo" class="form-control" placeholder="Ex: 3 dias" value="3 dias" style="font-size: 13px;">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                    <label for="create-frete" class="form-label">Tipo Frete</label>
+                    <label for="create-frete" class="form-label" style="font-weight: 600;">Tipo de Frete</label>
                     <select id="create-frete" class="form-control" style="font-size: 13px;">
-                        <option value="CIF">CIF</option>
-                        <option value="FOB">FOB</option>
+                        <option value="CIF">CIF (Frete por conta do emitente)</option>
+                        <option value="FOB">FOB (Frete por conta do destinatário)</option>
                     </select>
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 15px;">
-                <label for="create-obs-cliente" class="form-label">Observação Cliente</label>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="create-obs-cliente" class="form-label" style="font-weight: 600;">Observação Cliente</label>
                 <textarea id="create-obs-cliente" class="form-control" rows="2" placeholder="Ex: Horário de recebimento das 8h às 17h..." style="font-size: 13px;"></textarea>
             </div>
 
-            <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--color-primary); display: flex; justify-content: space-between; align-items: center;">
-                Produtos da Cotação
-                <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="addManualProductRow()">+ Adicionar Item</button>
-            </h4>
+            <!-- Products Section -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
+                <h4 style="margin:0; color:var(--color-primary); font-size:15px; font-weight:700;">Produtos da Cotação</h4>
+                <button type="button" class="btn btn-secondary" style="font-size:12px; padding:6px 12px; font-weight:600;" onclick="addAdminManualProductRow()">+ Adicionar Produto</button>
+            </div>
 
-            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:16px;">
                 <div id="manual-items-container" style="display: flex; flex-direction: column; gap: 10px;">
                     <!-- Dynamic product rows here -->
+                </div>
+                
+                <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid #cbd5e1; font-weight:700; font-size:14px; color:var(--color-text);">
+                    <span>Total da Cotação:</span>
+                    <span id="admin-manual-quote-total" style="color:var(--color-primary); margin-left:8px; font-size:16px;">R$ 0,00</span>
                 </div>
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
                 <button type="button" class="btn btn-outline" onclick="closeCreateModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Salvar e Gerar Cotação</button>
+                <button type="submit" class="btn btn-primary" style="font-weight:700; padding:8px 20px;">💾 Salvar e Gerar Cotação</button>
             </div>
         </form>
     </div>
@@ -1321,10 +1343,29 @@
         }
     }
 
+    let adminPartnersList = [];
+    let adminSelectedPartner = null;
+    let adminPartnerSearchTimer = null;
+    let adminProductsList = [];
+    let adminRowCounter = 0;
+    let adminProdRowTimers = {};
+
     function openCreateModal() {
+        adminSelectedPartner = null;
+        adminPartnersList = [];
+        adminProductsList = [];
+        adminRowCounter = 0;
+
+        const form = document.getElementById("create-quote-form");
+        if (form) form.reset();
+        clearAdminSelectedPartner();
+
+        const container = document.getElementById("manual-items-container");
+        if (container) container.innerHTML = "";
+
         document.getElementById("create-overlay").classList.add("active", "open");
         document.getElementById("create-modal").classList.add("active", "open");
-        loadModalSelectsData();
+        loadAdminModalData();
     }
 
     function closeCreateModal() {
@@ -1332,112 +1373,509 @@
         document.getElementById("create-modal").classList.remove("active", "open");
     }
 
-    async function loadModalSelectsData() {
+    async function loadAdminModalData() {
         try {
+            const container = document.getElementById("admin-partner-search-results");
+            if (container) {
+                container.innerHTML = '<div style="font-size:12px; color:var(--color-primary); text-align:center; padding:10px; font-weight:600;">🔄 Carregando clientes...</div>';
+            }
+
+            const rSelect = document.getElementById("create-representante");
+            if (rSelect) {
+                rSelect.innerHTML = '<option value="">🔄 Carregando vendedores...</option>';
+            }
+
             const [pRes, rRes, prodRes] = await Promise.all([
-                fetch(`${API_URL}/parceiros`),
+                fetch(`${API_URL}/clientes?limit=50`),
                 fetch(`${API_URL}/usuarios`),
-                fetch(`${API_URL}/produtos`)
+                fetch(`${API_URL}/produtos?limit=40`)
             ]);
 
             const pData = await pRes.json();
             const rData = await rRes.json();
             const prodData = await prodRes.json();
 
-            if (pData.success) {
-                const pSelect = document.getElementById("create-parceiro");
-                pSelect.innerHTML = '<option value="">Selecione um cliente...</option>';
-                pData.data.forEach(p => {
-                    pSelect.innerHTML += `<option value="${p.id}">${p.razao_social} (${p.codigo_sankhya})</option>`;
-                });
+            // 1. Process Partners (Clientes)
+            if (pData.success && Array.isArray(pData.data)) {
+                adminPartnersList = pData.data;
+            } else if (Array.isArray(pData)) {
+                adminPartnersList = pData;
+            } else {
+                adminPartnersList = [];
             }
+            renderAdminPartnerOptions(adminPartnersList);
 
-            if (rData.success) {
-                const rSelect = document.getElementById("create-representante");
-                rSelect.innerHTML = '<option value="">Selecione um vendedor...</option>';
-                const reps = rData.data.filter(u => u.papel === 'representante');
-                reps.forEach(r => {
-                    rSelect.innerHTML += `<option value="${r.id}">${r.nome}</option>`;
-                });
-            }
-
-            if (prodData.success) {
-                metaProducts = prodData.data;
-                const container = document.getElementById("manual-items-container");
-                if (container.children.length === 0) {
-                    addManualProductRow();
+            // 2. Process Representatives (Vendedores)
+            let users = [];
+            if (rData.success && rData.data) {
+                if (Array.isArray(rData.data)) {
+                    users = rData.data;
+                } else if (Array.isArray(rData.data.users)) {
+                    users = rData.data.users;
                 }
+            } else if (Array.isArray(rData)) {
+                users = rData;
             }
-        } catch (e) {
-            console.error(e);
+
+            if (rSelect) {
+                rSelect.innerHTML = '<option value="">Selecione um representante...</option>';
+                const reps = users.filter(u => u.papel === 'representante' || u.papel === 'gerente' || u.papel === 'administrador');
+                reps.forEach(r => {
+                    const selected = (CURRENT_USER && CURRENT_USER.id == r.id) ? 'selected' : '';
+                    rSelect.innerHTML += `<option value="${r.id}" ${selected}>${r.nome} (${r.email || r.papel})</option>`;
+                });
+            }
+
+            // 3. Process Products
+            if (prodData.success && Array.isArray(prodData.data)) {
+                adminProductsList = prodData.data;
+            } else if (Array.isArray(prodData)) {
+                adminProductsList = prodData;
+            } else {
+                adminProductsList = [];
+            }
+
+            // Add first product row if container is empty
+            const itemsContainer = document.getElementById("manual-items-container");
+            if (itemsContainer && itemsContainer.children.length === 0) {
+                addAdminManualProductRow();
+            }
+
+        } catch(e) {
+            console.error("Error loading admin modal data:", e);
         }
     }
 
-    function addManualProductRow() {
-        const container = document.getElementById("manual-items-container");
+    function renderAdminPartnerOptions(list, isSearching = false) {
+        const container = document.getElementById("admin-partner-search-results");
+        if (!container) return;
 
-        let prodOptions = '<option value="">Selecione o produto...</option>';
-        metaProducts.forEach(p => {
-            prodOptions += `<option value="${p.id}">${p.descricao}</option>`;
+        if (adminSelectedPartner) {
+            container.style.display = "none";
+            return;
+        } else {
+            container.style.display = "flex";
+        }
+
+        const inputEl = document.getElementById("admin-partner-search-input");
+        const query = inputEl ? inputEl.value.trim() : "";
+
+        if (!list || list.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:12px; background:#f8fafc; border-radius:8px; border:1px dashed var(--color-border); font-size:12px; color:var(--color-text-muted);">
+                    ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${query}</strong>"...` : `Nenhum cliente encontrado para "<strong>${query}</strong>".`) : 'Sem clientes para exibir.'}
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = "";
+        list.forEach(p => {
+            const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
+            const docVal = p.cnpj || p.cnpj_cpf;
+            const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
+            const cityStr = (p.cidade || p.uf) ? ` &bull; ${p.cidade || ''}${p.uf ? '/' + p.uf : ''}` : '';
+
+            const card = document.createElement("div");
+            card.className = "partner-item-card";
+            card.style.cssText = "display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s;";
+            card.onclick = () => selectAdminPartnerById(p.id);
+            card.innerHTML = `
+                <div style="flex-grow:1; padding-right:8px;">
+                    <div style="font-weight:700; font-size:13px; color:var(--color-text); line-height:1.3;">${p.razao_social}</div>
+                    <div style="font-size:11px; color:var(--color-text-muted); margin-top:2px;">${code}${cityStr}</div>
+                    <div style="font-size:11px; color:var(--color-primary); font-weight:600; margin-top:1px;">${docStr}</div>
+                </div>
+                <div style="background:#e0f2fe; color:#0284c7; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; flex-shrink:0;">
+                    Selecionar
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function filterAdminPartnerOptions() {
+        clearTimeout(adminPartnerSearchTimer);
+        const inputEl = document.getElementById("admin-partner-search-input");
+        if (!inputEl) return;
+
+        const rawQuery = inputEl.value;
+        const normalizedQuery = normalizeStr(rawQuery).trim();
+
+        if (!normalizedQuery) {
+            renderAdminPartnerOptions(adminPartnersList ? adminPartnersList.slice(0, 50) : []);
+            return;
+        }
+
+        const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+        const localMatches = (adminPartnersList || []).filter(p => {
+            const searchables = [
+                normalizeStr(p.razao_social),
+                normalizeStr(p.nome_fantasia),
+                normalizeStr(p.cnpj || p.cnpj_cpf),
+                normalizeStr(p.codigo_sankhya),
+                normalizeStr(p.cidade)
+            ].join(" ");
+            return terms.every(term => searchables.includes(term));
         });
 
-        const div = document.createElement("div");
-        div.className = "grid-3";
-        div.style.cssText = "gap: 8px; align-items: center; background: #fff; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;";
-        div.innerHTML = `
-            <div style="grid-column: span 1;">
-                <select class="form-control manual-prod-id" required style="font-size:12px;">
-                    ${prodOptions}
-                </select>
+        renderAdminPartnerOptions(localMatches, true);
+
+        adminPartnerSearchTimer = setTimeout(() => {
+            executeAdminServerPartnerSearch(rawQuery.trim());
+        }, 250);
+    }
+
+    async function executeAdminServerPartnerSearch(query) {
+        if (!query) return;
+        try {
+            const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(query)}&limit=50`);
+            const data = await res.json();
+            
+            let results = [];
+            if (data.success && Array.isArray(data.data)) {
+                results = data.data;
+            } else if (Array.isArray(data)) {
+                results = data;
+            }
+
+            if (Array.isArray(results)) {
+                results.forEach(partner => {
+                    if (!adminPartnersList.some(p => p.id == partner.id)) {
+                        adminPartnersList.push(partner);
+                    }
+                });
+                const currentQuery = document.getElementById("admin-partner-search-input").value.trim();
+                if (normalizeStr(currentQuery) === normalizeStr(query)) {
+                    renderAdminPartnerOptions(results, false);
+                }
+            }
+        } catch(e) {
+            console.error("Error searching admin partners:", e);
+        }
+    }
+
+    function selectAdminPartnerById(id) {
+        adminSelectedPartner = adminPartnersList.find(p => p.id == id);
+        if (!adminSelectedPartner) return;
+
+        const card = document.getElementById("admin-selected-partner-card");
+        const searchBox = document.getElementById("admin-partner-search-box");
+
+        const docStr = adminSelectedPartner.cnpj || adminSelectedPartner.cnpj_cpf || 'Não informado';
+        const codeStr = adminSelectedPartner.codigo_sankhya || 'N/A';
+        const cityStr = adminSelectedPartner.cidade ? ` | ${adminSelectedPartner.cidade}${adminSelectedPartner.uf ? '/' + adminSelectedPartner.uf : ''}` : '';
+
+        document.getElementById("admin-sp-name").innerText = adminSelectedPartner.razao_social;
+        document.getElementById("admin-sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;
+
+        if (card) card.style.display = "block";
+        if (searchBox) searchBox.style.display = "none";
+    }
+
+    function clearAdminSelectedPartner() {
+        adminSelectedPartner = null;
+        const card = document.getElementById("admin-selected-partner-card");
+        const searchBox = document.getElementById("admin-partner-search-box");
+        const input = document.getElementById("admin-partner-search-input");
+
+        if (card) card.style.display = "none";
+        if (searchBox) searchBox.style.display = "block";
+        if (input) {
+            input.value = "";
+            renderAdminPartnerOptions(adminPartnersList ? adminPartnersList.slice(0, 50) : []);
+        }
+    }
+
+    function addAdminManualProductRow() {
+        const container = document.getElementById("manual-items-container");
+        if (!container) return;
+
+        const rowId = ++adminRowCounter;
+        const row = document.createElement("div");
+        row.id = `admin-prod-row-${rowId}`;
+        row.className = "admin-prod-row-item";
+        row.style.cssText = "background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; position: relative;";
+
+        row.innerHTML = `
+            <input type="hidden" class="admin-item-prod-id" id="admin-item-prod-id-${rowId}">
+            
+            <!-- Selected Product Badge -->
+            <div id="admin-prod-selected-badge-${rowId}" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:6px 10px; justify-content:space-between; align-items:center;">
+                <div>
+                    <div id="admin-prod-selected-title-${rowId}" style="font-weight:700; font-size:12.5px; color:#166534;"></div>
+                    <div id="admin-prod-selected-meta-${rowId}" style="font-size:11px; color:#15803d;"></div>
+                </div>
+                <button type="button" onclick="clearAdminRowProduct(${rowId})" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer;">Trocar</button>
             </div>
-            <div>
-                <input type="number" class="form-control manual-qtd" placeholder="Qtd" min="1" value="1" required style="font-size:12px;">
+
+            <!-- Product Search Input & Results Dropdown -->
+            <div id="admin-prod-search-box-${rowId}" style="position:relative;">
+                <input type="text" id="admin-prod-search-input-${rowId}" class="form-control" placeholder="🔍 Digite para buscar produto por código, nome ou marca..." oninput="filterAdminRowProduct(${rowId})" style="font-size:12px;">
+                <div id="admin-prod-results-${rowId}" style="display:none; max-height:160px; overflow-y:auto; position:absolute; top:100%; left:0; right:0; z-index:100; background:#fff; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); margin-top:2px;"></div>
             </div>
-            <div style="display:flex; gap:6px;">
-                <input type="number" step="0.01" class="form-control manual-preco" placeholder="Preço" required style="font-size:12px;">
-                <button type="button" class="btn btn-outline" onclick="this.parentElement.parentElement.remove()" style="color:#ef4444; border-color:#ef4444; padding:4px 8px;">✕</button>
+
+            <!-- Quantity, Price & Subtotal Row -->
+            <div style="display:flex; gap:8px; align-items:center;">
+                <div style="width:90px;">
+                    <label style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">Qtd</label>
+                    <input type="number" min="1" value="1" class="form-control admin-item-qtd" onchange="calcAdminQuoteTotal()" oninput="calcAdminQuoteTotal()" style="font-size:12px; text-align:center;">
+                </div>
+                <div style="flex-grow:1;">
+                    <label style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">Preço Unitário (R$)</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control admin-item-price" placeholder="0.00" onchange="calcAdminQuoteTotal()" oninput="calcAdminQuoteTotal()" style="font-size:12px;">
+                </div>
+                <div style="width:110px; text-align:right;">
+                    <label style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">Subtotal</label>
+                    <div class="admin-item-subtotal" style="font-size:13px; font-weight:700; color:var(--color-primary); padding-top:4px;">R$ 0,00</div>
+                </div>
+                <button type="button" onclick="removeAdminProductRow(${rowId})" style="background:#fef2f2; color:#ef4444; border:1px solid #fca5a5; padding:6px 10px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; margin-top:14px;">✕</button>
             </div>
         `;
-        container.appendChild(div);
+
+        container.appendChild(row);
+        renderAdminRowProductResults(rowId, adminProductsList ? adminProductsList.slice(0, 20) : []);
+    }
+
+    function filterAdminRowProduct(rowId) {
+        clearTimeout(adminProdRowTimers[rowId]);
+        const input = document.getElementById(`admin-prod-search-input-${rowId}`);
+        if (!input) return;
+
+        const rawQuery = input.value;
+        const query = rawQuery.trim();
+
+        if (!query) {
+            renderAdminRowProductResults(rowId, adminProductsList ? adminProductsList.slice(0, 20) : []);
+            return;
+        }
+
+        const normalizedQuery = normalizeStr(query);
+        const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+        const localMatches = (adminProductsList || []).filter(p => {
+            const searchables = [
+                normalizeStr(p.descricao),
+                normalizeStr(p.codigo_sankhya),
+                normalizeStr(p.codprod),
+                normalizeStr(p.marca),
+            ].join(" ");
+            return terms.every(term => searchables.includes(term));
+        });
+
+        renderAdminRowProductResults(rowId, localMatches, true);
+
+        adminProdRowTimers[rowId] = setTimeout(() => {
+            executeAdminServerProductSearch(rowId, query);
+        }, 250);
+    }
+
+    async function executeAdminServerProductSearch(rowId, query) {
+        try {
+            const res = await fetch(`${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=40`);
+            const data = await res.json();
+            
+            let results = [];
+            if (data.success && Array.isArray(data.data)) {
+                results = data.data;
+            } else if (Array.isArray(data)) {
+                results = data;
+            }
+
+            if (Array.isArray(results)) {
+                results.forEach(prod => {
+                    if (!adminProductsList.some(p => p.id == prod.id)) {
+                        adminProductsList.push(prod);
+                    }
+                });
+
+                const input = document.getElementById(`admin-prod-search-input-${rowId}`);
+                if (input && normalizeStr(input.value.trim()) === normalizeStr(query)) {
+                    renderAdminRowProductResults(rowId, results, false);
+                }
+            }
+        } catch(e) {
+            console.error("Error searching admin row products:", e);
+        }
+    }
+
+    function renderAdminRowProductResults(rowId, products, isSearching = false) {
+        const container = document.getElementById(`admin-prod-results-${rowId}`);
+        if (!container) return;
+
+        const input = document.getElementById(`admin-prod-search-input-${rowId}`);
+        const query = input ? input.value.trim() : "";
+
+        if (!products || products.length === 0) {
+            container.style.display = "block";
+            container.innerHTML = `
+                <div style="font-size:11px; color:#64748b; padding:8px; text-align:center;">
+                    ${query ? (isSearching ? `🔍 Buscando "${query}"...` : `Nenhum produto para "${query}".`) : 'Digite para buscar...'}
+                </div>
+            `;
+            return;
+        }
+
+        container.style.display = "block";
+        container.innerHTML = "";
+        products.forEach(p => {
+            const price = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
+            const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'R$ 0,00';
+            const codeStr = p.codigo_sankhya || p.codprod || p.id;
+            const brandStr = p.marca ? ` | ${p.marca}` : '';
+
+            const itemDiv = document.createElement("div");
+            itemDiv.style.cssText = "padding:6px 10px; border-bottom:1px solid #f1f5f9; cursor:pointer; font-size:12px; hover:background:#f8fafc;";
+            itemDiv.onclick = (e) => {
+                e.stopPropagation();
+                selectAdminRowProduct(rowId, p.id);
+            };
+            itemDiv.innerHTML = `
+                <div style="font-weight:700; color:#1e293b;">${p.descricao}</div>
+                <div style="font-size:10.5px; color:#64748b; display:flex; justify-content:space-between; margin-top:2px;">
+                    <span>Cód: ${codeStr}${brandStr}</span>
+                    <span style="color:var(--color-primary); font-weight:700;">${priceStr}</span>
+                </div>
+            `;
+            container.appendChild(itemDiv);
+        });
+    }
+
+    function selectAdminRowProduct(rowId, prodId) {
+        const prod = adminProductsList.find(p => p.id == prodId);
+        if (!prod) return;
+
+        document.getElementById(`admin-item-prod-id-${rowId}`).value = prod.id;
+
+        const badge = document.getElementById(`admin-prod-selected-badge-${rowId}`);
+        const searchBox = document.getElementById(`admin-prod-search-box-${rowId}`);
+        const resultsBox = document.getElementById(`admin-prod-results-${rowId}`);
+
+        const price = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 100);
+        const codeStr = prod.codigo_sankhya || prod.codprod || prod.id;
+
+        document.getElementById(`admin-prod-selected-title-${rowId}`).innerText = prod.descricao;
+        document.getElementById(`admin-prod-selected-meta-${rowId}`).innerText = `Cód: ${codeStr} ${prod.marca ? '| ' + prod.marca : ''} | Sugerido: R$ ${price.toFixed(2)}`;
+
+        const priceInput = document.querySelector(`#admin-prod-row-${rowId} .admin-item-price`);
+        if (priceInput && (!priceInput.value || parseFloat(priceInput.value) <= 0)) {
+            priceInput.value = price.toFixed(2);
+        }
+
+        if (badge) badge.style.display = "flex";
+        if (searchBox) searchBox.style.display = "none";
+        if (resultsBox) resultsBox.style.display = "none";
+
+        calcAdminQuoteTotal();
+    }
+
+    function clearAdminRowProduct(rowId) {
+        document.getElementById(`admin-item-prod-id-${rowId}`).value = "";
+        const badge = document.getElementById(`admin-prod-selected-badge-${rowId}`);
+        const searchBox = document.getElementById(`admin-prod-search-box-${rowId}`);
+        const input = document.getElementById(`admin-prod-search-input-${rowId}`);
+
+        if (badge) badge.style.display = "none";
+        if (searchBox) searchBox.style.display = "block";
+        if (input) {
+            input.value = "";
+            renderAdminRowProductResults(rowId, adminProductsList ? adminProductsList.slice(0, 20) : []);
+        }
+
+        calcAdminQuoteTotal();
+    }
+
+    function removeAdminProductRow(rowId) {
+        const row = document.getElementById(`admin-prod-row-${rowId}`);
+        if (row) row.remove();
+        calcAdminQuoteTotal();
+    }
+
+    function calcAdminQuoteTotal() {
+        let total = 0;
+        const rows = document.querySelectorAll("#manual-items-container .admin-prod-row-item");
+
+        rows.forEach(r => {
+            const qtdEl = r.querySelector(".admin-item-qtd");
+            const priceEl = r.querySelector(".admin-item-price");
+            const subtotalEl = r.querySelector(".admin-item-subtotal");
+
+            const qtd = qtdEl ? (parseFloat(qtdEl.value) || 0) : 0;
+            const price = priceEl ? (parseFloat(priceEl.value) || 0) : 0;
+            const subtotal = qtd * price;
+
+            if (subtotalEl) {
+                subtotalEl.innerText = "R$ " + subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+
+            total += subtotal;
+        });
+
+        const totalEl = document.getElementById("admin-manual-quote-total");
+        if (totalEl) {
+            totalEl.innerText = "R$ " + total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
     }
 
     async function submitManualQuote(e) {
         e.preventDefault();
-        const parceiro_id = document.getElementById("create-parceiro").value;
-        const representante_id = document.getElementById("create-representante").value;
 
-        const rows = document.querySelectorAll("#manual-items-container > div");
+        if (!adminSelectedPartner) {
+            alert("Por favor, pesquise e selecione um Cliente (Parceiro).");
+            return;
+        }
+
+        const representante_id = document.getElementById("create-representante").value;
+        if (!representante_id) {
+            alert("Por favor, selecione um Representante Comercial.");
+            return;
+        }
+
+        const rows = document.querySelectorAll("#manual-items-container .admin-prod-row-item");
         const itens = [];
+        let hasInvalidItem = false;
+
         rows.forEach(r => {
-            const pId = r.querySelector(".manual-prod-id").value;
-            const qtd = r.querySelector(".manual-qtd").value;
-            const prc = r.querySelector(".manual-preco").value;
-            if (pId && qtd && prc) {
+            const prodIdEl = r.querySelector(".admin-item-prod-id");
+            const qtdEl = r.querySelector(".admin-item-qtd");
+            const priceEl = r.querySelector(".admin-item-price");
+
+            const prodId = prodIdEl ? prodIdEl.value : null;
+            const qtd = qtdEl ? parseInt(qtdEl.value) : 0;
+            const price = priceEl ? parseFloat(priceEl.value) : 0;
+
+            if (prodId && qtd > 0 && price > 0) {
                 itens.push({
-                    produto_id: parseInt(pId),
-                    quantidade: parseFloat(qtd),
-                    preco_unitario: parseFloat(prc)
+                    produto_id: parseInt(prodId),
+                    qtd: qtd,
+                    preco_unit_proposto: price
                 });
+            } else if (prodId || price > 0) {
+                hasInvalidItem = true;
             }
         });
 
         if (itens.length === 0) {
-            alert("Adicione pelo menos 1 produto à cotação.");
+            alert("Adicione e selecione pelo menos 1 produto válido com quantidade e preço maior que zero.");
+            return;
+        }
+
+        if (hasInvalidItem) {
+            alert("Existem produtos na lista com quantidade ou preço inválidos. Por favor, verifique.");
             return;
         }
 
         const payload = {
-            parceiro_id: parseInt(parceiro_id),
+            parceiro_id: parseInt(adminSelectedPartner.id),
             representante_id: parseInt(representante_id),
-            condicao_pagamento: document.getElementById("create-pagamento").value,
-            prazo_entrega: document.getElementById("create-prazo").value,
-            tipo_frete: document.getElementById("create-frete").value,
-            observacao_cliente: document.getElementById("create-obs-cliente").value,
+            forma_pagamento: document.getElementById("create-pagamento").value || 'A combinar',
+            prazo_entrega: document.getElementById("create-prazo").value || '3 dias',
+            frete_tipo: document.getElementById("create-frete").value || 'CIF',
+            observacao_cliente: document.getElementById("create-obs-cliente").value || '',
             itens: itens
         };
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/incluir`, {
+            const res = await fetch(`${API_URL}/cotacoes/manual`, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -1448,16 +1886,20 @@
             });
 
             const data = await res.json();
-            if (data.success) {
-                alert("Cotação incluída com sucesso!");
+            if (data.success || data.cotacao) {
+                alert("✅ Cotação criada com sucesso!");
                 closeCreateModal();
                 loadQuotes();
             } else {
-                alert("Erro ao incluir cotação: " + (data.error || data.message));
+                let errMsg = data.error || data.message || "Erro desconhecido ao salvar cotação.";
+                if (data.messages) {
+                    errMsg += "\n" + JSON.stringify(data.messages);
+                }
+                alert("⚠️ Erro ao salvar cotação: " + errMsg);
             }
         } catch (err) {
             console.error(err);
-            alert("Erro ao enviar formulário.");
+            alert("Erro de comunicação com o servidor ao salvar cotação.");
         }
     }
 </script>
