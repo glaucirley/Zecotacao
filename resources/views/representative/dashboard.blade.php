@@ -1974,7 +1974,7 @@
             }
         }
 
-        function renderPartnerSelectOptions(list) {
+        function renderPartnerSelectOptions(list, isSearching = false) {
             const container = document.getElementById("partner-search-results");
             if (!container) return;
 
@@ -1990,7 +1990,7 @@
             if (!list || list.length === 0) {
                 container.innerHTML = `
                     <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px dashed var(--color-border); font-size:12px; color:var(--color-text-muted);">
-                        ${query ? `Nenhum cliente encontrado para "<strong>${query}</strong>".` : 'Sem clientes para exibir.'}
+                        ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${query}</strong>"...` : `Nenhum cliente encontrado para "<strong>${query}</strong>".`) : 'Sem clientes para exibir.'}
                     </div>
                 `;
                 return;
@@ -2071,9 +2071,8 @@
                 return terms.every(term => searchables.includes(term));
             });
 
-            if (localMatches.length > 0) {
-                renderPartnerSelectOptions(localMatches);
-            }
+            // Immediately render local matches (or searching state if empty)
+            renderPartnerSelectOptions(localMatches, true);
 
             // Live debounced server query across ALL 24,389 partners in MySQL
             partnerSearchTimer = setTimeout(() => {
@@ -2100,7 +2099,10 @@
                             allPartnersList.push(partner);
                         }
                     });
-                    renderPartnerSelectOptions(results);
+                    const currentQuery = document.getElementById("partner-search-input").value.trim();
+                    if (normalizeStr(currentQuery) === normalizeStr(query)) {
+                        renderPartnerSelectOptions(results, false);
+                    }
                 }
             } catch(e) {
                 console.error("Error searching server partners:", e);
@@ -2174,9 +2176,8 @@
                 return terms.every(term => searchables.includes(term));
             });
 
-            if (localMatches.length > 0) {
-                renderProductSearchResults(localMatches);
-            }
+            // Immediately render local matches (or empty state)
+            renderProductSearchResults(localMatches, true);
 
             // Debounced live server query across ALL 6,141 products in MySQL
             prodSearchTimer = setTimeout(() => {
@@ -2205,7 +2206,10 @@
                     });
                 }
 
-                renderProductSearchResults(results);
+                const currentQuery = document.getElementById("prod-search-input").value.trim();
+                if (normalizeStr(currentQuery) === normalizeStr(query)) {
+                    renderProductSearchResults(results, false);
+                }
             } catch(e) {
                 console.error("Error searching server products:", e);
             }
