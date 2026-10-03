@@ -1929,13 +1929,15 @@
             goToStep(3);
         }
 
+        let partnerSearchTimer = null;
+
         async function loadPartnersForQuote() {
             try {
                 const select = document.getElementById("nq-parceiro-select");
                 if (select) {
                     select.innerHTML = '<option value="">Carregando clientes...</option>';
                 }
-                const res = await fetch(`${API_URL}/clientes`);
+                const res = await fetch(`${API_URL}/clientes?limit=50`);
                 const data = await res.json();
                 if (data.success && Array.isArray(data.data)) {
                     allPartnersList = data.data;
@@ -1963,40 +1965,72 @@
                 return;
             }
             list.forEach(p => {
-                const code = p.codigo_sankhya ? ` [Sankhya: ${p.codigo_sankhya}]` : '';
-                const doc = p.cnpj_cpf ? ` - ${p.cnpj_cpf}` : '';
-                select.innerHTML += `<option value="${p.id}">${p.razao_social}${code}${doc}</option>`;
+                const code = p.codigo_sankhya ? ` [Cód: ${p.codigo_sankhya}]` : '';
+                const docVal = p.cnpj || p.cnpj_cpf;
+                const doc = docVal ? ` - CNPJ/CPF: ${docVal}` : '';
+                const city = (p.cidade || p.uf) ? ` (${p.cidade || ''}${p.uf ? '/' + p.uf : ''})` : '';
+                select.innerHTML += `<option value="${p.id}">${p.razao_social}${code}${city}${doc}</option>`;
             });
         }
 
         function filterPartnerOptions() {
+            clearTimeout(partnerSearchTimer);
             const rawQuery = document.getElementById("partner-search-input").value;
             const normalizedQuery = normalizeStr(rawQuery).trim();
 
-            if (!allPartnersList || allPartnersList.length === 0) {
-                renderPartnerSelectOptions([]);
-                return;
-            }
-
             if (!normalizedQuery) {
-                renderPartnerSelectOptions(allPartnersList);
+                renderPartnerSelectOptions(allPartnersList ? allPartnersList.slice(0, 50) : []);
                 return;
             }
 
+            // Perform instant local search across pre-loaded items
             const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-
-            const filtered = allPartnersList.filter(p => {
+            const localMatches = (allPartnersList || []).filter(p => {
                 const searchables = [
                     normalizeStr(p.razao_social),
                     normalizeStr(p.nome_fantasia),
-                    normalizeStr(p.cnpj_cpf),
-                    normalizeStr(p.codigo_sankhya)
+                    normalizeStr(p.cnpj || p.cnpj_cpf),
+                    normalizeStr(p.codigo_sankhya),
+                    normalizeStr(p.cidade)
                 ].join(" ");
 
                 return terms.every(term => searchables.includes(term));
             });
 
-            renderPartnerSelectOptions(filtered);
+            if (localMatches.length > 0) {
+                renderPartnerSelectOptions(localMatches);
+            }
+
+            // Live debounced server query across ALL 24,389 partners in MySQL
+            partnerSearchTimer = setTimeout(() => {
+                executeServerPartnerSearch(rawQuery.trim());
+            }, 250);
+        }
+
+        async function executeServerPartnerSearch(query) {
+            if (!query) return;
+            try {
+                const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(query)}&limit=50`);
+                const data = await res.json();
+                
+                let results = [];
+                if (data.success && Array.isArray(data.data)) {
+                    results = data.data;
+                } else if (Array.isArray(data)) {
+                    results = data;
+                }
+
+                if (Array.isArray(results)) {
+                    results.forEach(partner => {
+                        if (!allPartnersList.some(p => p.id == partner.id)) {
+                            allPartnersList.push(partner);
+                        }
+                    });
+                    renderPartnerSelectOptions(results);
+                }
+            } catch(e) {
+                console.error("Error searching server partners:", e);
+            }
         }
 
         function onPartnerSelected() {
@@ -2009,8 +2043,11 @@
             }
             selectedPartner = allPartnersList.find(p => p.id == val);
             if (selectedPartner && card) {
+                const docStr = selectedPartner.cnpj || selectedPartner.cnpj_cpf || 'Não informado';
+                const codeStr = selectedPartner.codigo_sankhya || 'N/A';
+                const cityStr = selectedPartner.cidade ? ` | ${selectedPartner.cidade}${selectedPartner.uf ? '/' + selectedPartner.uf : ''}` : '';
                 document.getElementById("sp-name").innerText = selectedPartner.razao_social;
-                document.getElementById("sp-doc").innerText = `CNPJ/CPF: ${selectedPartner.cnpj_cpf || 'Não informado'} | Código: ${selectedPartner.codigo_sankhya || 'N/A'}`;
+                document.getElementById("sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;
                 card.style.display = "block";
             }
         }
