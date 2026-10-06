@@ -4,11 +4,16 @@
 
 @section('content')
 <div class="card">
-    <div class="card-header">
-        <h3>Clientes e Parceiros Cadastrados</h3>
-        <button class="btn btn-primary" onclick="openCreateModal()" style="font-size:13px; padding: 8px 16px;">
-            + Novo Cliente
-        </button>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Clientes e Parceiros Cadastrados</h3>
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn" onclick="openImportModal()" style="font-size:13px; padding: 8px 16px; border: 1px solid var(--color-primary); color: var(--color-primary); background: #f0fdf4; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                📥 Importar CSV (Sankhya)
+            </button>
+            <button class="btn btn-primary" onclick="openCreateModal()" style="font-size:13px; padding: 8px 16px;">
+                + Novo Cliente
+            </button>
+        </div>
     </div>
 
     <!-- Filter Bar -->
@@ -332,5 +337,127 @@
             alert("Erro de conexão.");
         }
     }
+
+    // --- Import Modal Logic ---
+    function openImportModal() {
+        document.getElementById("import-overlay").style.display = "block";
+        document.getElementById("import-modal").style.display = "block";
+        document.getElementById("import-file-input").value = "";
+        document.getElementById("import-feedback").style.display = "none";
+        document.getElementById("btn-submit-import").disabled = false;
+        document.getElementById("btn-submit-import").innerText = "Iniciar Importação";
+    }
+
+    function closeImportModal() {
+        document.getElementById("import-overlay").style.display = "none";
+        document.getElementById("import-modal").style.display = "none";
+    }
+
+    async function submitPartnerImport(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById("import-file-input");
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert("Por favor, selecione um arquivo CSV ou TXT.");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append("arquivo", file);
+
+        const btn = document.getElementById("btn-submit-import");
+        const feedback = document.getElementById("import-feedback");
+        
+        btn.disabled = true;
+        btn.innerText = "⏳ Importando clientes... Aguarde";
+        feedback.style.display = "block";
+        feedback.innerHTML = `<div style="color:var(--color-primary); font-weight:600;">🔄 Processando arquivo "${file.name}"... Por favor aguarde alguns instantes.</div>`;
+
+        try {
+            const res = await fetch(`${API_URL}/clientes/importar-arquivo`, {
+                method: "POST",
+                headers: {
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                feedback.innerHTML = `
+                    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; color:#166534;">
+                        <strong>✅ Sucesso!</strong> ${data.message}
+                        <ul style="margin:6px 0 0 16px; padding:0; font-size:12px;">
+                            <li><strong>Total de linhas:</strong> ${data.total}</li>
+                            <li><strong>Novos clientes:</strong> ${data.criados}</li>
+                            <li><strong>Atualizados:</strong> ${data.atualizados}</li>
+                        </ul>
+                    </div>
+                `;
+                btn.innerText = "Concluído!";
+                setTimeout(() => {
+                    loadPartners();
+                }, 1000);
+            } else {
+                feedback.innerHTML = `
+                    <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; color:#991b1b;">
+                        <strong>❌ Erro na importação:</strong> ${data.message || 'Falha ao processar arquivo.'}
+                    </div>
+                `;
+                btn.disabled = false;
+                btn.innerText = "Tentar Novamente";
+            }
+        } catch(err) {
+            feedback.innerHTML = `
+                <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; color:#991b1b;">
+                    <strong>❌ Erro de comunicação:</strong> ${err.message || 'Falha de rede ao enviar arquivo.'}
+                </div>
+            `;
+            btn.disabled = false;
+            btn.innerText = "Tentar Novamente";
+        }
+    }
 </script>
+
+<!-- Import Modal Sheet -->
+<div id="import-overlay" class="sheet-overlay" onclick="closeImportModal()" style="display:none;"></div>
+<div id="import-modal" class="sheet-drawer" style="display:none; max-width:550px;">
+    <div class="sheet-header">
+        <h3 style="margin: 0; color: var(--color-primary);">📥 Importar Clientes do Sankhya (CSV)</h3>
+        <button type="button" class="sheet-close-btn" onclick="closeImportModal()">&times;</button>
+    </div>
+    <div class="sheet-body" style="padding: 20px;">
+        <p style="font-size:13px; color:var(--color-text-muted); margin-top:0;">
+            Exporte a lista de parceiros do Sankhya em formato <strong>CSV</strong> (separado por vírgula <code>,</code> ou ponto-e-vírgula <code>;</code>) e faça o upload abaixo.
+        </p>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px; font-size:12px;">
+            <strong style="color:var(--color-text);">Colunas reconhecidas automaticamente do Sankhya:</strong>
+            <ul style="margin:6px 0 0 16px; padding:0; color:#475569; line-height:1.5;">
+                <li><code>CODPARC</code> ou <code>CODIGO_SANKHYA</code> (Obrigatório)</li>
+                <li><code>RAZAOSOCIAL</code> ou <code>RAZAO_SOCIAL</code></li>
+                <li><code>NOMEPARC</code> ou <code>NOME_FANTASIA</code></li>
+                <li><code>CGC_CPF</code> ou <code>CNPJ</code></li>
+                <li><code>TELEFONE</code>, <code>EMAIL</code></li>
+                <li><code>CIDADE</code> (ou <code>NOMECID</code>), <code>UF</code>, <code>BAIRRO</code></li>
+            </ul>
+        </div>
+
+        <form onsubmit="submitPartnerImport(event)">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label" style="font-weight:600;">Selecione o arquivo CSV (.csv ou .txt):</label>
+                <input type="file" id="import-file-input" class="form-control" accept=".csv,.txt" required style="padding:8px;">
+            </div>
+
+            <div id="import-feedback" style="display:none; margin-bottom:16px; font-size:13px;"></div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                <button type="submit" id="btn-submit-import" class="btn btn-primary">Iniciar Importação</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
+

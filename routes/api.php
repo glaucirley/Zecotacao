@@ -19,6 +19,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('api.key')->group(function () {
         Route::post('/cotacoes', [IntegrationController::class, 'store']);
         Route::post('/chat/logs', [ChatLogController::class, 'store']);
+        Route::post('/integracao/clientes/lote', [IntegrationController::class, 'importPartnersBatch']);
     });
 
     // 2. Session-based Auth Routes
@@ -89,6 +90,7 @@ Route::prefix('v1')->group(function () {
             // 8. Client Management Routes (Administrator only)
             Route::get('/clientes', [PartnerController::class, 'index']);
             Route::post('/clientes', [PartnerController::class, 'store']);
+            Route::post('/clientes/importar-arquivo', [PartnerController::class, 'importFile']);
             Route::patch('/clientes/{id}', [PartnerController::class, 'update']);
             Route::delete('/clientes/{id}', [PartnerController::class, 'destroy']);
 

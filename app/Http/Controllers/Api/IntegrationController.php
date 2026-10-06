@@ -387,4 +387,37 @@ class IntegrationController extends Controller
 
         return (float)$str;
     }
+
+    /**
+     * Bulk import/sync partners from N8N.
+     */
+    public function importPartnersBatch(Request $request, \App\Services\PartnerImportService $importService)
+    {
+        $raw = $request->input('clientes') ?? $request->input('parceiros') ?? $request->all();
+
+        if (!is_array($raw)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'O payload deve conter uma lista de clientes/parceiros em JSON.'
+            ], 422);
+        }
+
+        // If payload is wrapped in key or is a direct array
+        $rows = isset($raw[0]) ? $raw : (array_values($raw)[0] ?? []);
+        if (!is_array($rows) || empty($rows)) {
+            $rows = [$raw];
+        }
+
+        $result = $importService->importFromRows($rows);
+
+        return response()->json([
+            'success'     => true,
+            'message'     => "Lote processado com sucesso: {$result['criados']} novos clientes, {$result['atualizados']} atualizados.",
+            'total'       => $result['total'],
+            'criados'     => $result['criados'],
+            'atualizados' => $result['atualizados'],
+            'erros'       => $result['erros'],
+        ]);
+    }
 }
+

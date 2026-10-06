@@ -173,4 +173,49 @@ class PartnerController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Import partners from an uploaded CSV file.
+     */
+    public function importFile(Request $request, \App\Services\PartnerImportService $importService)
+    {
+        $user = Auth::user();
+        if (!$user->isAdministrador()) {
+            return response()->json(['error' => 'Forbidden.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'arquivo' => 'required|file|max:51200', // max 50MB
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Arquivo inválido. Selecione um arquivo CSV ou TXT de até 50MB.',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        $file = $request->file('arquivo');
+        $path = $file->getRealPath();
+
+        try {
+            $result = $importService->importFromCsv($path);
+
+            return response()->json([
+                'success'     => true,
+                'message'     => "Importação concluída: {$result['criados']} novos clientes cadastrados e {$result['atualizados']} atualizados de um total de {$result['total']} registros.",
+                'total'       => $result['total'],
+                'criados'     => $result['criados'],
+                'atualizados' => $result['atualizados'],
+                'erros'       => $result['erros'],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao processar o arquivo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
+
