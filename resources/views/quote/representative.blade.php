@@ -318,14 +318,22 @@
 
 @section('content')
 <div id="representative-panel" style="display: none;">
-    @if(auth()->check())
-    <!-- Top Action / Back Button Bar -->
-    <div style="margin-bottom: 16px;">
-        <button type="button" onclick="goBackToQuotes()" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; padding: 8px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #334155; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-            <span>←</span> Voltar para Cotações
-        </button>
+    <!-- Dynamic Authenticated User Top Navigation Bar -->
+    <div id="user-auth-bar" style="display: none; margin-bottom: 16px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155;">
+                <span id="logged-user-role-badge" style="background: #e0f2fe; color: #0284c7; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; text-transform: uppercase;">
+                    👤 <span id="logged-user-role">Usuário</span>
+                </span>
+                <span id="logged-user-name" style="font-weight: 600;">-</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" onclick="goToHomeDashboard()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; padding: 8px 16px; border-radius: 8px; background: #2563eb; color: #ffffff; border: none; cursor: pointer; transition: all 0.2s ease;">
+                    <span>🏠</span> <span id="btn-home-label">Ir para o Meu Painel</span>
+                </button>
+            </div>
+        </div>
     </div>
-    @endif
 
     <!-- Title and Status Row -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
@@ -659,6 +667,7 @@
     let isEditingLocked = false;
 
     document.addEventListener("DOMContentLoaded", () => {
+        checkUserSession();
         loadData();
     });
 
@@ -1439,12 +1448,69 @@
         }
     }
 
-    function goBackToQuotes() {
-        if (document.referrer && document.referrer.includes(window.location.host)) {
-            window.history.back();
-        } else {
-            window.location.href = "{{ url('/admin/cotacoes') }}";
+    let loggedUser = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        checkUserSession();
+        loadData();
+    });
+
+    async function checkUserSession() {
+        try {
+            const authRes = await fetch(`${API_URL}/auth/me`);
+            if (authRes.ok) {
+                const authData = await authRes.json();
+                if (authData.logged_in && authData.user) {
+                    loggedUser = authData.user;
+                    renderUserAuthBar(loggedUser);
+                }
+            }
+        } catch(e) {
+            console.warn("Session auth check bypassed:", e);
         }
+    }
+
+    function renderUserAuthBar(user) {
+        const bar = document.getElementById("user-auth-bar");
+        if (!bar) return;
+
+        let roleText = 'Usuário';
+        if (user.papel === 'representante') roleText = 'Representante';
+        else if (user.papel === 'administrador') roleText = 'Administrador';
+        else if (user.papel === 'diretor') roleText = 'Diretor';
+        else if (user.papel === 'faturamento') roleText = 'Faturamento';
+        else if (user.papel === 'gestor') roleText = 'Gestor';
+
+        const btnText = user.papel === 'representante' ? 'Ir para o Painel do Representante' : 'Ir para o Painel Principal';
+
+        const roleEl = document.getElementById("logged-user-role");
+        const nameEl = document.getElementById("logged-user-name");
+        const btnEl = document.getElementById("btn-home-label");
+
+        if (roleEl) roleEl.innerText = roleText;
+        if (nameEl) nameEl.innerText = user.nome || user.email;
+        if (btnEl) btnEl.innerText = btnText;
+
+        bar.style.display = "block";
+    }
+
+    function goToHomeDashboard() {
+        if (!loggedUser) {
+            window.location.href = "{{ url('/') }}";
+            return;
+        }
+
+        if (loggedUser.papel === 'representante') {
+            window.location.href = "{{ url('/painel-representante') }}";
+        } else if (loggedUser.papel === 'administrador' || loggedUser.papel === 'diretor') {
+            window.location.href = "{{ url('/dashboard') }}";
+        } else {
+            window.location.href = "{{ url('/cotacoes') }}";
+        }
+    }
+
+    function goBackToQuotes() {
+        goToHomeDashboard();
     }
 
     function downloadPdf() {
