@@ -1900,10 +1900,14 @@
 
         function normalizeStr(str) {
             if (!str) return '';
-            return String(str)
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .toLowerCase();
+            try {
+                return String(str)
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .toLowerCase();
+            } catch(e) {
+                return String(str).toLowerCase();
+            }
         }
 
         function updateStepView() {
@@ -2061,38 +2065,52 @@
             document.getElementById("partner-search-input").focus();
         }
 
+        let partnerSearchTimer = null;
+
         function filterPartnerOptions() {
-            clearTimeout(partnerSearchTimer);
-            const rawQuery = document.getElementById("partner-search-input").value;
-            const normalizedQuery = normalizeStr(rawQuery).trim();
+            try {
+                if (partnerSearchTimer) {
+                    clearTimeout(partnerSearchTimer);
+                    partnerSearchTimer = null;
+                }
 
-            if (!normalizedQuery) {
-                renderPartnerSelectOptions(allPartnersList ? allPartnersList.slice(0, 50) : []);
-                return;
+                const inputEl = document.getElementById("partner-search-input");
+                if (!inputEl) return;
+
+                const rawQuery = inputEl.value || "";
+                const normalizedQuery = normalizeStr(rawQuery).trim();
+
+                if (!normalizedQuery) {
+                    renderPartnerSelectOptions(allPartnersList ? allPartnersList.slice(0, 50) : []);
+                    return;
+                }
+
+                // Perform instant local search across pre-loaded items
+                const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+                const localMatches = (allPartnersList || []).filter(p => {
+                    if (!p) return false;
+                    const searchables = [
+                        normalizeStr(p.razao_social),
+                        normalizeStr(p.nome_fantasia),
+                        normalizeStr(p.cnpj || p.cnpj_cpf),
+                        normalizeStr(p.codigo_sankhya),
+                        normalizeStr(p.cidade),
+                        normalizeStr(p.bairro)
+                    ].join(" ");
+
+                    return terms.every(term => searchables.includes(term));
+                });
+
+                // Immediately render local matches (or searching state if empty)
+                renderPartnerSelectOptions(localMatches, true);
+
+                // Live debounced server query across ALL partners in MySQL
+                partnerSearchTimer = setTimeout(() => {
+                    executeServerPartnerSearch(rawQuery.trim());
+                }, 180);
+            } catch (err) {
+                console.error("Erro ao filtrar parceiros:", err);
             }
-
-            // Perform instant local search across pre-loaded items
-            const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-            const localMatches = (allPartnersList || []).filter(p => {
-                const searchables = [
-                    normalizeStr(p.razao_social),
-                    normalizeStr(p.nome_fantasia),
-                    normalizeStr(p.cnpj || p.cnpj_cpf),
-                    normalizeStr(p.codigo_sankhya),
-                    normalizeStr(p.cidade),
-                    normalizeStr(p.bairro)
-                ].join(" ");
-
-                return terms.every(term => searchables.includes(term));
-            });
-
-            // Immediately render local matches (or searching state if empty)
-            renderPartnerSelectOptions(localMatches, true);
-
-            // Live debounced server query across ALL 24,389 partners in MySQL
-            partnerSearchTimer = setTimeout(() => {
-                executeServerPartnerSearch(rawQuery.trim());
-            }, 250);
         }
 
         let partnerSearchReqId = 0;

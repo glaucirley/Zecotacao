@@ -833,6 +833,18 @@
     let rawQuotes = [];
     let metaProducts = [];
 
+    function normalizeStr(str) {
+        if (!str) return '';
+        try {
+            return String(str)
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase();
+        } catch(e) {
+            return String(str).toLowerCase();
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         initColumnPreferences();
         initColumnResizable();
