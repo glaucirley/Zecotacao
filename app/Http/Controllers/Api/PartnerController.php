@@ -25,7 +25,8 @@ class PartnerController extends Controller
                   ->orWhere('razao_social', 'like', "%{$search}%")
                   ->orWhere('nome_fantasia', 'like', "%{$search}%")
                   ->orWhere('cnpj', 'like', "%{$search}%")
-                  ->orWhere('cidade', 'like', "%{$search}%");
+                  ->orWhere('cidade', 'like', "%{$search}%")
+                  ->orWhere('bairro', 'like', "%{$search}%");
             });
         }
 

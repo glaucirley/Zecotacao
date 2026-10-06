@@ -1998,6 +1998,11 @@
 
             container.innerHTML = "";
             list.forEach(p => {
+                let rawName = p.razao_social || p.nome_fantasia || 'Cliente Sem Nome';
+                let displayName = rawName.replace(/^[\?\s\-\.]+/g, '').trim();
+                if (!displayName && p.nome_fantasia) displayName = p.nome_fantasia.trim();
+                if (!displayName) displayName = rawName;
+
                 const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
                 const docVal = p.cnpj || p.cnpj_cpf;
                 const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
@@ -2006,7 +2011,7 @@
                 container.innerHTML += `
                     <div class="partner-item-card" onclick="selectPartnerById(${p.id})">
                         <div style="flex-grow:1; padding-right:8px;">
-                            <div style="font-weight:700; font-size:13.5px; color:var(--color-text); line-height:1.3;">${p.razao_social}</div>
+                            <div style="font-weight:700; font-size:13.5px; color:var(--color-text); line-height:1.3;">${displayName}</div>
                             <div style="font-size:11px; color:var(--color-text-muted); margin-top:3px;">${code}${cityStr}</div>
                             <div style="font-size:11px; color:var(--color-primary); font-weight:600; margin-top:2px;">${docStr}</div>
                         </div>
@@ -2025,11 +2030,16 @@
             const card = document.getElementById("selected-partner-card");
             const container = document.getElementById("partner-search-results");
 
+            let rawName = selectedPartner.razao_social || selectedPartner.nome_fantasia || 'Cliente Sem Nome';
+            let displayName = rawName.replace(/^[\?\s\-\.]+/g, '').trim();
+            if (!displayName && selectedPartner.nome_fantasia) displayName = selectedPartner.nome_fantasia.trim();
+            if (!displayName) displayName = rawName;
+
             const docStr = selectedPartner.cnpj || selectedPartner.cnpj_cpf || 'Não informado';
             const codeStr = selectedPartner.codigo_sankhya || 'N/A';
             const cityStr = selectedPartner.cidade ? ` | ${selectedPartner.cidade}${selectedPartner.uf ? '/' + selectedPartner.uf : ''}` : '';
 
-            document.getElementById("sp-name").innerText = selectedPartner.razao_social;
+            document.getElementById("sp-name").innerText = displayName;
             document.getElementById("sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;
             
             if (card) card.style.display = "block";
@@ -2065,7 +2075,8 @@
                     normalizeStr(p.nome_fantasia),
                     normalizeStr(p.cnpj || p.cnpj_cpf),
                     normalizeStr(p.codigo_sankhya),
-                    normalizeStr(p.cidade)
+                    normalizeStr(p.cidade),
+                    normalizeStr(p.bairro)
                 ].join(" ");
 
                 return terms.every(term => searchables.includes(term));
@@ -2082,26 +2093,46 @@
 
         async function executeServerPartnerSearch(query) {
             if (!query) return;
+            const normalizedQuery = normalizeStr(query).trim();
+            if (!normalizedQuery) return;
+
             try {
                 const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(query)}&limit=50`);
                 const data = await res.json();
                 
-                let results = [];
+                let rawResults = [];
                 if (data.success && Array.isArray(data.data)) {
-                    results = data.data;
+                    rawResults = data.data;
                 } else if (Array.isArray(data)) {
-                    results = data;
+                    rawResults = data;
                 }
 
-                if (Array.isArray(results)) {
-                    results.forEach(partner => {
+                if (Array.isArray(rawResults)) {
+                    rawResults.forEach(partner => {
                         if (!allPartnersList.some(p => p.id == partner.id)) {
                             allPartnersList.push(partner);
                         }
                     });
+
                     const currentQuery = document.getElementById("partner-search-input").value.trim();
-                    if (normalizeStr(currentQuery) === normalizeStr(query)) {
-                        renderPartnerSelectOptions(results, false);
+                    const currentNormalized = normalizeStr(currentQuery).trim();
+
+                    if (currentNormalized === normalizedQuery) {
+                        const terms = currentNormalized.split(/\s+/).filter(Boolean);
+                        const filteredResults = (allPartnersList || []).filter(p => {
+                            const searchables = [
+                                normalizeStr(p.razao_social),
+                                normalizeStr(p.nome_fantasia),
+                                normalizeStr(p.cnpj || p.cnpj_cpf),
+                                normalizeStr(p.codigo_sankhya),
+                                normalizeStr(p.cidade),
+                                normalizeStr(p.bairro)
+                            ].join(" ");
+
+                            return terms.every(term => searchables.includes(term));
+                        });
+
+                        renderPartnerSelectOptions(filteredResults, false);
                     }
                 }
             } catch(e) {
