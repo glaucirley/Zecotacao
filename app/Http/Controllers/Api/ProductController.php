@@ -24,14 +24,21 @@ class ProductController extends Controller
         $query = Produto::query();
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo_sankhya', 'like', "%{$search}%")
-                  ->orWhere('descricao', 'like', "%{$search}%")
-                  ->orWhere('unidade', 'like', "%{$search}%")
-                  ->orWhere('marca', 'like', "%{$search}%")
-                  ->orWhere('ncm', 'like', "%{$search}%");
-            });
+            $search = trim($request->input('search'));
+            $terms = array_filter(explode(' ', $search));
+            if (!empty($terms)) {
+                $query->where(function ($q) use ($terms) {
+                    foreach ($terms as $term) {
+                        $q->where(function ($subQ) use ($term) {
+                            $subQ->where('codigo_sankhya', 'like', "%{$term}%")
+                                 ->orWhere('descricao', 'like', "%{$term}%")
+                                 ->orWhere('unidade', 'like', "%{$term}%")
+                                 ->orWhere('marca', 'like', "%{$term}%")
+                                 ->orWhere('ncm', 'like', "%{$term}%");
+                        });
+                    }
+                });
+            }
         }
 
         if ($request->filled('status')) {

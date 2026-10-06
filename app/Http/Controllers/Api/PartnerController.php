@@ -19,15 +19,22 @@ class PartnerController extends Controller
         $query = Parceiro::query();
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo_sankhya', 'like', "%{$search}%")
-                  ->orWhere('razao_social', 'like', "%{$search}%")
-                  ->orWhere('nome_fantasia', 'like', "%{$search}%")
-                  ->orWhere('cnpj', 'like', "%{$search}%")
-                  ->orWhere('cidade', 'like', "%{$search}%")
-                  ->orWhere('bairro', 'like', "%{$search}%");
-            });
+            $search = trim($request->input('search'));
+            $terms = array_filter(explode(' ', $search));
+            if (!empty($terms)) {
+                $query->where(function ($q) use ($terms) {
+                    foreach ($terms as $term) {
+                        $q->where(function ($subQ) use ($term) {
+                            $subQ->where('codigo_sankhya', 'like', "%{$term}%")
+                                 ->orWhere('razao_social', 'like', "%{$term}%")
+                                 ->orWhere('nome_fantasia', 'like', "%{$term}%")
+                                 ->orWhere('cnpj', 'like', "%{$term}%")
+                                 ->orWhere('cidade', 'like', "%{$term}%")
+                                 ->orWhere('bairro', 'like', "%{$term}%");
+                        });
+                    }
+                });
+            }
         }
 
         if ($request->filled('status')) {

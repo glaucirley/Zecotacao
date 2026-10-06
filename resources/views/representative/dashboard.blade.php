@@ -2119,7 +2119,7 @@
 
                     if (currentNormalized === normalizedQuery) {
                         const terms = currentNormalized.split(/\s+/).filter(Boolean);
-                        const filteredResults = (allPartnersList || []).filter(p => {
+                        const filteredResults = rawResults.filter(p => {
                             const searchables = [
                                 normalizeStr(p.razao_social),
                                 normalizeStr(p.nome_fantasia),

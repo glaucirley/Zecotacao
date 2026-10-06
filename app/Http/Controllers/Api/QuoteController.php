@@ -61,18 +61,25 @@ class QuoteController extends Controller
         }
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('numero', 'like', "%{$search}%")
-                  ->orWhereHas('parceiro', function ($p) use ($search) {
-                      $p->where('razao_social', 'like', "%{$search}%")
-                        ->orWhere('nome_fantasia', 'like', "%{$search}%")
-                        ->orWhere('cnpj', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('representante', function ($r) use ($search) {
-                      $r->where('nome', 'like', "%{$search}%");
-                  });
-            });
+            $search = trim($request->input('search'));
+            $terms = array_filter(explode(' ', $search));
+            if (!empty($terms)) {
+                $query->where(function ($q) use ($terms) {
+                    foreach ($terms as $term) {
+                        $q->where(function ($subQ) use ($term) {
+                            $subQ->where('numero', 'like', "%{$term}%")
+                                 ->orWhereHas('parceiro', function ($p) use ($term) {
+                                     $p->where('razao_social', 'like', "%{$term}%")
+                                       ->orWhere('nome_fantasia', 'like', "%{$term}%")
+                                       ->orWhere('cnpj', 'like', "%{$term}%");
+                                 })
+                                 ->orWhereHas('representante', function ($r) use ($term) {
+                                     $r->where('nome', 'like', "%{$term}%");
+                                 });
+                        });
+                    }
+                });
+            }
         }
 
         if ($request->filled('data_inicio')) {
@@ -858,13 +865,20 @@ class QuoteController extends Controller
         });
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo_sankhya', 'like', "%{$search}%")
-                  ->orWhere('descricao', 'like', "%{$search}%")
-                  ->orWhere('marca', 'like', "%{$search}%")
-                  ->orWhere('ncm', 'like', "%{$search}%");
-            });
+            $search = trim($request->input('search'));
+            $terms = array_filter(explode(' ', $search));
+            if (!empty($terms)) {
+                $query->where(function ($q) use ($terms) {
+                    foreach ($terms as $term) {
+                        $q->where(function ($subQ) use ($term) {
+                            $subQ->where('codigo_sankhya', 'like', "%{$term}%")
+                                 ->orWhere('descricao', 'like', "%{$term}%")
+                                 ->orWhere('marca', 'like', "%{$term}%")
+                                 ->orWhere('ncm', 'like', "%{$term}%");
+                        });
+                    }
+                });
+            }
         }
 
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
