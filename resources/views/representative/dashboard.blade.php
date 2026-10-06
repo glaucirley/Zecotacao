@@ -832,10 +832,9 @@
         .cart-items-container {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            max-height: 220px;
+            gap: 8px;
             overflow-y: auto;
-            margin-top: 6px;
+            margin-top: 4px;
         }
         .cart-item-card {
             background-color: #ffffff;
@@ -1118,35 +1117,85 @@
                     </button>
                 </div>
 
-                <!-- STEP 2: Adição de Produtos -->
+                <!-- STEP 2: Adição e Gestão de Produtos -->
                 <div id="step-content-2" class="step-panel" style="display:none;">
-                    <div class="form-group-mobile">
-                        <label class="form-label-mobile">Adicionar Produtos ao Carrinho</label>
-                        <input type="text" id="prod-search-input" class="input-mobile" placeholder="🔍 Digite código ou nome do produto..." oninput="filterProducts()">
-                        
-                        <div id="prod-search-results" class="products-list-mobile" style="max-height:170px; overflow-y:auto; margin-top:8px;">
-                            <!-- product cards loaded dynamically -->
-                        </div>
+                    <!-- Navegação entre Catálogo e Pedido -->
+                    <div style="display:flex; background:#f1f5f9; border:1px solid var(--color-border); border-radius:12px; padding:3px; gap:4px; margin-bottom:12px;">
+                        <button type="button" id="tab-btn-catalog" onclick="switchStep2Tab('catalog')" style="flex:1; border:none; padding:9px 12px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; background:#ffffff; color:var(--color-primary); box-shadow:0 1px 3px rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.15s;">
+                            <span>🔍</span> Adicionar Produtos
+                        </button>
+                        <button type="button" id="tab-btn-cart" onclick="switchStep2Tab('cart')" style="flex:1; border:none; padding:9px 12px; border-radius:9px; font-weight:600; font-size:13px; cursor:pointer; background:transparent; color:#64748b; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.15s;">
+                            <span>🛒</span> Pedido (<span id="cart-tab-badge" style="font-weight:700;">0</span>)
+                        </button>
                     </div>
 
-                    <div style="margin-top: 12px;">
-                        <label class="form-label-mobile">Itens Adicionados (<span id="cart-items-count">0</span>)</label>
-                        <div id="cart-items-list" class="cart-items-container">
-                            <div style="text-align:center; padding:20px; color:var(--color-text-muted); font-size:13px;" id="empty-cart-msg">
-                                Nenhum produto adicionado ainda.<br>Pesquise acima e clique em "Adicionar".
+                    <!-- VIEW 1: Catálogo / Busca de Produtos -->
+                    <div id="step2-view-catalog">
+                        <div class="form-group-mobile" style="margin-bottom:8px;">
+                            <div style="position:relative;">
+                                <input type="text" id="prod-search-input" class="input-mobile" placeholder="🔍 Digite código ou nome do produto..." oninput="filterProducts()" style="padding-right:36px;">
+                                <button type="button" onclick="clearProdSearch()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer; padding:4px;" title="Limpar busca">&times;</button>
                             </div>
                         </div>
+
+                        <!-- Lista de produtos com boa altura livre e scroll suave -->
+                        <div id="prod-search-results" class="products-list-mobile" style="max-height: 44vh; min-height: 200px; overflow-y:auto; margin-bottom:12px; padding-right:2px;">
+                            <!-- product cards loaded dynamically -->
+                        </div>
+
+                        <!-- Barra de Resumo Rápido no rodapé do Catálogo -->
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; box-shadow:0 2px 5px rgba(22,101,52,0.06);">
+                            <div>
+                                <div style="font-size:11px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.4px;">No Pedido</div>
+                                <div style="font-size:14px; font-weight:800; color:#14532d; margin-top:1px;">
+                                    <span id="cat-summary-count">0</span> itens &bull; <span id="cat-summary-val">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <button type="button" onclick="switchStep2Tab('cart')" style="background:#16a34a; color:white; border:none; padding:8px 14px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(22,163,74,0.3);">
+                                🛒 Ver Pedido &rarr;
+                            </button>
+                        </div>
+
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" class="btn-secondary-mobile" onclick="goToStep(1)">&larr; Voltar</button>
+                            <button type="button" style="background:#0284c7; color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;" onclick="saveDraftQuote(false)">💾 Salvar</button>
+                            <button type="button" class="btn-primary-mobile" style="flex:1;" onclick="validateStep2AndNext()">Condições &rarr;</button>
+                        </div>
                     </div>
 
-                    <div class="cart-total-bar">
-                        <span>Subtotal Estimado:</span>
-                        <strong id="cart-total-val" style="color:var(--color-primary); font-size:18px;">R$ 0,00</strong>
-                    </div>
+                    <!-- VIEW 2: Pedido / Carrinho de Conferência (Alta Densidade p/ até 50 itens) -->
+                    <div id="step2-view-cart" style="display:none;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-size:13px; font-weight:700; color:var(--color-text);">Itens no Pedido (<span id="cart-items-count">0</span>)</span>
+                            <button type="button" onclick="clearCartConfirm()" style="background:#fee2e2; border:none; color:#b91c1c; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:pointer;">Limpar Tudo</button>
+                        </div>
 
-                    <div style="display:flex; gap:8px; margin-top:16px;">
-                        <button type="button" class="btn-secondary-mobile" onclick="goToStep(1)">&larr; Voltar</button>
-                        <button type="button" style="background:#0284c7; color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;" onclick="saveDraftQuote(false)">💾 Salvar</button>
-                        <button type="button" class="btn-primary-mobile" style="flex:1;" onclick="validateStep2AndNext()">Condições &rarr;</button>
+                        <!-- Busca rápida dentro do pedido para quando tiver muitos itens -->
+                        <div style="margin-bottom:8px;">
+                            <input type="text" id="cart-filter-input" class="input-mobile" placeholder="🔍 Filtrar entre os itens lançados..." oninput="filterCartDisplay(this.value)" style="padding:8px 12px; font-size:12.5px;">
+                        </div>
+
+                        <div id="cart-items-list" class="cart-items-container" style="max-height: 44vh; min-height: 200px; overflow-y:auto; padding-right:2px;">
+                            <div style="text-align:center; padding:24px 12px; color:var(--color-text-muted); font-size:13px;" id="empty-cart-msg">
+                                Nenhum produto adicionado ainda.<br>Clique em "Adicionar Produtos" para escolher do catálogo.
+                            </div>
+                        </div>
+
+                        <div class="cart-total-bar" style="margin-top:10px; margin-bottom:12px; padding:10px 14px;">
+                            <div>
+                                <span style="font-size:11px; color:#1e40af; font-weight:600; display:block;">SUBTOTAL ESTIMADO</span>
+                                <strong id="cart-total-val" style="color:var(--color-primary); font-size:17px;">R$ 0,00</strong>
+                            </div>
+                            <button type="button" onclick="switchStep2Tab('catalog')" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">
+                                + Adicionar Mais
+                            </button>
+                        </div>
+
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" class="btn-secondary-mobile" onclick="switchStep2Tab('catalog')">&larr; Catálogo</button>
+                            <button type="button" style="background:#0284c7; color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;" onclick="saveDraftQuote(false)">💾 Salvar</button>
+                            <button type="button" class="btn-primary-mobile" style="flex:1;" onclick="validateStep2AndNext()">Condições &rarr;</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1774,12 +1823,14 @@
             // Reset wizard
             currentWizardStep = 1;
             quoteCartItems = [];
+            currentStep2Tab = 'catalog';
             clearSelectedPartner();
             document.getElementById("partner-search-input").value = "";
             document.getElementById("prod-search-input").value = "";
             document.getElementById("nq-obs-cliente").value = "";
             
             updateStepView();
+            switchStep2Tab('catalog');
             renderCart();
             
             // Force load partners and products afresh
@@ -1925,6 +1976,7 @@
             });
 
             if (currentWizardStep === 2) {
+                switchStep2Tab(currentStep2Tab || 'catalog');
                 filterProducts();
             }
 
@@ -2263,17 +2315,141 @@
             }
         }
 
+        let currentStep2Tab = 'catalog';
+
+        function switchStep2Tab(tabName) {
+            currentStep2Tab = tabName;
+            const catView = document.getElementById("step2-view-catalog");
+            const cartView = document.getElementById("step2-view-cart");
+            const btnCat = document.getElementById("tab-btn-catalog");
+            const btnCart = document.getElementById("tab-btn-cart");
+
+            if (tabName === 'catalog') {
+                if (catView) catView.style.display = "block";
+                if (cartView) cartView.style.display = "none";
+                if (btnCat) {
+                    btnCat.style.background = "#ffffff";
+                    btnCat.style.color = "var(--color-primary)";
+                    btnCat.style.fontWeight = "700";
+                    btnCat.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
+                }
+                if (btnCart) {
+                    btnCart.style.background = "transparent";
+                    btnCart.style.color = "#64748b";
+                    btnCart.style.fontWeight = "600";
+                    btnCart.style.boxShadow = "none";
+                }
+            } else {
+                if (catView) catView.style.display = "none";
+                if (cartView) cartView.style.display = "block";
+                if (btnCat) {
+                    btnCat.style.background = "transparent";
+                    btnCat.style.color = "#64748b";
+                    btnCat.style.fontWeight = "600";
+                    btnCat.style.boxShadow = "none";
+                }
+                if (btnCart) {
+                    btnCart.style.background = "#ffffff";
+                    btnCart.style.color = "var(--color-primary)";
+                    btnCart.style.fontWeight = "700";
+                    btnCart.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
+                }
+                renderCart();
+                const filterInput = document.getElementById("cart-filter-input");
+                if (filterInput && quoteCartItems.length > 5) {
+                    filterInput.value = "";
+                }
+            }
+        }
+
+        function showMiniToast(message, isSuccess = true) {
+            let toast = document.getElementById("mini-quote-toast");
+            if (!toast) {
+                toast = document.createElement("div");
+                toast.id = "mini-quote-toast";
+                toast.style.position = "fixed";
+                toast.style.top = "20px";
+                toast.style.left = "50%";
+                toast.style.transform = "translateX(-50%) translateY(-20px)";
+                toast.style.zIndex = "99999";
+                toast.style.padding = "8px 16px";
+                toast.style.borderRadius = "20px";
+                toast.style.fontSize = "12px";
+                toast.style.fontWeight = "700";
+                toast.style.boxShadow = "0 4px 14px rgba(0,0,0,0.2)";
+                toast.style.transition = "opacity 0.25s, transform 0.25s";
+                toast.style.pointerEvents = "none";
+                toast.style.opacity = "0";
+                document.body.appendChild(toast);
+            }
+            toast.style.background = isSuccess ? "#15803d" : "#b91c1c";
+            toast.style.color = "#ffffff";
+            toast.innerHTML = message;
+            toast.style.opacity = "1";
+            toast.style.transform = "translateX(-50%) translateY(0)";
+
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transform = "translateX(-50%) translateY(-15px)";
+            }, 1400);
+        }
+
+        function syncCatalogProductRow(prodId) {
+            const rowEl = document.getElementById(`prod-row-${prodId}`);
+            if (!rowEl) return;
+            const prod = (allProductsList || []).find(p => p.id == prodId);
+            if (!prod) return;
+
+            const price = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
+            const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'R$ 100,00 (padrão)';
+            const codeStr = prod.codigo_sankhya || prod.codprod || prod.id;
+            const brandStr = prod.marca ? ` | ${prod.marca}` : '';
+
+            const cartItem = (quoteCartItems || []).find(item => item.product_id == prodId);
+            const cartQty = cartItem ? cartItem.qty : 0;
+
+            if (cartQty > 0) {
+                rowEl.style.borderColor = "#86efac";
+                rowEl.style.backgroundColor = "#f0fdf4";
+                rowEl.innerHTML = `
+                    <div style="flex-grow:1; padding-right:8px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="background:#16a34a; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;">No Pedido</span>
+                            <div class="product-item-title">${prod.descricao}</div>
+                        </div>
+                        <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:4px; background:#ffffff; border:1px solid #86efac; border-radius:8px; padding:3px 6px;">
+                        <button type="button" onclick="changeQtyFromCatalog(${prod.id}, -1)" style="width:26px; height:26px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
+                        <span style="font-weight:800; font-size:13px; color:#15803d; min-width:22px; text-align:center;">${cartQty}</span>
+                        <button type="button" onclick="changeQtyFromCatalog(${prod.id}, 1)" style="width:26px; height:26px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
+                    </div>
+                `;
+            } else {
+                rowEl.style.borderColor = "var(--color-border)";
+                rowEl.style.backgroundColor = "#f8fafc";
+                rowEl.innerHTML = `
+                    <div style="flex-grow:1; padding-right:8px;">
+                        <div class="product-item-title">${prod.descricao}</div>
+                        <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                    </div>
+                    <button type="button" class="btn-add-prod" onclick="addToCart(${prod.id})">+ Adicionar</button>
+                `;
+            }
+        }
+
         function renderProductSearchResults(products) {
             const container = document.getElementById("prod-search-results");
-            const query = document.getElementById("prod-search-input").value.trim();
+            const query = (document.getElementById("prod-search-input") ? document.getElementById("prod-search-input").value : "").trim();
 
             if (!container) return;
 
             if (!products || products.length === 0) {
                 container.innerHTML = `
-                    <div style="text-align:center; padding:14px; background:#f8fafc; border-radius:8px; border:1px dashed var(--color-border);">
+                    <div style="text-align:center; padding:18px; background:#f8fafc; border-radius:10px; border:1px dashed var(--color-border);">
                         <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:8px;">Nenhum produto encontrado para "<strong>${query}</strong>".</div>
-                        <button type="button" onclick="clearProdSearch()" style="background:#e2e8f0; color:#334155; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Limpar Pesquisa e Ver Todos</button>
+                        <button type="button" onclick="clearProdSearch()" style="background:#e2e8f0; color:#334155; border:none; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">Limpar Pesquisa e Ver Todos</button>
                     </div>
                 `;
                 return;
@@ -2285,20 +2461,44 @@
                 const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'R$ 100,00 (padrão)';
                 const codeStr = p.codigo_sankhya || p.codprod || p.id;
                 const brandStr = p.marca ? ` | ${p.marca}` : '';
-                container.innerHTML += `
-                    <div class="product-item-row">
-                        <div style="flex-grow:1; padding-right:8px;">
-                            <div class="product-item-title">${p.descricao}</div>
-                            <div class="product-item-price">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+
+                const cartItem = (quoteCartItems || []).find(item => item.product_id == p.id);
+                const cartQty = cartItem ? cartItem.qty : 0;
+
+                if (cartQty > 0) {
+                    container.innerHTML += `
+                        <div class="product-item-row" id="prod-row-${p.id}" style="border-color:#86efac; background:#f0fdf4;">
+                            <div style="flex-grow:1; padding-right:8px;">
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span style="background:#16a34a; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;">No Pedido</span>
+                                    <div class="product-item-title">${p.descricao}</div>
+                                </div>
+                                <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:4px; background:#ffffff; border:1px solid #86efac; border-radius:8px; padding:3px 6px;">
+                                <button type="button" onclick="changeQtyFromCatalog(${p.id}, -1)" style="width:26px; height:26px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
+                                <span style="font-weight:800; font-size:13px; color:#15803d; min-width:22px; text-align:center;">${cartQty}</span>
+                                <button type="button" onclick="changeQtyFromCatalog(${p.id}, 1)" style="width:26px; height:26px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
+                            </div>
                         </div>
-                        <button type="button" class="btn-add-prod" onclick="addToCart(${p.id})">+ Adicionar</button>
-                    </div>
-                `;
+                    `;
+                } else {
+                    container.innerHTML += `
+                        <div class="product-item-row" id="prod-row-${p.id}">
+                            <div style="flex-grow:1; padding-right:8px;">
+                                <div class="product-item-title">${p.descricao}</div>
+                                <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                            </div>
+                            <button type="button" class="btn-add-prod" onclick="addToCart(${p.id})">+ Adicionar</button>
+                        </div>
+                    `;
+                }
             });
         }
 
         function clearProdSearch() {
-            document.getElementById("prod-search-input").value = "";
+            const input = document.getElementById("prod-search-input");
+            if (input) input.value = "";
             renderProductSearchResults(allProductsList ? allProductsList.slice(0, 40) : []);
         }
 
@@ -2309,7 +2509,6 @@
                 return;
             }
 
-            // Extract valid price from product properties (preco_sugerido, preco_tabela, preco_venda, preco)
             const rawPrice = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
             const unitPrice = (isNaN(rawPrice) || rawPrice <= 0) ? 100.00 : rawPrice;
 
@@ -2327,20 +2526,46 @@
                 });
             }
             renderCart();
+            syncCatalogProductRow(prodId);
+            showMiniToast(`✓ 1x adicionado: ${prod.descricao.substring(0, 22)}...`);
+        }
+
+        function changeQtyFromCatalog(prodId, delta) {
+            const idx = quoteCartItems.findIndex(item => item.product_id == prodId);
+            if (idx >= 0) {
+                updateCartQty(idx, delta);
+            } else if (delta > 0) {
+                addToCart(prodId);
+            }
         }
 
         function updateCartQty(index, delta) {
             if (!quoteCartItems[index]) return;
+            const prodId = quoteCartItems[index].product_id;
             quoteCartItems[index].qty += delta;
             if (quoteCartItems[index].qty <= 0) {
                 quoteCartItems.splice(index, 1);
             }
             renderCart();
+            syncCatalogProductRow(prodId);
+        }
+
+        function setCartItemExactQty(index, val) {
+            if (!quoteCartItems[index]) return;
+            const parsed = parseInt(val, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+                quoteCartItems[index].qty = parsed;
+            } else {
+                quoteCartItems[index].qty = 1;
+            }
+            const prodId = quoteCartItems[index].product_id;
+            renderCart();
+            syncCatalogProductRow(prodId);
         }
 
         function updateCartPrice(index, val) {
             if (!quoteCartItems[index]) return;
-            const parsed = parseFloat(val.replace(',', '.'));
+            const parsed = parseFloat(String(val).replace(',', '.'));
             if (!isNaN(parsed) && parsed >= 0) {
                 quoteCartItems[index].price = parsed;
             }
@@ -2348,29 +2573,68 @@
         }
 
         function removeFromCart(index) {
+            if (!quoteCartItems[index]) return;
+            const prodId = quoteCartItems[index].product_id;
             quoteCartItems.splice(index, 1);
             renderCart();
+            syncCatalogProductRow(prodId);
+            showMiniToast("Item removido do pedido");
+        }
+
+        function clearCartConfirm() {
+            if (quoteCartItems.length === 0) return;
+            if (confirm(`Deseja realmente remover todos os ${quoteCartItems.length} produtos do pedido?`)) {
+                const removedIds = quoteCartItems.map(item => item.product_id);
+                quoteCartItems = [];
+                renderCart();
+                removedIds.forEach(id => syncCatalogProductRow(id));
+                showMiniToast("Pedido limpo com sucesso");
+            }
+        }
+
+        function filterCartDisplay(filterTerm) {
+            const term = normalizeStr(filterTerm).trim();
+            const cards = document.querySelectorAll("#cart-items-list .cart-item-card");
+            cards.forEach(card => {
+                const text = normalizeStr(card.innerText);
+                if (!term || text.includes(term)) {
+                    card.style.display = "flex";
+                } else {
+                    card.style.display = "none";
+                }
+            });
         }
 
         function renderCartTotalOnly() {
             const total = quoteCartItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
+            const formatted = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
             const el = document.getElementById("cart-total-val");
-            if (el) el.innerText = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            if (el) el.innerText = formatted;
+
+            const catValEl = document.getElementById("cat-summary-val");
+            if (catValEl) catValEl.innerText = formatted;
         }
 
         function renderCart() {
             const listEl = document.getElementById("cart-items-list");
             const countEl = document.getElementById("cart-items-count");
             const badgeCountEl = document.getElementById("items-badge-count");
-            
-            if (countEl) countEl.innerText = quoteCartItems.length;
-            if (badgeCountEl) badgeCountEl.innerText = quoteCartItems.length;
+            const tabBadgeEl = document.getElementById("cart-tab-badge");
+            const catCountEl = document.getElementById("cat-summary-count");
 
-            if (quoteCartItems.length === 0) {
+            const count = quoteCartItems.length;
+            if (countEl) countEl.innerText = count;
+            if (badgeCountEl) badgeCountEl.innerText = count;
+            if (tabBadgeEl) tabBadgeEl.innerText = count;
+            if (catCountEl) catCountEl.innerText = count;
+
+            if (count === 0) {
                 if (listEl) {
                     listEl.innerHTML = `
-                        <div style="text-align:center; padding:20px; color:var(--color-text-muted); font-size:13px;" id="empty-cart-msg">
-                            Nenhum produto adicionado ainda.<br>Pesquise acima e clique em "Adicionar".
+                        <div style="text-align:center; padding:32px 14px; color:var(--color-text-muted); font-size:13px;" id="empty-cart-msg">
+                            <div style="font-size:32px; margin-bottom:8px;">🛒</div>
+                            Nenhum produto adicionado ainda.<br>Clique em <strong>"Adicionar Produtos"</strong> para escolher do catálogo.
                         </div>
                     `;
                 }
@@ -2383,27 +2647,34 @@
                 quoteCartItems.forEach((item, index) => {
                     const subtotal = item.price * item.qty;
                     listEl.innerHTML += `
-                        <div class="cart-item-card">
-                            <div class="cart-item-top">
-                                <div>
-                                    <div style="font-weight:600; font-size:13px; color:var(--color-text);">${item.name}</div>
-                                    <div style="font-size:11px; color:var(--color-text-muted);">Cód: ${item.sku || 'N/A'} (${item.unit})</div>
+                        <div class="cart-item-card" data-cart-idx="${index}">
+                            <div class="cart-item-top" style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div style="flex-grow:1; padding-right:8px;">
+                                    <div style="font-weight:700; font-size:13px; color:var(--color-text); line-height:1.25;">
+                                        <span style="display:inline-block; background:#e2e8f0; color:#475569; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-right:4px;">#${index + 1}</span>${item.name}
+                                    </div>
+                                    <div style="font-size:11px; color:var(--color-text-muted); margin-top:3px;">
+                                        Cód: ${item.sku || 'N/A'} &bull; Unid: ${item.unit}
+                                    </div>
                                 </div>
-                                <button type="button" onclick="removeFromCart(${index})" style="background:none; border:none; color:#ef4444; font-size:16px; cursor:pointer; font-weight:bold;">&times;</button>
+                                <button type="button" onclick="removeFromCart(${index})" title="Remover item" style="background:#fee2e2; border:none; color:#ef4444; width:28px; height:28px; border-radius:8px; cursor:pointer; font-weight:bold; font-size:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    &times;
+                                </button>
                             </div>
-                            <div class="cart-item-controls">
-                                <div class="qty-stepper">
+                            <div class="cart-item-controls" style="margin-top:8px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; padding:6px 10px; border-radius:8px;">
+                                <div class="qty-stepper" style="display:flex; align-items:center; gap:5px;">
                                     <button type="button" class="btn-stepper" onclick="updateCartQty(${index}, -1)">-</button>
-                                    <span style="font-weight:700; font-size:14px;">${item.qty}</span>
+                                    <input type="number" min="1" value="${item.qty}" onchange="setCartItemExactQty(${index}, this.value)" style="width:44px; text-align:center; font-weight:800; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; padding:3px 2px;">
                                     <button type="button" class="btn-stepper" onclick="updateCartQty(${index}, 1)">+</button>
                                 </div>
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    <span style="font-size:11px; color:var(--color-text-muted);">R$/un:</span>
-                                    <input type="number" step="0.01" value="${item.price.toFixed(2)}" oninput="updateCartPrice(${index}, this.value)" style="width:75px; padding:4px 6px; border:1px solid var(--color-border); border-radius:6px; font-size:12px; font-weight:600; text-align:right;">
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <span style="font-size:11px; color:var(--color-text-muted); font-weight:600;">R$/un:</span>
+                                    <input type="number" step="0.01" value="${item.price.toFixed(2)}" oninput="updateCartPrice(${index}, this.value)" style="width:78px; padding:4px 6px; border:1px solid var(--color-border); border-radius:6px; font-size:12px; font-weight:700; text-align:right;">
                                 </div>
                             </div>
-                            <div style="font-size:12px; text-align:right; color:var(--color-primary); font-weight:600;">
-                                Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:4px; border-top:1px dashed #e2e8f0;">
+                                <span style="font-size:11px; color:#64748b;">${item.qty} un &times; R$ ${item.price.toFixed(2)}</span>
+                                <span style="font-size:13px; color:var(--color-primary); font-weight:800;">Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                             </div>
                         </div>
                     `;
