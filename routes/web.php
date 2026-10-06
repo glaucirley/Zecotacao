@@ -29,7 +29,23 @@ Route::middleware([
     
     // Representative Public URL (Accessed via Token Link - needs session for CSRF)
     Route::get('/cotacoes/token/{token}', function ($token) {
-        return view('quote.representative', ['token' => $token]);
+        $quote = \App\Models\Cotacao::where('token_representante', $token)->first();
+        if (!$quote) {
+            abort(404, 'Cotação não encontrada ou link expirado.');
+        }
+
+        // Quando houver sessão ativa, conferir também que a cotação pertence a quem está logado
+        if (auth()->check()) {
+            if (!auth()->user()->canAccessQuote($quote)) {
+                abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
+            }
+        }
+
+        return view('quote.representative', [
+            'token' => $token,
+            'quoteId' => $quote->id,
+            'quote' => $quote,
+        ]);
     });
 
     // Auth route to handle standard POST submit from login form
@@ -174,10 +190,14 @@ Route::middleware([
         // Authenticated View/Edit Quote by ID
         Route::get('/cotacoes/id/{id}', function ($id) {
             $quote = \App\Models\Cotacao::findOrFail($id);
-            if (auth()->user()->isRepresentante() && $quote->representante_id !== auth()->user()->id) {
-                abort(403, 'Acesso não autorizado.');
+            if (!auth()->user()->canAccessQuote($quote)) {
+                abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
             }
-            return view('quote.representative', ['token' => $quote->token_representante]);
+            return view('quote.representative', [
+                'quoteId' => $quote->id,
+                'quote' => $quote,
+                'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
+            ]);
         });
         
     });

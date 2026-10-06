@@ -103,6 +103,50 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is authorized to view or edit a specific quotation.
+     * - Administrador & Diretor: see all quotations.
+     * - Faturamento: see quotations.
+     * - Gestor: only quotations from representatives in their team(s) or created by themselves.
+     * - Representante / others: only quotations where representante_id == user id.
+     */
+    public function canAccessQuote(\App\Models\Cotacao $quote): bool
+    {
+        if ($this->isAdministrador() || $this->isDiretor()) {
+            return true;
+        }
+
+        if ($this->isFaturamento()) {
+            return true;
+        }
+
+        if ($this->isGestor()) {
+            if ((int) $quote->representante_id === (int) $this->id) {
+                return true;
+            }
+
+            $teamIds = $this->equipesGerenciadas()->pluck('id')->toArray();
+            if ($this->equipe_id && !in_array($this->equipe_id, $teamIds)) {
+                $teamIds[] = $this->equipe_id;
+            }
+
+            if (!empty($teamIds)) {
+                $rep = $quote->representante ?: \App\Models\User::find($quote->representante_id);
+                if ($rep && $rep->equipe_id && in_array($rep->equipe_id, $teamIds)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (!$quote->representante_id) {
+            return false;
+        }
+
+        return (int) $quote->representante_id === (int) $this->id;
+    }
+
+    /**
      * Check if user has access to WhatsApp chat repository.
      */
     public function hasChatAccess(): bool

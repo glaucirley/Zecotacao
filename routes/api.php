@@ -102,8 +102,14 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // 3. Representative Public Token Routes
-    Route::middleware(['token.auth'])->group(function () {
+    // 3. Representative Token & ID Quote Routes
+    Route::middleware([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        'token.auth',
+    ])->group(function () {
+        // Token routes (Public link or Authenticated session)
         Route::get('/cotacoes/token/{token}', [QuoteController::class, 'show']);
         Route::patch('/cotacoes/token/{token}', [QuoteController::class, 'update']);
         Route::post('/cotacoes/token/{token}/itens', [QuoteController::class, 'addItem']);
@@ -114,5 +120,16 @@ Route::prefix('v1')->group(function () {
         Route::post('/cotacoes/token/{token}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/token/{token}/pdf', [QuoteController::class, 'generatePdf']);
         Route::get('/cotacoes/token/{token}/produtos', [QuoteController::class, 'listProducts']);
+
+        // Authenticated ID routes (Direct access by quote ID without writing token to client)
+        Route::get('/cotacoes/{id}', [QuoteController::class, 'show']);
+        Route::patch('/cotacoes/{id}', [QuoteController::class, 'update']);
+        Route::post('/cotacoes/{id}/itens', [QuoteController::class, 'addItem']);
+        Route::delete('/cotacoes/{id}/itens/{item_id}', [QuoteController::class, 'removeItem']);
+        Route::post('/cotacoes/{id}/justificativa', [QuoteController::class, 'addJustification']);
+        Route::post('/cotacoes/{id}/enviar', [QuoteController::class, 'submit']);
+        Route::post('/cotacoes/{id}/perdida', [QuoteController::class, 'markAsLost']);
+        Route::post('/cotacoes/{id}/faturar', [QuoteController::class, 'releaseForBilling']);
+        Route::get('/cotacoes/{id}/produtos', [QuoteController::class, 'listProducts']);
     });
 });

@@ -660,8 +660,10 @@
 
 @section('scripts')
 <script>
-    const TOKEN = "{{ $token }}";
-    const API_URL = "{{ url('/api/v1') }}";
+    const QUOTE_ID = {{ isset($quoteId) ? (int)$quoteId : 'null' }};
+    const TOKEN = "{{ $token ?? '' }}";
+    const API_URL = "/api/v1";
+    const QUOTE_BASE_URL = TOKEN ? `${API_URL}/cotacoes/token/${encodeURIComponent(TOKEN)}` : `${API_URL}/cotacoes/${QUOTE_ID}`;
     let quote = null;
     let productsList = [];
     let isEditingLocked = false;
@@ -674,7 +676,7 @@
     async function loadData() {
         try {
             // 1. Fetch Quote Details
-            const quoteRes = await fetch(`${API_URL}/cotacoes/token/${TOKEN}`);
+            const quoteRes = await fetch(`${QUOTE_BASE_URL}`);
             if (!quoteRes.ok) {
                 const errText = await quoteRes.text();
                 let errMsg = "Erro HTTP " + quoteRes.status;
@@ -688,14 +690,14 @@
 
             const quoteData = await quoteRes.json();
             if (!quoteData.success) {
-                alert("Erro ao carregar a cotação: " + (quoteData.error || quoteData.message || "Token inválido"));
+                alert("Erro ao carregar a cotação: " + (quoteData.error || quoteData.message || "Cotação não encontrada"));
                 return;
             }
             quote = quoteData.data;
 
-            // 2. Fetch Products Catalog for addition using token endpoint
+            // 2. Fetch Products Catalog for addition using quote endpoint
             try {
-                const prodRes = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/produtos`);
+                const prodRes = await fetch(`${QUOTE_BASE_URL}/produtos`);
                 if (prodRes.ok) {
                     const prodData = await prodRes.json();
                     if (prodData.success) {
@@ -1042,7 +1044,7 @@
         menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #64748b; font-size: 12px;">🔍 Buscando no catálogo...</div>`;
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/produtos?search=${encodeURIComponent(query)}&limit=30`);
+            const res = await fetch(`${QUOTE_BASE_URL}/produtos?search=${encodeURIComponent(query)}&limit=30`);
             if (!res.ok) {
                 menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Erro ao buscar produtos.</div>`;
                 return;
@@ -1189,7 +1191,7 @@
         };
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/itens`, {
+            const res = await fetch(`${QUOTE_BASE_URL}/itens`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -1211,7 +1213,7 @@
         if (!confirm("Deseja realmente remover este item?")) return;
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/itens/${itemId}`, {
+            const res = await fetch(`${QUOTE_BASE_URL}/itens/${itemId}`, {
                 method: "DELETE"
             });
             const data = await res.json();
@@ -1244,7 +1246,7 @@
         };
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}`, {
+            const res = await fetch(`${QUOTE_BASE_URL}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -1295,7 +1297,7 @@
                 formData.append("audio", audioInput.files[0]);
             }
 
-            const justRes = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/justificativa`, {
+            const justRes = await fetch(`${QUOTE_BASE_URL}/justificativa`, {
                 method: "POST",
                 body: formData
             });
@@ -1308,7 +1310,7 @@
 
         // 3. Trigger submit to workflow routing
         try {
-            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/enviar`, {
+            const res = await fetch(`${QUOTE_BASE_URL}/enviar`, {
                 method: "POST"
             });
             const data = await res.json();
@@ -1324,7 +1326,7 @@
     }
 
     function downloadPdf() {
-        window.open(`${API_URL}/cotacoes/token/${TOKEN}/pdf`, '_blank');
+        window.open(`${QUOTE_BASE_URL}/pdf`, '_blank');
     }
 
     // Mark as Lost Flow
@@ -1345,7 +1347,7 @@
         }
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/perdida`, {
+            const res = await fetch(`${QUOTE_BASE_URL}/perdida`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ justificativa })
@@ -1410,7 +1412,7 @@
         }
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/token/${TOKEN}/faturar`, {
+            const res = await fetch(`${QUOTE_BASE_URL}/faturar`, {
                 method: "POST",
                 headers: { 
                     "Content-Type": "application/json",
@@ -1518,12 +1520,7 @@
             alert("Aguarde o carregamento da cotação.");
             return;
         }
-        const tokenToUse = quote.token_representante || TOKEN;
-        if (tokenToUse) {
-            window.open(`${API_URL}/cotacoes/token/${tokenToUse}/pdf`, '_blank');
-        } else {
-            window.open(`${API_URL}/cotacoes/${quote.id}/pdf`, '_blank');
-        }
+        window.open(`${QUOTE_BASE_URL}/pdf`, '_blank');
     }
 </script>
 @endsection
