@@ -1974,9 +1974,13 @@
             }
         }
 
+        let currentDisplayedPartners = [];
+
         function renderPartnerSelectOptions(list, isSearching = false) {
             const container = document.getElementById("partner-search-results");
             if (!container) return;
+
+            currentDisplayedPartners = Array.isArray(list) ? list : [];
 
             if (selectedPartner) {
                 container.style.display = "none";
@@ -2024,7 +2028,7 @@
         }
 
         function selectPartnerById(id) {
-            selectedPartner = allPartnersList.find(p => p.id == id);
+            selectedPartner = (currentDisplayedPartners || []).find(p => p.id == id) || (allPartnersList || []).find(p => p.id == id);
             if (!selectedPartner) return;
 
             const card = document.getElementById("selected-partner-card");
@@ -2091,15 +2095,22 @@
             }, 250);
         }
 
+        let partnerSearchReqId = 0;
+
         async function executeServerPartnerSearch(query) {
             if (!query) return;
-            const normalizedQuery = normalizeStr(query).trim();
-            if (!normalizedQuery) return;
+            const trimmedQuery = query.trim();
+            if (!trimmedQuery) return;
+
+            const thisReqId = ++partnerSearchReqId;
 
             try {
-                const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(query)}&limit=50`);
+                const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(trimmedQuery)}&limit=50`);
                 const data = await res.json();
                 
+                // If a newer search was executed while this was in-flight, discard
+                if (thisReqId !== partnerSearchReqId) return;
+
                 let rawResults = [];
                 if (data.success && Array.isArray(data.data)) {
                     rawResults = data.data;
@@ -2114,26 +2125,7 @@
                         }
                     });
 
-                    const currentQuery = document.getElementById("partner-search-input").value.trim();
-                    const currentNormalized = normalizeStr(currentQuery).trim();
-
-                    if (currentNormalized === normalizedQuery) {
-                        const terms = currentNormalized.split(/\s+/).filter(Boolean);
-                        const filteredResults = rawResults.filter(p => {
-                            const searchables = [
-                                normalizeStr(p.razao_social),
-                                normalizeStr(p.nome_fantasia),
-                                normalizeStr(p.cnpj || p.cnpj_cpf),
-                                normalizeStr(p.codigo_sankhya),
-                                normalizeStr(p.cidade),
-                                normalizeStr(p.bairro)
-                            ].join(" ");
-
-                            return terms.every(term => searchables.includes(term));
-                        });
-
-                        renderPartnerSelectOptions(filteredResults, false);
-                    }
+                    renderPartnerSelectOptions(rawResults, false);
                 }
             } catch(e) {
                 console.error("Error searching server partners:", e);

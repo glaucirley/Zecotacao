@@ -1526,34 +1526,40 @@
         }, 250);
     }
 
-    async function executeAdminServerPartnerSearch(query) {
-        if (!query) return;
-        try {
-            const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(query)}&limit=50`);
-            const data = await res.json();
-            
-            let results = [];
-            if (data.success && Array.isArray(data.data)) {
-                results = data.data;
-            } else if (Array.isArray(data)) {
-                results = data;
-            }
+        let adminPartnerSearchReqId = 0;
 
-            if (Array.isArray(results)) {
-                results.forEach(partner => {
-                    if (!adminPartnersList.some(p => p.id == partner.id)) {
-                        adminPartnersList.push(partner);
-                    }
-                });
-                const currentQuery = document.getElementById("admin-partner-search-input").value.trim();
-                if (normalizeStr(currentQuery) === normalizeStr(query)) {
+        async function executeAdminServerPartnerSearch(query) {
+            if (!query) return;
+            const trimmedQuery = query.trim();
+            if (!trimmedQuery) return;
+
+            const thisReqId = ++adminPartnerSearchReqId;
+
+            try {
+                const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(trimmedQuery)}&limit=50`);
+                const data = await res.json();
+                
+                if (thisReqId !== adminPartnerSearchReqId) return;
+
+                let results = [];
+                if (data.success && Array.isArray(data.data)) {
+                    results = data.data;
+                } else if (Array.isArray(data)) {
+                    results = data;
+                }
+
+                if (Array.isArray(results)) {
+                    results.forEach(partner => {
+                        if (!adminPartnersList.some(p => p.id == partner.id)) {
+                            adminPartnersList.push(partner);
+                        }
+                    });
                     renderAdminPartnerOptions(results, false);
                 }
+            } catch(e) {
+                console.error("Error searching admin partners:", e);
             }
-        } catch(e) {
-            console.error("Error searching admin partners:", e);
         }
-    }
 
     function selectAdminPartnerById(id) {
         adminSelectedPartner = adminPartnersList.find(p => p.id == id);
