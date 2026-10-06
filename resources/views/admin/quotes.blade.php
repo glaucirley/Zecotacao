@@ -828,7 +828,7 @@
 
 @section('scripts')
 <script>
-    const API_URL = "{{ url('/api/v1') }}";
+    const API_URL = "/api/v1";
     const CURRENT_USER = @json(auth()->user());
     let rawQuotes = [];
     let metaProducts = [];
@@ -1537,6 +1537,9 @@
 
             try {
                 const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(trimmedQuery)}&limit=50`);
+                if (!res.ok) {
+                    throw new Error(`Servidor retornou status ${res.status}`);
+                }
                 const data = await res.json();
                 
                 if (thisReqId !== adminPartnerSearchReqId) return;
@@ -1558,6 +1561,10 @@
                 }
             } catch(e) {
                 console.error("Error searching admin partners:", e);
+                const container = document.getElementById("admin-partner-search-results");
+                if (container && thisReqId === adminPartnerSearchReqId) {
+                    container.innerHTML = `<div style="text-align:center; padding:12px; color:#ef4444; font-size:12px;">⚠️ Erro na consulta (${e.message}).</div>`;
+                }
             }
         }
 

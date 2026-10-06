@@ -31,6 +31,11 @@ class PartnerController extends Controller
                                  ->orWhere('cnpj', 'like', "%{$term}%")
                                  ->orWhere('cidade', 'like', "%{$term}%")
                                  ->orWhere('bairro', 'like', "%{$term}%");
+
+                            $cleanDigits = preg_replace('/[^0-9]/', '', $term);
+                            if (strlen($cleanDigits) >= 3) {
+                                $subQ->orWhere('cnpj', 'like', "%{$cleanDigits}%");
+                            }
                         });
                     }
                 });

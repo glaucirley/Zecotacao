@@ -1212,8 +1212,8 @@
 
     <!-- Scripts -->
     <script>
-        const API_URL = "{{ url('/api/v1') }}";
-        const PUBLIC_URL = "{{ url('/') }}";
+        const API_URL = "/api/v1";
+        const PUBLIC_URL = "";
         let quotes = [];
         let filteredQuotesList = [];
         let notifications = [];
@@ -2106,6 +2106,9 @@
 
             try {
                 const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(trimmedQuery)}&limit=50`);
+                if (!res.ok) {
+                    throw new Error(`Servidor retornou erro ${res.status}`);
+                }
                 const data = await res.json();
                 
                 // If a newer search was executed while this was in-flight, discard
@@ -2129,6 +2132,10 @@
                 }
             } catch(e) {
                 console.error("Error searching server partners:", e);
+                const container = document.getElementById("partner-search-results");
+                if (container && thisReqId === partnerSearchReqId) {
+                    container.innerHTML = `<div style="text-align:center; padding:16px; color:#ef4444; font-size:12px;">⚠️ Erro na consulta (${e.message}). Verifique a conexão ou tente novamente.</div>`;
+                }
             }
         }
 
