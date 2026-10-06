@@ -63,6 +63,15 @@ class UserController extends Controller
             return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
         }
 
+        if ($request->input('papel') === 'representante' && filter_var($request->input('ativo', true), FILTER_VALIDATE_BOOLEAN) && empty($request->input('equipe_id'))) {
+            return response()->json([
+                'error' => 'Validation error',
+                'messages' => [
+                    'equipe_id' => ['Representantes comerciais ativos devem obrigatoriamente estar vinculados a uma equipe.']
+                ]
+            ], 422);
+        }
+
         try {
             $user = User::create([
                 'nome' => $request->input('nome'),
@@ -120,6 +129,15 @@ class UserController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+        }
+
+        if ($request->input('papel') === 'representante' && filter_var($request->input('ativo'), FILTER_VALIDATE_BOOLEAN) && empty($request->input('equipe_id'))) {
+            return response()->json([
+                'error' => 'Validation error',
+                'messages' => [
+                    'equipe_id' => ['Representantes comerciais ativos devem obrigatoriamente estar vinculados a uma equipe.']
+                ]
+            ], 422);
         }
 
         try {

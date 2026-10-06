@@ -40,6 +40,13 @@ class DatabaseSeeder extends Seeder
             'editavel_por' => 'diretor',
         ]);
 
+        ParametroSistema::firstOrCreate(['chave' => 'SEM_GESTOR_ACAO'], [
+            'valor' => 'BLOQUEAR',
+            'descricao' => 'Ação quando representante não possui gestor ativo configurado: BLOQUEAR envio ou encaminhar para DIRETORIA',
+            'tipo' => 'texto',
+            'editavel_por' => 'diretor',
+        ]);
+
         ParametroSistema::firstOrCreate(['chave' => 'DESCONTO_AVALIACAO_MODO'], [
             'valor' => 'ITEM_A_ITEM',
             'descricao' => 'Modo de avaliacao de desconto para alcada de aprovacao (ITEM_A_ITEM ou MEDIA_TOTAL)',

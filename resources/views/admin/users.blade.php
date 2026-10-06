@@ -485,6 +485,11 @@
             payload.password = password;
         }
 
+        if (payload.papel === 'representante' && payload.ativo && !payload.equipe_id) {
+            alert("⚠️ Não é permitido salvar um Representante Comercial ativo sem equipe vinculada.\nSelecione uma equipe para o representante antes de salvar.");
+            return;
+        }
+
         const url = isEdit ? `${API_URL}/usuarios/${id}` : `${API_URL}/usuarios`;
         const method = isEdit ? "PATCH" : "POST";
 
@@ -504,7 +509,15 @@
                 closeUserModal();
                 loadData();
             } else {
-                alert("Erro ao salvar: " + (data.message || JSON.stringify(data.messages)));
+                let msg = data.message || "Erro ao salvar usuário.";
+                if (data.messages) {
+                    if (typeof data.messages === 'object') {
+                        msg = Object.values(data.messages).flat().join("\n");
+                    } else {
+                        msg = JSON.stringify(data.messages);
+                    }
+                }
+                alert("Erro ao salvar:\n" + msg);
             }
         } catch (e) {
             alert("Erro de conexão.");

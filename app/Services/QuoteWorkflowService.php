@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Cotacao;
 use App\Models\ParametroSistema;
 use App\Models\CotacaoHistorico;
+use App\Models\User;
+use App\Models\Notificacao;
 
 class QuoteWorkflowService
 {
@@ -184,76 +186,112 @@ class QuoteWorkflowService
             ];
         }
 
-        // 4. Calculate discount based on DESCONTO_AVALIACAO_MODO
-        $modoAvaliacao = ParametroSistema::getVal('DESCONTO_AVALIACAO_MODO', 'ITEM_A_ITEM');
-        $gestorLimit = (float)($quote->representante->equipe?->gestor?->limite_desconto_percentual ?? 0.00);
-        $routeToDirector = false;
-        $calculatedDiscount = 0.00;
+        // 4. Verify team and active manager availability
+        $representante = $quote->representante;
+        $equipe = $representante?->equipe;
+        $gestor = $equipe?->gestor;
+        $hasActiveGestor = ($gestor && $gestor->ativo);
 
-        if ($modoAvaliacao === 'ITEM_A_ITEM') {
-            // Find the maximum discount percentage among items below suggested price (skipping approved if SO_ITENS_ALTERADOS)
-            $maxDiscount = 0.00;
-            foreach ($quote->itens as $item) {
-                if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
-                    continue;
-                }
-                $precoSugerido = (float)$item->preco_unit_sugerido;
-                $precoProposto = (float)$item->preco_unit_proposto;
+        $semGestorAcao = ParametroSistema::getVal('SEM_GESTOR_ACAO', 'BLOQUEAR');
 
-                if ($precoSugerido > 0 && $precoProposto < $precoSugerido) {
-                    $discount = (($precoSugerido - $precoProposto) / $precoSugerido) * 100;
-                    if ($discount > $maxDiscount) {
-                        $maxDiscount = $discount;
-                    }
-                }
-            }
-            $calculatedDiscount = $maxDiscount;
-            if ($calculatedDiscount > $gestorLimit) {
-                $routeToDirector = true;
-            }
-        } else {
-            // MEDIA_TOTAL mode
-            $totalSugerido = 0.00;
-            $totalProposto = 0.00;
-
-            foreach ($quote->itens as $item) {
-                if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
-                    continue;
-                }
-                $totalSugerido += $item->qtd * (float)$item->preco_unit_sugerido;
-                $totalProposto += $item->qtd * (float)$item->preco_unit_proposto;
-            }
-
-            if ($totalSugerido > 0) {
-                $calculatedDiscount = (($totalSugerido - $totalProposto) / $totalSugerido) * 100;
-            }
-
-            if ($calculatedDiscount > $gestorLimit) {
-                $routeToDirector = true;
+        if (!$hasActiveGestor) {
+            if ($semGestorAcao === 'BLOQUEAR') {
+                return [
+                    'success' => false,
+                    'error' => 'SEM_GESTOR_ATIVO',
+                    'message' => 'Não é possível enviar a cotação: o representante não possui equipe vinculada ou a equipe não possui um gestor ativo cadastrado para aprovação. Entre em contato com a administração.'
+                ];
             }
         }
 
-        // 5. Update quote status and log history
+        // 5. Calculate discount based on DESCONTO_AVALIACAO_MODO
+        $modoAvaliacao = ParametroSistema::getVal('DESCONTO_AVALIACAO_MODO', 'ITEM_A_ITEM');
+        $gestorLimit = $hasActiveGestor ? (float)$gestor->limite_desconto_percentual : 0.00;
+        $routeToDirector = !$hasActiveGestor; // If no active manager and action is DIRETORIA, escalates directly
+        $calculatedDiscount = 0.00;
+
+        if ($hasActiveGestor) {
+            if ($modoAvaliacao === 'ITEM_A_ITEM') {
+                // Find the maximum discount percentage among items below suggested price (skipping approved if SO_ITENS_ALTERADOS)
+                $maxDiscount = 0.00;
+                foreach ($quote->itens as $item) {
+                    if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
+                        continue;
+                    }
+                    $precoSugerido = (float)$item->preco_unit_sugerido;
+                    $precoProposto = (float)$item->preco_unit_proposto;
+
+                    if ($precoSugerido > 0 && $precoProposto < $precoSugerido) {
+                        $discount = (($precoSugerido - $precoProposto) / $precoSugerido) * 100;
+                        if ($discount > $maxDiscount) {
+                            $maxDiscount = $discount;
+                        }
+                    }
+                }
+                $calculatedDiscount = $maxDiscount;
+                if ($calculatedDiscount > $gestorLimit) {
+                    $routeToDirector = true;
+                }
+            } else {
+                // MEDIA_TOTAL mode
+                $totalSugerido = 0.00;
+                $totalProposto = 0.00;
+
+                foreach ($quote->itens as $item) {
+                    if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
+                        continue;
+                    }
+                    $totalSugerido += $item->qtd * (float)$item->preco_unit_sugerido;
+                    $totalProposto += $item->qtd * (float)$item->preco_unit_proposto;
+                }
+
+                if ($totalSugerido > 0) {
+                    $calculatedDiscount = (($totalSugerido - $totalProposto) / $totalSugerido) * 100;
+                }
+
+                if ($calculatedDiscount > $gestorLimit) {
+                    $routeToDirector = true;
+                }
+            }
+        }
+
+        // 6. Update quote status and log history
         if ($routeToDirector) {
             $quote->update(['status' => 'COM_DIRETOR']);
             
+            $condicaoHistorico = !$hasActiveGestor
+                ? 'Representante sem gestor ativo vinculado. Cotação encaminhada diretamente para a diretoria conforme parâmetro do sistema (SEM_GESTOR_ACAO = DIRETORIA).'
+                : sprintf(
+                    'Desconto calculado (%s: %.2f%%) excede o limite do gestor (%.2f%%). Enviado para a diretoria.',
+                    $modoAvaliacao,
+                    $calculatedDiscount,
+                    $gestorLimit
+                );
+
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
                 'evento' => 'ENVIADA_AO_DIRETOR',
                 'usuario_id' => $quote->representante_id,
                 'papel' => 'representante',
-                'condicao' => sprintf(
-                    'Desconto calculado (%s: %.2f%%) excede o limite do gestor (%.2f%%). Enviado para a diretoria.',
-                    $modoAvaliacao,
-                    $calculatedDiscount,
-                    $gestorLimit
-                )
+                'condicao' => $condicaoHistorico
             ]);
+
+            // Notificar diretores e administradores
+            $diretores = User::whereIn('papel', ['diretor', 'administrador'])->where('ativo', true)->get();
+            foreach ($diretores as $dir) {
+                \App\Models\Notificacao::create([
+                    'usuario_id' => $dir->id,
+                    'titulo' => '📋 Cotação aguardando Diretoria',
+                    'mensagem' => "A cotação {$quote->numero} de " . ($quote->representante?->nome ?? 'Representante') . " requer aprovação da diretoria.",
+                    'link' => "/cotacoes/id/{$quote->id}",
+                    'lida' => false,
+                ]);
+            }
 
             return [
                 'success' => true,
                 'status' => 'COM_DIRETOR',
-                'message' => 'Quote sent to Director for approval. Discount limit exceeded.'
+                'message' => 'Quote sent to Director for approval.'
             ];
         } else {
             $quote->update(['status' => 'AGUARDANDO_GESTOR']);
@@ -271,6 +309,16 @@ class QuoteWorkflowService
                 )
             ]);
 
+            if ($gestor && $gestor->ativo) {
+                \App\Models\Notificacao::create([
+                    'usuario_id' => $gestor->id,
+                    'titulo' => '📋 Cotação aguardando sua Aprovação',
+                    'mensagem' => "A cotação {$quote->numero} de {$quote->representante?->nome} foi enviada para sua aprovação.",
+                    'link' => "/cotacoes/id/{$quote->id}",
+                    'lida' => false,
+                ]);
+            }
+
             return [
                 'success' => true,
                 'status' => 'AGUARDANDO_GESTOR',
@@ -281,11 +329,15 @@ class QuoteWorkflowService
 
     /**
      * Check and expire quotes whose validity has passed.
+     * Also reconciles any quotes orphaned in AGUARDANDO_GESTOR without an active manager.
      *
      * @return int Number of expired quotes processed
      */
     public static function checkAndExpireQuotes(): int
     {
+        // Reconcile quotes orphaned without manager
+        self::reconcileOrphanedQuotes();
+
         $activeStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
 
         $now = now();
@@ -327,6 +379,75 @@ class QuoteWorkflowService
             }
 
             $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Reconcile quotes stuck in AGUARDANDO_GESTOR when the representative has no team or the team has no active manager.
+     *
+     * @return int Number of quotes reconciled
+     */
+    public static function reconcileOrphanedQuotes(): int
+    {
+        $orphanedQuotes = Cotacao::where('status', 'AGUARDANDO_GESTOR')
+            ->with(['representante.equipe.gestor'])
+            ->get();
+
+        $semGestorAcao = ParametroSistema::getVal('SEM_GESTOR_ACAO', 'BLOQUEAR');
+        $count = 0;
+
+        foreach ($orphanedQuotes as $quote) {
+            $gestor = $quote->representante?->equipe?->gestor;
+            $hasActiveGestor = ($gestor && $gestor->ativo);
+
+            if (!$hasActiveGestor) {
+                if ($semGestorAcao === 'DIRETORIA') {
+                    $quote->update(['status' => 'COM_DIRETOR']);
+
+                    CotacaoHistorico::create([
+                        'cotacao_id' => $quote->id,
+                        'evento' => 'ENVIADA_AO_DIRETOR',
+                        'usuario_id' => null,
+                        'papel' => 'sistema',
+                        'condicao' => 'Cotação órfã em Aguardando Gestor reencaminhada automaticamente para a Diretoria por ausência de gestor ativo na equipe (SEM_GESTOR_ACAO = DIRETORIA).'
+                    ]);
+
+                    $recipients = User::whereIn('papel', ['diretor', 'administrador'])->where('ativo', true)->get();
+                    foreach ($recipients as $recipient) {
+                        \App\Models\Notificacao::create([
+                            'usuario_id' => $recipient->id,
+                            'titulo' => '📋 Cotação Reencaminhada para Diretoria',
+                            'mensagem' => "A cotação {$quote->numero} estava sem gestor responsável e foi reencaminhada para a Diretoria.",
+                            'link' => "/cotacoes/id/{$quote->id}",
+                            'lida' => false,
+                        ]);
+                    }
+                } else {
+                    // BLOQUEAR / DEVOLVER ao representante para ajuste de alçada/equipe
+                    $quote->update(['status' => 'DEVOLVIDA']);
+
+                    CotacaoHistorico::create([
+                        'cotacao_id' => $quote->id,
+                        'evento' => 'COTACAO_DEVOLVIDA',
+                        'usuario_id' => null,
+                        'papel' => 'sistema',
+                        'condicao' => 'Cotação devolvida pelo sistema: representante não possui equipe vinculada ou gestor ativo para aprovação (SEM_GESTOR_ACAO = BLOQUEAR).'
+                    ]);
+
+                    if ($quote->representante_id) {
+                        \App\Models\Notificacao::create([
+                            'usuario_id' => $quote->representante_id,
+                            'titulo' => '⚠️ Cotação Devolvida pelo Sistema',
+                            'mensagem' => "A cotação {$quote->numero} foi devolvida pois seu usuário não possui gestor ativo cadastrado para aprovação. Entre em contato com a administração.",
+                            'link' => "/cotacoes/id/{$quote->id}",
+                            'lida' => false,
+                        ]);
+                    }
+                }
+                $count++;
+            }
         }
 
         return $count;

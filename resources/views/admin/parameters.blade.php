@@ -242,6 +242,13 @@
                                 <option value="MEDIA_TOTAL" ${safeVal === 'MEDIA_TOTAL' ? 'selected' : ''}>Média Total</option>
                             </select>
                         `;
+                    } else if (p.chave === 'SEM_GESTOR_ACAO') {
+                        inputMarkup = `
+                            <select id="val-${p.chave}" class="form-control" style="font-size:13px; padding:6px 10px;">
+                                <option value="BLOQUEAR" ${safeVal === 'BLOQUEAR' ? 'selected' : ''}>Bloquear Envio (Exigir Gestor Ativo)</option>
+                                <option value="DIRETORIA" ${safeVal === 'DIRETORIA' ? 'selected' : ''}>Encaminhar para Diretoria</option>
+                            </select>
+                        `;
                     } else if (p.chave === 'REENVIO_PARCIAL_MODO') {
                         inputMarkup = `
                             <select id="val-${p.chave}" class="form-control" style="font-size:13px; padding:6px 10px;">
