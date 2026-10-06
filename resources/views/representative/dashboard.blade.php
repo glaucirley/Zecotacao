@@ -1091,7 +1091,7 @@
                 <div id="step-content-1" class="step-panel active">
                     <div class="form-group-mobile">
                         <label class="form-label-mobile">Selecione o Cliente / Parceiro <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="partner-search-input" class="input-mobile" placeholder="🔍 Buscar cliente por nome, CNPJ ou código..." oninput="filterPartnerOptions()">
+                        <input type="text" id="partner-search-input" class="input-mobile" placeholder="🔍 Buscar cliente por nome, CNPJ ou código..." oninput="filterPartnerOptions()" onkeyup="filterPartnerOptions()">
                         
                         <!-- Selected Client Confirmation Card -->
                         <div id="selected-partner-card" style="display:none; margin-top:10px; background:#f0fdf4; border:1px solid #86efac; border-radius:12px; padding:12px 14px;">
