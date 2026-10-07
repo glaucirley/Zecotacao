@@ -896,6 +896,28 @@
         renderItems();
     }
 
+    function formatCurrency(val) {
+        const num = typeof val === 'number' ? val : parseFloat(val || 0);
+        return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function getItemEffectiveMin(item) {
+        const sug = parseFloat(item.preco_unit_sugerido || 0);
+        const min = parseFloat(item.preco_minimo || 0);
+        // Quando o mínimo cadastral for maior que o sugerido (inconsistência cadastral),
+        // o piso de tolerância para não bloquear o representante é o preço sugerido.
+        if (sug > 0 && min > sug) {
+            return sug;
+        }
+        return min;
+    }
+
+    function isItemInconsistent(item) {
+        const sug = parseFloat(item.preco_unit_sugerido || 0);
+        const min = parseFloat(item.preco_minimo || 0);
+        return (sug > 0 && min > sug);
+    }
+
     function renderItems() {
         const body = document.getElementById("items-table-body");
         body.innerHTML = "";
@@ -906,7 +928,8 @@
         let countApproved = 0;
 
         quote.itens.forEach(item => {
-            const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
+            const minEf = getItemEffectiveMin(item);
+            const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
             if (isBelowMin && item.status_item !== 'aprovado') {
                 hasItemBelowMin = true;
                 countAttention++;
@@ -932,7 +955,8 @@
                 if (!code.includes(q) && !desc.includes(q)) return false;
             }
 
-            const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
+            const minEf = getItemEffectiveMin(item);
+            const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
             if (currentFilterTab === 'attention') {
                 return isBelowMin && item.status_item !== 'aprovado';
             }
@@ -952,7 +976,9 @@
             `;
         } else {
             filtered.forEach(item => {
-                const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
+                const minEf = getItemEffectiveMin(item);
+                const isInconsistent = isItemInconsistent(item);
+                const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
                 const inputClass = isBelowMin ? "price-below-min" : "";
                 const isItemLocked = isEditingLocked || item.status_item === 'recusado';
                 const rowClass = item.status_item === 'recusado' ? "recusado" : (item.status_item === 'aprovado' ? "aprovado" : "");
@@ -967,10 +993,11 @@
                             <div class="product-desc-title">
                                 ${item.produto.descricao}
                                 ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="display:inline-block; margin-left:8px;">Campanha</span>' : ''}
+                                ${isInconsistent ? '<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #fcd34d; margin-left:6px;" title="Preço mínimo cadastral maior que o sugerido. Venda pelo sugerido não exige justificativa.">⚠️ Mín > Sugerido</span>' : ''}
                             </div>
                             <div class="mobile-sub-info">
-                                Sug: R$ ${parseFloat(item.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2})} | 
-                                Mín: R$ ${parseFloat(item.preco_minimo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                                Sug: R$ ${formatCurrency(item.preco_unit_sugerido)} | 
+                                Mín: R$ ${formatCurrency(item.preco_minimo)} ${isInconsistent ? '<span style="color:#b45309; font-weight:600;">(divergente)</span>' : ''}
                             </div>
                         </td>
                         <td class="text-center col-un">
@@ -987,17 +1014,20 @@
                                 ${!isItemLocked ? `<button type="button" class="qty-btn" onclick="stepQty(${item.id}, 1)">+</button>` : ''}
                             </div>
                         </td>
-                        <td class="text-right col-sugerido desktop-only">R$ ${parseFloat(item.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                        <td class="text-right col-minimo desktop-only" style="color: #64748b;">R$ ${parseFloat(item.preco_minimo).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        <td class="text-right col-sugerido desktop-only">R$ ${formatCurrency(item.preco_unit_sugerido)}</td>
+                        <td class="text-right col-minimo desktop-only" style="color: #64748b;">
+                            R$ ${formatCurrency(item.preco_minimo)}
+                            ${isInconsistent ? '<span title="Cadastro com mínimo maior que sugerido. Venda pelo sugerido liberada." style="color:#d97706; font-size:12px; margin-left:2px;">⚠️</span>' : ''}
+                        </td>
                         <td class="text-right col-proposto">
                             <span class="mobile-label">Preço Proposto:</span>
                             <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
                                 <input type="number" class="form-control text-right ${inputClass}" 
-                                    value="${parseFloat(item.preco_unit_proposto)}" step="0.01" min="0.01"
+                                    value="${(parseFloat(item.preco_unit_proposto) || 0).toFixed(2)}" step="0.01" min="0.01"
                                     style="width: 105px; padding: 5px 8px; font-size: 14px; font-weight: 600;" 
                                     ${isItemLocked ? 'disabled' : ''} 
                                     oninput="updateItemCalculations(${item.id}, null, this.value)">
-                                ${!isItemLocked && isBelowMin ? `<button type="button" class="btn btn-outline btn-min-fix" onclick="resetToMin(${item.id}, ${item.preco_minimo})">Mín</button>` : ''}
+                                ${!isItemLocked && isBelowMin ? `<button type="button" class="btn btn-outline btn-min-fix" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>` : ''}
                             </div>
                         </td>
                         <td class="text-center col-status">
@@ -1027,7 +1057,7 @@
         if (!item) return;
 
         if (newQtd !== null) item.qtd = parseInt(newQtd) || 1;
-        if (newPrice !== null) item.preco_unit_proposto = parseFloat(newPrice) || 0.00;
+        if (newPrice !== null) item.preco_unit_proposto = parseFloat(parseFloat(newPrice).toFixed(2)) || 0.00;
 
         item.subtotal = item.qtd * item.preco_unit_proposto;
         
@@ -1039,19 +1069,23 @@
         const row = document.getElementById(`row-${itemId}`);
         if (row) {
             const inputPrice = row.querySelector("td:nth-child(7) input[type='number']");
-            const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
+            const minEf = getItemEffectiveMin(item);
+            const isBelowMin = parseFloat(item.preco_unit_proposto) < minEf;
             
             if (isBelowMin) {
                 inputPrice.classList.add("price-below-min");
+                row.classList.add("below-min-card");
             } else {
                 inputPrice.classList.remove("price-below-min");
+                row.classList.remove("below-min-card");
             }
         }
 
         // Evaluate if any active item triggers the justification requirement
         let hasItemBelowMin = false;
         quote.itens.forEach(i => {
-            if (parseFloat(i.preco_unit_proposto) < parseFloat(i.preco_minimo) && i.status_item !== 'aprovado') {
+            const minEf = getItemEffectiveMin(i);
+            if (parseFloat(i.preco_unit_proposto) < minEf && i.status_item !== 'aprovado') {
                 hasItemBelowMin = true;
             }
         });
@@ -1066,8 +1100,9 @@
         if (row) {
             const inputPrice = row.querySelector("td:nth-child(7) input[type='number']");
             if (inputPrice) {
-                inputPrice.value = minPrice;
-                updateItemCalculations(itemId, null, minPrice);
+                const roundedPrice = parseFloat(minPrice).toFixed(2);
+                inputPrice.value = roundedPrice;
+                updateItemCalculations(itemId, null, roundedPrice);
                 renderItems(); // re-render to update warning highlights
             }
         }
@@ -1087,13 +1122,13 @@
 
         const desconto = subtotal - total;
 
-        document.getElementById("total-sugerido").innerText = "R$ " + subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
-        document.getElementById("total-desconto").innerText = "- R$ " + (desconto > 0 ? desconto : 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
-        document.getElementById("total-liquido").innerText = "R$ " + total.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        document.getElementById("total-sugerido").innerText = "R$ " + formatCurrency(subtotal);
+        document.getElementById("total-desconto").innerText = "- R$ " + formatCurrency(desconto > 0 ? desconto : 0);
+        document.getElementById("total-liquido").innerText = "R$ " + formatCurrency(total);
 
         const mobileTotalEl = document.getElementById("mobile-sticky-total");
         if (mobileTotalEl) {
-            mobileTotalEl.innerText = "R$ " + total.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+            mobileTotalEl.innerText = "R$ " + formatCurrency(total);
         }
     }
 
@@ -1155,7 +1190,7 @@
             div.onclick = () => selectProductForAdd(p.id);
 
             const sugVal = p.preco_sugerido ? parseFloat(p.preco_sugerido) : 150.00;
-            const sugText = sugVal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+            const sugText = formatCurrency(sugVal);
 
             div.innerHTML = `
                 <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px;">
@@ -1242,7 +1277,7 @@
         const qtd = parseInt(document.getElementById("new-item-qtd").value) || 0;
         const proposto = parseFloat(document.getElementById("new-item-proposto").value) || 0.00;
         const sub = qtd * proposto;
-        document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ " + sub.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ " + formatCurrency(sub);
     }
 
     async function addNewItem() {
@@ -1252,9 +1287,9 @@
             return;
         }
 
-        const sugerido = parseFloat(document.getElementById("new-item-sugerido").value) || 0;
-        const minimo = parseFloat(document.getElementById("new-item-minimo").value) || 0;
-        const proposto = parseFloat(document.getElementById("new-item-proposto").value) || 0;
+        const sugerido = parseFloat(parseFloat(document.getElementById("new-item-sugerido").value).toFixed(2)) || 0;
+        const minimo = parseFloat(parseFloat(document.getElementById("new-item-minimo").value).toFixed(2)) || 0;
+        const proposto = parseFloat(parseFloat(document.getElementById("new-item-proposto").value).toFixed(2)) || 0;
 
         if (proposto <= 0) {
             alert("Por favor, informe um preço proposto válido.");

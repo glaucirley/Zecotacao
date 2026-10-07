@@ -197,15 +197,40 @@ class QuoteWorkflowService
         }
 
         // 1. Check if any item is proposed below its minimum price (skipping already approved items if SO_ITENS_ALTERADOS)
+        // e identificar itens com inconsistência cadastral (preço mínimo > preço sugerido)
         $hasItemsBelowMin = false;
+        $inconsistentItems = [];
+
         foreach ($quote->itens as $item) {
+            $suggested = (float)$item->preco_unit_sugerido;
+            $minPrice = (float)$item->preco_minimo;
+            $proposedPrice = (float)$item->preco_unit_proposto;
+
+            // Detectar inconsistência cadastral (mínimo cadastral maior que o sugerido de tabela)
+            $isInconsistent = ($suggested > 0 && $minPrice > $suggested);
+            if ($isInconsistent) {
+                $inconsistentItems[] = $item;
+                if (!$item->inconsistente) {
+                    $item->update(['inconsistente' => true]);
+                }
+            }
+
             if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
                 continue;
             }
-            if ((float)$item->preco_unit_proposto < (float)$item->preco_minimo) {
+
+            // Preço mínimo efetivo: quando o mínimo cadastral for maior que o sugerido,
+            // a referência para exigir justificativa de piso é o preço sugerido (vendendo pelo sugerido nunca exige justificativa).
+            $effectiveMin = $isInconsistent ? $suggested : $minPrice;
+
+            if ($proposedPrice < $effectiveMin) {
                 $hasItemsBelowMin = true;
-                break;
             }
+        }
+
+        // Avisar administradores se houver itens com cadastro inconsistente
+        if (!empty($inconsistentItems)) {
+            static::notifyAdminsAboutInconsistentItems($quote, $inconsistentItems);
         }
 
         // 2. Calculate discount percentage based on DESCONTO_AVALIACAO_MODO
@@ -596,5 +621,50 @@ class QuoteWorkflowService
         }
 
         return $count;
+    }
+
+    /**
+     * Notify administrators about items with inconsistent cadastral data (min price > suggested price)
+     */
+    public static function notifyAdminsAboutInconsistentItems(Cotacao $quote, array $items): void
+    {
+        $admins = \App\Models\User::where('papel', 'administrador')->where('ativo', true)->get();
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        foreach ($items as $item) {
+            $prodDesc = $item->produto->descricao ?? ('Produto #' . $item->produto_id);
+            $prodCode = $item->produto->codigo_sankhya ?? ('ID:' . $item->produto_id);
+            $minVal = number_format((float)$item->preco_minimo, 2, ',', '.');
+            $sugVal = number_format((float)$item->preco_unit_sugerido, 2, ',', '.');
+
+            // Evitar duplicações de histórico e notificação para o mesmo item
+            $alreadyLogged = CotacaoHistorico::where('cotacao_id', $quote->id)
+                ->where('evento', 'ALERTA_ITEM_INCONSISTENTE')
+                ->where('cotacao_item_id', $item->id)
+                ->exists();
+
+            if (!$alreadyLogged) {
+                CotacaoHistorico::create([
+                    'cotacao_id' => $quote->id,
+                    'cotacao_item_id' => $item->id,
+                    'evento' => 'ALERTA_ITEM_INCONSISTENTE',
+                    'usuario_id' => null,
+                    'papel' => 'sistema',
+                    'condicao' => "Inconsistência cadastral: Preço Mínimo (R$ {$minVal}) é maior que o Sugerido (R$ {$sugVal}) para '{$prodDesc}' ({$prodCode}). Administradores notificados para conferência no cadastro/Sankhya.",
+                ]);
+
+                foreach ($admins as $admin) {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $admin->id,
+                        'titulo' => '⚠️ Preço Mínimo Maior que Sugerido',
+                        'mensagem' => "O produto '{$prodDesc}' ({$prodCode}) na cotação nº {$quote->numero} possui Preço Mínimo (R$ {$minVal}) maior que o Sugerido (R$ {$sugVal}). Favor conferir no cadastro.",
+                        'link' => "/cotacoes/id/{$quote->id}",
+                        'lida' => false,
+                    ]);
+                }
+            }
+        }
     }
 }

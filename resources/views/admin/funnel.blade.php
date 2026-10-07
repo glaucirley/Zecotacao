@@ -502,18 +502,18 @@
                     <tr>
                         <td><strong>${it.produto.descricao}</strong></td>
                         <td class="text-center">${it.qtd}</td>
-                        <td class="text-right">R$ ${parseFloat(it.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                        <td class="text-right">R$ ${parseFloat(it.preco_unit_proposto).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                        <td class="text-center" style="font-weight:600; ${adjClass}">${adjSign}${parseFloat(it.ajuste_percentual)}%</td>
+                        <td class="text-right">R$ ${parseFloat(it.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="text-right">R$ ${parseFloat(it.preco_unit_proposto).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="text-center" style="font-weight:600; ${adjClass}">${adjSign}${parseFloat(it.ajuste_percentual).toFixed(2)}%</td>
                         <td class="text-center"><span style="text-transform:uppercase; font-size:10px; font-weight:700;">${it.status_item}</span></td>
                     </tr>
                 `;
             });
 
             // Totals
-            document.getElementById("modal-subtotal").innerText = `R$ ${parseFloat(q.subtotal).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-            document.getElementById("modal-discount").innerText = `R$ ${parseFloat(q.desconto).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-            document.getElementById("modal-total").innerText = `R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById("modal-subtotal").innerText = `R$ ${parseFloat(q.subtotal).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById("modal-discount").innerText = `R$ ${parseFloat(q.desconto).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById("modal-total").innerText = `R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
             // Audit history
             const histList = document.getElementById("modal-history-list");

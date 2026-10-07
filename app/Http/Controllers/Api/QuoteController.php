@@ -437,15 +437,16 @@ class QuoteController extends Controller
                                 $status = 'pendente';
                             }
 
-                            $precoProposto = (float)$itemData['preco_unit_proposto'];
-                            $precoSugerido = (float)$item->preco_unit_sugerido;
-                            $ajuste = $precoSugerido > 0 ? (($precoProposto - $precoSugerido) / $precoSugerido) * 100 : 0;
+                            $precoProposto = round((float)$itemData['preco_unit_proposto'], 2);
+                            $precoSugerido = round((float)$item->preco_unit_sugerido, 2);
+                            $ajuste = $precoSugerido > 0 ? round((($precoProposto - $precoSugerido) / $precoSugerido) * 100, 2) : 0.00;
+                            $qtd = (int)$itemData['qtd'];
 
                             $item->update([
-                                'qtd' => $itemData['qtd'],
+                                'qtd' => $qtd,
                                 'preco_unit_proposto' => $precoProposto,
                                 'ajuste_percentual' => $ajuste,
-                                'subtotal' => $itemData['qtd'] * $precoProposto,
+                                'subtotal' => round($qtd * $precoProposto, 2),
                                 'status_item' => $status,
                             ]);
                         }
@@ -511,31 +512,38 @@ class QuoteController extends Controller
 
         try {
             DB::transaction(function () use ($request, $quote) {
-                $precoProposto = (float)$request->input('preco_unit_proposto');
-                $precoSugerido = (float)$request->input('preco_unit_sugerido');
-                $ajuste = $precoSugerido > 0 ? (($precoProposto - $precoSugerido) / $precoSugerido) * 100 : 0;
+                $precoProposto = round((float)$request->input('preco_unit_proposto'), 2);
+                $precoSugerido = round((float)$request->input('preco_unit_sugerido'), 2);
+                $precoMinimo = round((float)$request->input('preco_minimo'), 2);
+                $isInconsistente = ($precoSugerido > 0 && $precoMinimo > $precoSugerido);
+                $ajuste = $precoSugerido > 0 ? round((($precoProposto - $precoSugerido) / $precoSugerido) * 100, 2) : 0.00;
                 $qtd = (int)$request->input('qtd');
 
                 // Determine display order (add to end)
                 $maxOrder = CotacaoItem::where('cotacao_id', $quote->id)->max('ordem_exibicao') ?? 0;
 
-                CotacaoItem::create([
+                $item = CotacaoItem::create([
                     'cotacao_id' => $quote->id,
                     'produto_id' => $request->input('produto_id'),
                     'qtd' => $qtd,
                     'preco_unit_sugerido' => $precoSugerido,
-                    'preco_minimo' => $request->input('preco_minimo'),
+                    'preco_minimo' => $precoMinimo,
                     'preco_unit_proposto' => $precoProposto,
                     'ajuste_percentual' => $ajuste,
-                    'subtotal' => $qtd * $precoProposto,
+                    'subtotal' => round($qtd * $precoProposto, 2),
                     'status_item' => 'pendente',
-                    'margem_calculada' => $request->input('margem_calculada'),
-                    'custo' => $request->input('custo'),
-                    'imposto' => $request->input('imposto'),
+                    'inconsistente' => $isInconsistente,
+                    'margem_calculada' => $request->filled('margem_calculada') ? round((float)$request->input('margem_calculada'), 2) : null,
+                    'custo' => $request->filled('custo') ? round((float)$request->input('custo'), 2) : null,
+                    'imposto' => $request->filled('imposto') ? round((float)$request->input('imposto'), 2) : null,
                     'campanha_id' => $request->input('campanha_id'),
                     'mostrar_selo_campanha' => $request->input('mostrar_selo_campanha', false),
                     'ordem_exibicao' => $maxOrder + 1,
                 ]);
+
+                if ($isInconsistente) {
+                    \App\Services\QuoteWorkflowService::notifyAdminsAboutInconsistentItems($quote, [$item]);
+                }
 
                 $this->recalculateQuoteTotals($quote);
 
@@ -966,7 +974,9 @@ class QuoteController extends Controller
             $total += (float)$item->subtotal;
         }
 
-        $desconto = $subtotal - $total;
+        $subtotal = round($subtotal, 2);
+        $total = round($total, 2);
+        $desconto = round($subtotal - $total, 2);
 
         $quote->update([
             'subtotal' => $subtotal,
@@ -1095,14 +1105,16 @@ class QuoteController extends Controller
                       ?? \App\Models\TabelaPrecoItem::where('codigo_sankhya_produto', $p->codigo_sankhya)->first();
             
             if ($priceItem && (float)$priceItem->preco_venda > 0) {
-                $p->preco_sugerido = (float)$priceItem->preco_venda;
-                $p->preco_minimo = (float)$priceItem->preco_minimo > 0 ? (float)$priceItem->preco_minimo : round((float)$priceItem->preco_venda * 0.90, 2);
-                $p->custo = (float)$priceItem->custo_variavel;
+                $p->preco_sugerido = round((float)$priceItem->preco_venda, 2);
+                $p->preco_minimo = (float)$priceItem->preco_minimo > 0 ? round((float)$priceItem->preco_minimo, 2) : round((float)$priceItem->preco_venda * 0.90, 2);
+                $p->custo = round((float)$priceItem->custo_variavel, 2);
             } else {
                 $p->preco_sugerido = 100.00;
                 $p->preco_minimo = 90.00;
                 $p->custo = 60.00;
             }
+            $p->inconsistente = ($p->preco_sugerido > 0 && $p->preco_minimo > $p->preco_sugerido);
+            $p->preco_minimo_efetivo = $p->inconsistente ? $p->preco_sugerido : $p->preco_minimo;
         }
 
         return response()->json([

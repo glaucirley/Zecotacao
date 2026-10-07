@@ -22,13 +22,44 @@ class TabelaPrecoItem extends Model
     ];
 
     protected $casts = [
-        'preco_venda' => 'float',
-        'preco_padrao' => 'float',
-        'preco_minimo' => 'float',
-        'margem_lucro' => 'float',
-        'margem_minima' => 'float',
-        'custo_variavel' => 'float',
+        'preco_venda' => 'decimal:2',
+        'preco_padrao' => 'decimal:2',
+        'preco_minimo' => 'decimal:2',
+        'margem_lucro' => 'decimal:2',
+        'margem_minima' => 'decimal:2',
+        'custo_variavel' => 'decimal:2',
     ];
+
+    protected $appends = [
+        'inconsistente',
+    ];
+
+    public function getInconsistenteAttribute(): bool
+    {
+        $venda = (float)($this->attributes['preco_venda'] ?? $this->attributes['preco_padrao'] ?? 0);
+        $min = (float)($this->attributes['preco_minimo'] ?? 0);
+        return ($venda > 0 && $min > $venda);
+    }
+
+    public function setPrecoVendaAttribute($value): void
+    {
+        $this->attributes['preco_venda'] = round((float)$value, 2);
+    }
+
+    public function setPrecoPadraoAttribute($value): void
+    {
+        $this->attributes['preco_padrao'] = round((float)$value, 2);
+    }
+
+    public function setPrecoMinimoAttribute($value): void
+    {
+        $this->attributes['preco_minimo'] = round((float)$value, 2);
+    }
+
+    public function setCustoVariavelAttribute($value): void
+    {
+        $this->attributes['custo_variavel'] = round((float)$value, 2);
+    }
 
     public function tabelaPreco()
     {

@@ -472,12 +472,12 @@ class SankhyaDatabaseService
             $tabelaId = $tablesMap[$codTab];
             $produtoId = $productsMap[$codProd] ?? null;
 
-            $precoVenda = (float)($row['VLRVENDA_TAB'] ?? $row['vlrvenda_tab'] ?? 0);
-            $precoPadrao = (float)($row['VLRPAD'] ?? $row['vlrpad'] ?? $precoVenda);
-            $precoMinimo = (float)($row['VLRMIN'] ?? $row['vlrmin'] ?? 0);
-            $margemLucro = (float)($row['MARGLUCRO'] ?? $row['marglucro'] ?? 0);
-            $margemMinima = (float)($row['MARGMIN'] ?? $row['margmin'] ?? 0);
-            $custoVariavel = (float)($row['CUSVAR'] ?? $row['cusvar'] ?? 0);
+            $precoVenda = round((float)($row['VLRVENDA_TAB'] ?? $row['vlrvenda_tab'] ?? 0), 2);
+            $precoPadrao = round((float)($row['VLRPAD'] ?? $row['vlrpad'] ?? $precoVenda), 2);
+            $precoMinimo = round((float)($row['VLRMIN'] ?? $row['vlrmin'] ?? 0), 2);
+            $margemLucro = round((float)($row['MARGLUCRO'] ?? $row['marglucro'] ?? 0), 2);
+            $margemMinima = round((float)($row['MARGMIN'] ?? $row['margmin'] ?? 0), 2);
+            $custoVariavel = round((float)($row['CUSVAR'] ?? $row['cusvar'] ?? 0), 2);
 
             TabelaPrecoItem::updateOrCreate(
                 [

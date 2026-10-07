@@ -18,6 +18,7 @@ class CotacaoItem extends Model
         'ajuste_percentual',
         'subtotal',
         'status_item',
+        'inconsistente',
         'margem_calculada',
         'custo',
         'imposto',
@@ -36,7 +37,59 @@ class CotacaoItem extends Model
         'custo' => 'decimal:2',
         'imposto' => 'decimal:2',
         'mostrar_selo_campanha' => 'boolean',
+        'inconsistente' => 'boolean',
     ];
+
+    protected $appends = [
+        'inconsistente',
+        'preco_minimo_efetivo',
+    ];
+
+    public function getInconsistenteAttribute(): bool
+    {
+        $sug = (float)($this->attributes['preco_unit_sugerido'] ?? 0);
+        $min = (float)($this->attributes['preco_minimo'] ?? 0);
+        return ($sug > 0 && $min > $sug);
+    }
+
+    public function getPrecoMinimoEfetivoAttribute(): float
+    {
+        $sug = (float)($this->attributes['preco_unit_sugerido'] ?? 0);
+        $min = (float)($this->attributes['preco_minimo'] ?? 0);
+        if ($sug > 0 && $min > $sug) {
+            return round($sug, 2);
+        }
+        return round($min, 2);
+    }
+
+    public function setPrecoUnitSugeridoAttribute($value): void
+    {
+        $this->attributes['preco_unit_sugerido'] = round((float)$value, 2);
+        $this->updateInconsistenteFlag();
+    }
+
+    public function setPrecoMinimoAttribute($value): void
+    {
+        $this->attributes['preco_minimo'] = round((float)$value, 2);
+        $this->updateInconsistenteFlag();
+    }
+
+    public function setPrecoUnitPropostoAttribute($value): void
+    {
+        $this->attributes['preco_unit_proposto'] = round((float)$value, 2);
+    }
+
+    public function setSubtotalAttribute($value): void
+    {
+        $this->attributes['subtotal'] = round((float)$value, 2);
+    }
+
+    protected function updateInconsistenteFlag(): void
+    {
+        $sug = (float)($this->attributes['preco_unit_sugerido'] ?? 0);
+        $min = (float)($this->attributes['preco_minimo'] ?? 0);
+        $this->attributes['inconsistente'] = ($sug > 0 && $min > $sug);
+    }
 
     public function cotacao()
     {

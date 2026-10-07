@@ -364,7 +364,12 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         body.innerHTML = "";
 
         quote.itens.forEach(item => {
-            const isBelowMin = parseFloat(item.preco_unit_proposto) < parseFloat(item.preco_minimo);
+            const sug = parseFloat(item.preco_unit_sugerido || 0);
+            const min = parseFloat(item.preco_minimo || 0);
+            const prop = parseFloat(item.preco_unit_proposto || 0);
+            const isInconsistent = (sug > 0 && min > sug);
+            const minEf = isInconsistent ? sug : min;
+            const isBelowMin = prop < minEf;
             
             // Margin Color coding
             const margin = parseFloat(item.margem_calculada || 0);
@@ -385,20 +390,24 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                     <td>
                         ${item.produto.descricao}
                         ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha">Campanha</span>' : ''}
+                        ${isInconsistent ? '<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #fcd34d; margin-left:6px; font-weight:600;" title="Preço mínimo cadastral maior que o sugerido.">⚠️ Mín > Sugerido</span>' : ''}
                         ${bindGroupLabel}
                     </td>
                     <td class="text-center">${item.qtd}</td>
-                    <td class="text-right">R$ ${parseFloat(item.preco_minimo).toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+                    <td class="text-right">
+                        R$ ${parseFloat(item.preco_minimo).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        ${isInconsistent ? '<span title="Cadastro com mínimo maior que sugerido." style="color:#d97706; font-size:12px; margin-left:2px;">⚠️</span>' : ''}
+                    </td>
                     <td class="text-right">
                         <div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">
-                            <span style="font-weight:600; ${isBelowMin ? 'color:#dc2626;' : ''}">R$ ${parseFloat(item.preco_unit_proposto).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+                            <span style="font-weight:600; ${isBelowMin ? 'color:#dc2626;' : ''}">R$ ${parseFloat(item.preco_unit_proposto).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                             <button class="btn btn-outline" style="padding: 2px 6px; font-size:10px;" onclick="openSimulatePrice(${item.id}, '${item.produto.descricao}', ${item.preco_unit_proposto})">Simular</button>
                         </div>
                     </td>
                     <td class="text-center">
                         <span style="color: ${marginColor}; font-weight:600;">${margin}%</span>
                     </td>
-                    <td class="text-right">R$ ${parseFloat(item.subtotal).toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+                    <td class="text-right">R$ ${parseFloat(item.subtotal).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td class="text-center">
                         <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
                             <select class="form-control item-action-select" style="font-size:12px; padding:4px 8px; width:110px;" onchange="onItemActionChange(${item.id}, this.value)">
@@ -498,9 +507,9 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         }
 
         // Update elements in DOM
-        document.getElementById("summary-subtotal").innerText = "R$ " + totalSuggestedRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2});
-        document.getElementById("summary-discount").innerText = "R$ " + (overallDiscount > 0 ? overallDiscount : 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
-        document.getElementById("summary-total").innerText = "R$ " + totalProposedRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        document.getElementById("summary-subtotal").innerText = "R$ " + totalSuggestedRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById("summary-discount").innerText = "R$ " + (overallDiscount > 0 ? overallDiscount : 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById("summary-total").innerText = "R$ " + totalProposedRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
 
     function onItemActionChange(itemId, action) {

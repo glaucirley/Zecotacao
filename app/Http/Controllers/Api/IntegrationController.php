@@ -365,13 +365,13 @@ class IntegrationController extends Controller
     /**
      * Convert strings with PT-BR comma or 3-decimal period formatting (e.g. "12.000" or "12,000" or "1.234,56") to clean float values.
      */
-    private function sanitizeFloat($value)
+    private function sanitizeFloat($value, int $decimals = 2): float
     {
         if (is_null($value) || $value === '') {
             return 0.0;
         }
         if (is_int($value) || is_float($value)) {
-            return (float)$value;
+            return round((float)$value, $decimals);
         }
 
         $str = trim((string)$value);
@@ -385,7 +385,7 @@ class IntegrationController extends Controller
             $str = str_replace(',', '.', $str);
         }
 
-        return (float)$str;
+        return round((float)$str, $decimals);
     }
 
     /**
