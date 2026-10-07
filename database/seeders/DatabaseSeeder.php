@@ -47,6 +47,13 @@ class DatabaseSeeder extends Seeder
             'editavel_por' => 'diretor',
         ]);
 
+        ParametroSistema::firstOrCreate(['chave' => 'REGRA_LIBERACAO_DESCONTO'], [
+            'valor' => 'ALCADA_REPRESENTANTE',
+            'descricao' => 'Regra para liberação automática de cotação: ALCADA_REPRESENTANTE (desconto acima da alçada do vendedor exige aprovação) ou PRECO_MINIMO (libera se estiver acima do mínimo)',
+            'tipo' => 'texto',
+            'editavel_por' => 'diretor',
+        ]);
+
         ParametroSistema::firstOrCreate(['chave' => 'DESCONTO_AVALIACAO_MODO'], [
             'valor' => 'ITEM_A_ITEM',
             'descricao' => 'Modo de avaliacao de desconto para alcada de aprovacao (ITEM_A_ITEM ou MEDIA_TOTAL)',

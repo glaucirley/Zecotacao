@@ -249,6 +249,13 @@
                                 <option value="DIRETORIA" ${safeVal === 'DIRETORIA' ? 'selected' : ''}>Encaminhar para Diretoria</option>
                             </select>
                         `;
+                    } else if (p.chave === 'REGRA_LIBERACAO_DESCONTO') {
+                        inputMarkup = `
+                            <select id="val-${p.chave}" class="form-control" style="font-size:13px; padding:6px 10px;">
+                                <option value="ALCADA_REPRESENTANTE" ${safeVal === 'ALCADA_REPRESENTANTE' ? 'selected' : ''}>Alçada do Representante (Recomendado)</option>
+                                <option value="PRECO_MINIMO" ${safeVal === 'PRECO_MINIMO' ? 'selected' : ''}>Preço Mínimo Apenas</option>
+                            </select>
+                        `;
                     } else if (p.chave === 'REENVIO_PARCIAL_MODO') {
                         inputMarkup = `
                             <select id="val-${p.chave}" class="form-control" style="font-size:13px; padding:6px 10px;">

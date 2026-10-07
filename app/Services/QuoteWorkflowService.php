@@ -145,8 +145,82 @@ class QuoteWorkflowService
             }
         }
 
-        // 2. If no items are below the minimum, approve automatically
+        // 2. Calculate discount percentage based on DESCONTO_AVALIACAO_MODO
+        $modoAvaliacao = ParametroSistema::getVal('DESCONTO_AVALIACAO_MODO', 'ITEM_A_ITEM');
+        $calculatedDiscount = 0.00;
+
+        if ($modoAvaliacao === 'ITEM_A_ITEM') {
+            $maxDiscount = 0.00;
+            foreach ($quote->itens as $item) {
+                if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
+                    continue;
+                }
+                $precoSugerido = (float)$item->preco_unit_sugerido;
+                $precoProposto = (float)$item->preco_unit_proposto;
+
+                if ($precoSugerido > 0 && $precoProposto < $precoSugerido) {
+                    $discount = (($precoSugerido - $precoProposto) / $precoSugerido) * 100;
+                    if ($discount > $maxDiscount) {
+                        $maxDiscount = $discount;
+                    }
+                }
+            }
+            $calculatedDiscount = round($maxDiscount, 2);
+        } else {
+            // MEDIA_TOTAL mode
+            $totalSugerido = 0.00;
+            $totalProposto = 0.00;
+
+            foreach ($quote->itens as $item) {
+                if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
+                    continue;
+                }
+                $totalSugerido += $item->qtd * (float)$item->preco_unit_sugerido;
+                $totalProposto += $item->qtd * (float)$item->preco_unit_proposto;
+            }
+
+            if ($totalSugerido > 0 && $totalProposto < $totalSugerido) {
+                $calculatedDiscount = round((($totalSugerido - $totalProposto) / $totalSugerido) * 100, 2);
+            }
+        }
+
+        // 3. Representative limits and rule evaluation
+        $representante = $quote->representante;
+        $repLimit = (float)($representante?->limite_desconto_percentual ?? 0.00);
+        $regraLiberacao = ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'ALCADA_REPRESENTANTE');
+
+        $canAutoApprove = false;
+        $autoApproveReason = '';
+
         if (!$hasItemsBelowMin) {
+            if ($regraLiberacao === 'PRECO_MINIMO') {
+                $canAutoApprove = true;
+                $autoApproveReason = sprintf(
+                    'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo (Regra: PRECO_MINIMO. Desconto aplicado: %.2f%%).',
+                    $calculatedDiscount
+                );
+            } else {
+                // Default: ALCADA_REPRESENTANTE (Regra A)
+                if ($calculatedDiscount <= $repLimit) {
+                    $canAutoApprove = true;
+                    $autoApproveReason = $calculatedDiscount > 0
+                        ? sprintf(
+                            'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo e o desconto aplicado (%.2f%%) está dentro da alçada comercial do representante (%s: %.2f%%).',
+                            $calculatedDiscount,
+                            $representante?->nome ?? 'Representante',
+                            $repLimit
+                        )
+                        : sprintf(
+                            'Liberada automaticamente pelo sistema: cotação sem desconto adicional nos itens (preço sugerido/tabela mantido) e acima do preço mínimo (Alçada do representante %s: %.2f%%).',
+                            $representante?->nome ?? 'Representante',
+                            $repLimit
+                        );
+                }
+            }
+        }
+
+        // 4. Auto-approve if permitted
+        if ($canAutoApprove) {
             $quote->update(['status' => 'PDF_GERADO']);
 
             // Set remaining non-approved items status to approved
@@ -158,10 +232,10 @@ class QuoteWorkflowService
 
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
-                'evento' => 'APROVADA_AUTOMATICAMENTE',
-                'usuario_id' => $quote->representante_id,
+                'evento' => 'LIBERADA_AUTOMATICAMENTE',
+                'usuario_id' => null,
                 'papel' => 'sistema',
-                'condicao' => 'Todos os itens ativos estao dentro do preco minimo. Status alterado para PDF_GERADO.',
+                'condicao' => $autoApproveReason,
             ]);
 
             return [
@@ -171,102 +245,77 @@ class QuoteWorkflowService
             ];
         }
 
-        // 3. Since at least one item is below minimum, check justification requirements
-        $exigeAnexo = ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true);
-        
-        // Count attachments linked to the quote or its justifications
-        $hasAttachments = $quote->anexos()->exists() || 
-            $quote->justificativas->contains(fn($j) => $j->anexos()->exists());
+        // 5. Quote requires manual approval! Check justification requirements if below min
+        if ($hasItemsBelowMin) {
+            $exigeAnexo = ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true);
+            $hasAttachments = $quote->anexos()->exists() || 
+                $quote->justificativas->contains(fn($j) => $j->anexos()->exists());
 
-        if ($exigeAnexo && !$hasAttachments) {
-            return [
-                'success' => false,
-                'error' => 'JUSTIFICATION_ATTACHMENT_REQUIRED',
-                'message' => 'One or more items are below the minimum price. A justification with at least one file attachment is required.'
-            ];
-        }
-
-        // 4. Verify team and active manager availability
-        $representante = $quote->representante;
-        $equipe = $representante?->equipe;
-        $gestor = $equipe?->gestor;
-        $hasActiveGestor = ($gestor && $gestor->ativo);
-
-        $semGestorAcao = ParametroSistema::getVal('SEM_GESTOR_ACAO', 'BLOQUEAR');
-
-        if (!$hasActiveGestor) {
-            if ($semGestorAcao === 'BLOQUEAR') {
+            if ($exigeAnexo && !$hasAttachments) {
                 return [
                     'success' => false,
-                    'error' => 'SEM_GESTOR_ATIVO',
-                    'message' => 'Não é possível enviar a cotação: o representante não possui equipe vinculada ou a equipe não possui um gestor ativo cadastrado para aprovação. Entre em contato com a administração.'
+                    'error' => 'JUSTIFICATION_ATTACHMENT_REQUIRED',
+                    'message' => 'One or more items are below the minimum price. A justification with at least one file attachment is required.'
                 ];
             }
         }
 
-        // 5. Calculate discount based on DESCONTO_AVALIACAO_MODO
-        $modoAvaliacao = ParametroSistema::getVal('DESCONTO_AVALIACAO_MODO', 'ITEM_A_ITEM');
-        $gestorLimit = $hasActiveGestor ? (float)$gestor->limite_desconto_percentual : 0.00;
-        $routeToDirector = !$hasActiveGestor; // If no active manager and action is DIRETORIA, escalates directly
-        $calculatedDiscount = 0.00;
+        // 6. Check team and active manager availability
+        $equipe = $representante?->equipe;
+        $gestor = $equipe?->gestor;
+        $hasActiveGestor = ($gestor && $gestor->ativo);
+        $semGestorAcao = ParametroSistema::getVal('SEM_GESTOR_ACAO', 'BLOQUEAR');
 
-        if ($hasActiveGestor) {
-            if ($modoAvaliacao === 'ITEM_A_ITEM') {
-                // Find the maximum discount percentage among items below suggested price (skipping approved if SO_ITENS_ALTERADOS)
-                $maxDiscount = 0.00;
-                foreach ($quote->itens as $item) {
-                    if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
-                        continue;
-                    }
-                    $precoSugerido = (float)$item->preco_unit_sugerido;
-                    $precoProposto = (float)$item->preco_unit_proposto;
+        if (!$hasActiveGestor) {
+            if ($semGestorAcao === 'BLOQUEAR') {
+                $motivoBloqueio = $hasItemsBelowMin
+                    ? 'Não é possível enviar a cotação: existem itens abaixo do preço mínimo exigindo aprovação de gestor, mas o representante não possui equipe ou gestor ativo cadastrado. Entre em contato com a administração.'
+                    : sprintf(
+                        'Não é possível enviar a cotação: o desconto aplicado (%.2f%%) excede a alçada do representante (%s: %.2f%%) e requer aprovação de gestor, mas seu usuário não possui equipe ou gestor ativo cadastrado. Entre em contato com a administração.',
+                        $calculatedDiscount,
+                        $representante?->nome ?? 'Representante',
+                        $repLimit
+                    );
 
-                    if ($precoSugerido > 0 && $precoProposto < $precoSugerido) {
-                        $discount = (($precoSugerido - $precoProposto) / $precoSugerido) * 100;
-                        if ($discount > $maxDiscount) {
-                            $maxDiscount = $discount;
-                        }
-                    }
-                }
-                $calculatedDiscount = $maxDiscount;
-                if ($calculatedDiscount > $gestorLimit) {
-                    $routeToDirector = true;
-                }
-            } else {
-                // MEDIA_TOTAL mode
-                $totalSugerido = 0.00;
-                $totalProposto = 0.00;
-
-                foreach ($quote->itens as $item) {
-                    if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
-                        continue;
-                    }
-                    $totalSugerido += $item->qtd * (float)$item->preco_unit_sugerido;
-                    $totalProposto += $item->qtd * (float)$item->preco_unit_proposto;
-                }
-
-                if ($totalSugerido > 0) {
-                    $calculatedDiscount = (($totalSugerido - $totalProposto) / $totalSugerido) * 100;
-                }
-
-                if ($calculatedDiscount > $gestorLimit) {
-                    $routeToDirector = true;
-                }
+                return [
+                    'success' => false,
+                    'error' => 'SEM_GESTOR_ATIVO',
+                    'message' => $motivoBloqueio
+                ];
             }
         }
 
-        // 6. Update quote status and log history
+        // 7. Route to Director or Manager
+        $gestorLimit = $hasActiveGestor ? (float)$gestor->limite_desconto_percentual : 0.00;
+        $routeToDirector = !$hasActiveGestor; // If no active manager and action is DIRETORIA, escalates directly
+
+        if ($hasActiveGestor) {
+            if ($calculatedDiscount > $gestorLimit) {
+                $routeToDirector = true;
+            }
+        }
+
+        // 8. Update quote status and log history
         if ($routeToDirector) {
             $quote->update(['status' => 'COM_DIRETOR']);
-            
-            $condicaoHistorico = !$hasActiveGestor
-                ? 'Representante sem gestor ativo vinculado. Cotação encaminhada diretamente para a diretoria conforme parâmetro do sistema (SEM_GESTOR_ACAO = DIRETORIA).'
-                : sprintf(
-                    'Desconto calculado (%s: %.2f%%) excede o limite do gestor (%.2f%%). Enviado para a diretoria.',
+
+            $condicaoHistorico = '';
+            if (!$hasActiveGestor) {
+                $condicaoHistorico = sprintf(
+                    'Desconto aplicado (%.2f%%) excede a alçada do representante (%s: %.2f%%). Encaminhada diretamente para a diretoria por ausência de gestor ativo vinculado (SEM_GESTOR_ACAO = DIRETORIA).',
+                    $calculatedDiscount,
+                    $representante?->nome ?? 'Representante',
+                    $repLimit
+                );
+            } else {
+                $condicaoHistorico = sprintf(
+                    'Desconto aplicado (%s: %.2f%%) excede o limite do gestor (%s: %.2f%%). Encaminhada para aprovação da diretoria.',
                     $modoAvaliacao,
                     $calculatedDiscount,
+                    $gestor->nome,
                     $gestorLimit
                 );
+            }
 
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
@@ -296,17 +345,22 @@ class QuoteWorkflowService
         } else {
             $quote->update(['status' => 'AGUARDANDO_GESTOR']);
 
+            $condicaoHistorico = sprintf(
+                'Desconto aplicado (%s: %.2f%%) excede a alçada permitida do representante (%s: %.2f%%), mas está dentro do limite do gestor (%s: %.2f%%). Encaminhada para aprovação do gestor.',
+                $modoAvaliacao,
+                $calculatedDiscount,
+                $representante?->nome ?? 'Representante',
+                $repLimit,
+                $gestor->nome,
+                $gestorLimit
+            );
+
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
                 'evento' => 'ENVIADA_AO_GESTOR',
                 'usuario_id' => $quote->representante_id,
                 'papel' => 'representante',
-                'condicao' => sprintf(
-                    'Desconto calculado (%s: %.2f%%) esta dentro do limite do gestor (%.2f%%). Aguardando gestor.',
-                    $modoAvaliacao,
-                    $calculatedDiscount,
-                    $gestorLimit
-                )
+                'condicao' => $condicaoHistorico
             ]);
 
             if ($gestor && $gestor->ativo) {
