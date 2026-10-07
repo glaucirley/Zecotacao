@@ -25,7 +25,7 @@ class QuoteWorkflowService
             return [
                 'success' => false,
                 'error' => 'NO_ITEMS',
-                'message' => 'Cannot submit a quote with no items.'
+                'message' => 'Não é possível enviar uma cotação sem itens.'
             ];
         }
 
@@ -329,7 +329,7 @@ class QuoteWorkflowService
             return [
                 'success' => true,
                 'status' => 'APROVADA',
-                'message' => 'Quote approved automatically. PDF is ready for generation.'
+                'message' => 'Cotação aprovada automaticamente. O PDF está disponível para geração.'
             ];
         }
 
@@ -343,7 +343,7 @@ class QuoteWorkflowService
                 return [
                     'success' => false,
                     'error' => 'JUSTIFICATION_ATTACHMENT_REQUIRED',
-                    'message' => 'One or more items are below the minimum price. A justification with at least one file attachment is required.'
+                    'message' => 'Um ou mais itens estão abaixo do preço mínimo. É obrigatório fornecer justificativa e anexar pelo menos um arquivo comprovatório.'
                 ];
             }
         }
@@ -428,7 +428,7 @@ class QuoteWorkflowService
             return [
                 'success' => true,
                 'status' => 'COM_DIRETOR',
-                'message' => 'Quote sent to Director for approval.'
+                'message' => 'Cotação enviada para aprovação da Diretoria.'
             ];
         } else {
             $quote->update(['status' => 'AGUARDANDO_GESTOR']);
@@ -464,7 +464,7 @@ class QuoteWorkflowService
             return [
                 'success' => true,
                 'status' => 'AGUARDANDO_GESTOR',
-                'message' => 'Quote sent to Manager for approval.'
+                'message' => 'Cotação enviada para aprovação do Gestor.'
             ];
         }
     }

@@ -89,14 +89,14 @@ class UserController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'User created successfully.',
+                'message' => 'Usuário criado com sucesso.',
                 'data' => $user
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to create user. ' . $e->getMessage()
+                'message' => 'Falha ao criar usuário: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -108,7 +108,7 @@ class UserController extends Controller
     {
         $currentUser = Auth::user();
         if (!$currentUser->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden. Only administrators can manage users.'], 403);
+            return response()->json(['error' => 'Forbidden.', 'message' => 'Apenas administradores podem gerenciar usuários.'], 403);
         }
 
         $user = User::findOrFail($id);
@@ -163,14 +163,14 @@ class UserController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'User updated successfully.',
+                'message' => 'Usuário atualizado com sucesso.',
                 'data' => $user
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to update user. ' . $e->getMessage()
+                'message' => 'Falha ao atualizar usuário: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -189,19 +189,19 @@ class UserController extends Controller
 
         // Prevent self deletion
         if ($user->id === $currentUser->id) {
-            return response()->json(['error' => 'Conflict', 'message' => 'You cannot delete yourself.'], 409);
+            return response()->json(['error' => 'Conflict', 'message' => 'Você não pode excluir seu próprio usuário.'], 409);
         }
 
         try {
             $user->delete();
             return response()->json([
                 'success' => true,
-                'message' => 'User deleted successfully.'
+                'message' => 'Usuário excluído com sucesso.'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to delete user. Maybe they have associated quotes? Try deactivating them instead.'
+                'message' => 'Falha ao excluir usuário. Pode haver cotações vinculadas. Tente desativá-lo.'
             ], 500);
         }
     }

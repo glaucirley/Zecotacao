@@ -94,14 +94,14 @@ class PartnerController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Client created successfully.',
+                'message' => 'Cliente criado com sucesso.',
                 'data' => $partner
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to create client. ' . $e->getMessage()
+                'message' => 'Falha ao criar cliente: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -141,14 +141,14 @@ class PartnerController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Client updated successfully.',
+                'message' => 'Cliente atualizado com sucesso.',
                 'data' => $partner
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to update client. ' . $e->getMessage()
+                'message' => 'Falha ao atualizar cliente: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -169,12 +169,12 @@ class PartnerController extends Controller
             $partner->delete();
             return response()->json([
                 'success' => true,
-                'message' => 'Client deleted successfully.'
+                'message' => 'Cliente excluído com sucesso.'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to delete client. They might have associated quotes. Try deactivating them instead.'
+                'message' => 'Falha ao excluir cliente. Pode haver cotações vinculadas. Tente desativá-lo.'
             ], 500);
         }
     }

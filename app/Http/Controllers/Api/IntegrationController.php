@@ -343,7 +343,7 @@ class IntegrationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Quote imported successfully.',
+                'message' => 'Cotação importada com sucesso.',
                 'data' => [
                     'id' => $quote->id,
                     'numero' => $quote->numero,
@@ -357,7 +357,7 @@ class IntegrationController extends Controller
             $code = (strpos($e->getMessage(), 'não encontrado') !== false) ? 422 : 500;
             return response()->json([
                 'error' => 'Import error',
-                'message' => 'Failed to import quote. ' . $e->getMessage()
+                'message' => 'Falha ao importar cotação: ' . $e->getMessage()
             ], $code);
         }
     }

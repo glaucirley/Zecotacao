@@ -524,6 +524,119 @@
             opacity: 0.9;
             line-height: 1.3;
         }
+
+        /* App Toast System */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 999999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+            max-width: 90vw;
+            width: 380px;
+        }
+
+        @media (max-width: 640px) {
+            .toast-container {
+                top: 15px !important;
+                left: 50% !important;
+                right: auto !important;
+                transform: translateX(-50%) !important;
+                width: calc(100vw - 28px) !important;
+                max-width: 100vw !important;
+            }
+        }
+
+        .app-toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 13px;
+            line-height: 1.4;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(-15px);
+            opacity: 0;
+        }
+
+        .app-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .app-toast.hide {
+            transform: translateY(-15px);
+            opacity: 0;
+        }
+
+        .app-toast-success {
+            background: #059669;
+            border: 1px solid #10b981;
+        }
+
+        .app-toast-error {
+            background: #dc2626;
+            border: 1px solid #ef4444;
+        }
+
+        .app-toast-warning {
+            background: #d97706;
+            border: 1px solid #f59e0b;
+        }
+
+        .app-toast-info {
+            background: #2563eb;
+            border: 1px solid #3b82f6;
+        }
+
+        .app-toast-icon {
+            font-size: 18px;
+            line-height: 1;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .app-toast-body {
+            flex-grow: 1;
+        }
+
+        .app-toast-title {
+            font-weight: 700;
+            font-size: 13.5px;
+            margin-bottom: 2px;
+        }
+
+        .app-toast-msg {
+            font-size: 12.5px;
+            word-break: break-word;
+            opacity: 0.95;
+        }
+
+        .app-toast-close {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            opacity: 0.7;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 4px;
+            flex-shrink: 0;
+            transition: opacity 0.15s;
+        }
+
+        .app-toast-close:hover {
+            opacity: 1;
+        }
         
         /* Bounce Animation */
         @keyframes bounce {
@@ -1259,8 +1372,83 @@
         
     </div>
 
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- Scripts -->
     <script>
+        // Responsive In-Screen Toast Notifications (replaces blocking browser alerts)
+        function showToast(message, type = 'info', title = null) {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `app-toast app-toast-${type}`;
+
+            let icon = 'ℹ️';
+            let defaultTitle = 'Aviso';
+            if (type === 'success') {
+                icon = '✓';
+                defaultTitle = 'Sucesso';
+            } else if (type === 'error') {
+                icon = '✕';
+                defaultTitle = 'Erro';
+            } else if (type === 'warning') {
+                icon = '⚠️';
+                defaultTitle = 'Atenção';
+            }
+
+            const toastTitle = title || defaultTitle;
+            const formattedMsg = String(message || '').replace(/\n/g, '<br>');
+
+            toast.innerHTML = `
+                <span class="app-toast-icon">${icon}</span>
+                <div class="app-toast-body">
+                    <div class="app-toast-title">${toastTitle}</div>
+                    <div class="app-toast-msg">${formattedMsg}</div>
+                </div>
+                <button type="button" class="app-toast-close" title="Fechar">&times;</button>
+            `;
+
+            const closeBtn = toast.querySelector('.app-toast-close');
+            const dismiss = () => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => {
+                    if (toast.parentElement) toast.remove();
+                }, 250);
+            };
+
+            if (closeBtn) {
+                closeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    dismiss();
+                };
+            }
+
+            toast.onclick = dismiss;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            const duration = (type === 'error' || String(message).length > 80) ? 6000 : 4000;
+            setTimeout(() => {
+                if (toast.parentElement) dismiss();
+            }, duration);
+        }
+
+        // Global override to guarantee no native alert locks the mobile screen
+        window.alert = function(msg) {
+            showToast(msg, 'warning');
+        };
+
         const API_URL = "/api/v1";
         const PUBLIC_URL = "";
         let quotes = [];
@@ -1707,12 +1895,12 @@
             const lng = coordsEl.getAttribute("data-lng");
 
             if (!partnerId) {
-                alert("Por favor, selecione um Cliente/Parceiro.");
+                showToast("Por favor, selecione um Cliente/Parceiro.", 'warning');
                 return;
             }
 
             if (!lat || !lng) {
-                alert("Coordenadas GPS ausentes ou não carregadas. Por favor, aguarde.");
+                showToast("Coordenadas GPS ausentes ou não carregadas. Por favor, aguarde.", 'warning');
                 return;
             }
 
@@ -1737,7 +1925,7 @@
                 });
 
                 if (res.status === 419) {
-                    alert("Sessão expirada. Por favor, recarregue a página.");
+                    showToast("Sessão expirada. Por favor, recarregue a página.", 'error');
                     btn.innerText = originalText;
                     btn.disabled = false;
                     return;
@@ -1748,17 +1936,17 @@
                 btn.disabled = false;
 
                 if (data.success) {
-                    alert("Visita registrada com sucesso! Check-in concluído.");
+                    showToast("Visita registrada com sucesso! Check-in concluído.", 'success');
                     select.value = "";
                     loadRecentCheckins();
                 } else {
-                    alert("Erro ao realizar check-in: " + (data.message || data.error));
+                    showToast("Erro ao realizar check-in: " + (data.message || data.error), 'error');
                 }
             } catch(e) {
                 console.error("Check-in request error:", e);
                 btn.innerText = originalText;
                 btn.disabled = false;
-                alert("Erro de conexão ao realizar check-in. Verifique o console.");
+                showToast("Erro de conexão ao realizar check-in. Verifique o console.", 'error');
             }
         }
 
@@ -1849,7 +2037,7 @@
 
             if (!selectedPartner) {
                 if (!isClosing) {
-                    alert("Por favor, selecione um cliente no Passo 1 para salvar como rascunho.");
+                    showToast("Por favor, selecione um cliente no Passo 1 para salvar como rascunho.", 'warning');
                     goToStep(1);
                 }
                 return false;
@@ -1857,7 +2045,7 @@
 
             if (quoteCartItems.length === 0) {
                 if (!isClosing) {
-                    alert("Por favor, adicione pelo menos 1 produto no Passo 2 para salvar como rascunho.");
+                    showToast("Por favor, adicione pelo menos 1 produto no Passo 2 para salvar como rascunho.", 'warning');
                     goToStep(2);
                 }
                 return false;
@@ -1903,7 +2091,7 @@
                     selectedPartner = null;
                     quoteCartItems = [];
                     closeNewQuoteModal();
-                    alert("💾 Cotação salva com sucesso em 'Em Criação'!");
+                    showToast("💾 Cotação salva com sucesso em 'Em Criação'!", 'success');
                     loadQuotes();
                     switchTab('quotes');
                     return true;
@@ -1914,7 +2102,7 @@
                             const details = Object.values(data.messages).flat().join("\n• ");
                             errMsg += "\n\n• " + details;
                         }
-                        alert("Erro ao salvar rascunho: " + errMsg);
+                        showToast("Erro ao salvar rascunho: " + errMsg, 'error');
                     }
                     return false;
                 }
@@ -1940,11 +2128,11 @@
 
         function goToStep(stepNum) {
             if (stepNum > 1 && !selectedPartner) {
-                alert("Por favor, selecione um cliente primeiro.");
+                showToast("Por favor, selecione um cliente primeiro.", 'warning');
                 return;
             }
             if (stepNum > 2 && quoteCartItems.length === 0) {
-                alert("Por favor, adicione pelo menos 1 produto à cotação.");
+                showToast("Por favor, adicione pelo menos 1 produto à cotação.", 'warning');
                 return;
             }
             currentWizardStep = stepNum;
@@ -1993,7 +2181,7 @@
 
         function validateStep1AndNext() {
             if (!selectedPartner) {
-                alert("Por favor, selecione um cliente para continuar.");
+                showToast("Por favor, selecione um cliente para continuar.", 'warning');
                 return;
             }
             goToStep(2);
@@ -2001,7 +2189,7 @@
 
         function validateStep2AndNext() {
             if (quoteCartItems.length === 0) {
-                alert("Adicione pelo menos 1 produto ao carrinho.");
+                showToast("Adicione pelo menos 1 produto ao carrinho.", 'warning');
                 return;
             }
             goToStep(3);
@@ -2365,36 +2553,7 @@
         }
 
         function showMiniToast(message, isSuccess = true) {
-            let toast = document.getElementById("mini-quote-toast");
-            if (!toast) {
-                toast = document.createElement("div");
-                toast.id = "mini-quote-toast";
-                toast.style.position = "fixed";
-                toast.style.top = "20px";
-                toast.style.left = "50%";
-                toast.style.transform = "translateX(-50%) translateY(-20px)";
-                toast.style.zIndex = "99999";
-                toast.style.padding = "8px 16px";
-                toast.style.borderRadius = "20px";
-                toast.style.fontSize = "12px";
-                toast.style.fontWeight = "700";
-                toast.style.boxShadow = "0 4px 14px rgba(0,0,0,0.2)";
-                toast.style.transition = "opacity 0.25s, transform 0.25s";
-                toast.style.pointerEvents = "none";
-                toast.style.opacity = "0";
-                document.body.appendChild(toast);
-            }
-            toast.style.background = isSuccess ? "#15803d" : "#b91c1c";
-            toast.style.color = "#ffffff";
-            toast.innerHTML = message;
-            toast.style.opacity = "1";
-            toast.style.transform = "translateX(-50%) translateY(0)";
-
-            clearTimeout(toast._timer);
-            toast._timer = setTimeout(() => {
-                toast.style.opacity = "0";
-                toast.style.transform = "translateX(-50%) translateY(-15px)";
-            }, 1400);
+            showToast(message, isSuccess ? 'success' : 'error');
         }
 
         function syncCatalogProductRow(prodId) {
@@ -2507,7 +2666,7 @@
         function addToCart(prodId) {
             const prod = allProductsList.find(p => p.id == prodId);
             if (!prod) {
-                alert("Produto não encontrado no catálogo.");
+                showToast("Produto não encontrado no catálogo.", "error");
                 return;
             }
 
@@ -2688,12 +2847,12 @@
 
         async function submitNewQuote() {
             if (!selectedPartner) {
-                alert("Por favor, selecione um cliente no Passo 1.");
+                showToast("Por favor, selecione um cliente no Passo 1.", "warning");
                 goToStep(1);
                 return;
             }
             if (quoteCartItems.length === 0) {
-                alert("Por favor, adicione pelo menos 1 produto no Passo 2.");
+                showToast("Por favor, adicione pelo menos 1 produto no Passo 2.", "warning");
                 goToStep(2);
                 return;
             }
@@ -2743,22 +2902,22 @@
                     selectedPartner = null;
                     quoteCartItems = [];
                     closeNewQuoteModal();
-                    alert("✅ Cotação criada com sucesso!");
+                    showToast("Cotação criada com sucesso!", "success");
                     loadQuotes(); // Refresh quotes list
                     switchTab('quotes');
                 } else {
                     let errMsg = data.error || data.message || "Erro de validação ao criar cotação.";
                     if (data.messages && typeof data.messages === 'object') {
-                        const details = Object.values(data.messages).flat().join("\n• ");
-                        errMsg += "\n\n• " + details;
+                        const details = Object.values(data.messages).flat().join("<br>• ");
+                        errMsg += "<br><br>• " + details;
                     }
-                    alert("Erro ao criar cotação: " + errMsg);
+                    showToast("Erro ao criar cotação: " + errMsg, "error");
                 }
             } catch(e) {
                 console.error("Error submitting quote:", e);
                 btn.innerHTML = origText;
                 btn.disabled = false;
-                alert("Erro de conexão ao enviar cotação.");
+                showToast("Erro de conexão ao enviar cotação.", "error");
             }
         }
     </script>

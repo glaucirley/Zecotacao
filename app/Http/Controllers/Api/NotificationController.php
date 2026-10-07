@@ -68,7 +68,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Notification marked as read.'
+            'message' => 'Notificação marcada como lida.'
         ]);
     }
 
@@ -88,7 +88,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'All notifications marked as read.'
+            'message' => 'Todas as notificações foram marcadas como lidas.'
         ]);
     }
 }

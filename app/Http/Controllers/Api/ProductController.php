@@ -86,14 +86,14 @@ class ProductController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Product created successfully.',
+                'message' => 'Produto criado com sucesso.',
                 'data' => $product
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to create product. ' . $e->getMessage()
+                'message' => 'Falha ao criar produto: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -126,14 +126,14 @@ class ProductController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Product updated successfully.',
+                'message' => 'Produto atualizado com sucesso.',
                 'data' => $product
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to update product. ' . $e->getMessage()
+                'message' => 'Falha ao atualizar produto: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -154,12 +154,12 @@ class ProductController extends Controller
             $product->delete();
             return response()->json([
                 'success' => true,
-                'message' => 'Product deleted successfully.'
+                'message' => 'Produto excluído com sucesso.'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to delete product. It might be used in existing quotations. Try deactivating it instead.'
+                'message' => 'Falha ao excluir produto. Ele pode estar em uso em cotações. Tente desativá-lo.'
             ], 500);
         }
     }

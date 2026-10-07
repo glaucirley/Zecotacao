@@ -26,7 +26,7 @@ class QuoteController extends Controller
     {
         $user = auth()->user();
         if (!$user) {
-            return response()->json(['error' => 'Unauthenticated.'], 401);
+            return response()->json(['error' => 'Não autenticado.'], 401);
         }
 
         // Trigger automatic expiration check for overdue quotes
@@ -48,7 +48,7 @@ class QuoteController extends Controller
         } elseif ($user->isRepresentante()) {
             $query->where('representante_id', $user->id);
         } elseif (!$user->isDiretor() && !$user->isAdministrador() && !$user->isFaturamento()) {
-            return response()->json(['error' => 'Forbidden.'], 403);
+            return response()->json(['error' => 'Acesso não autorizado.'], 403);
         }
 
         // Apply filters
@@ -127,7 +127,7 @@ class QuoteController extends Controller
     {
         $user = auth()->user();
         if (!$user) {
-            return response()->json(['error' => 'Unauthenticated.'], 401);
+            return response()->json(['error' => 'Não autenticado.'], 401);
         }
 
         $partners = \App\Models\Parceiro::where('ativo', true)->orderBy('razao_social')->take(50)->get();
@@ -164,7 +164,7 @@ class QuoteController extends Controller
     {
         $user = auth()->user();
         if (!$user) {
-            return response()->json(['error' => 'Unauthenticated.'], 401);
+            return response()->json(['error' => 'Não autenticado.'], 401);
         }
 
         $validator = Validator::make($request->all(), [
@@ -182,13 +182,13 @@ class QuoteController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+            return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
         }
 
         // Access check: representatives can only create quotes for themselves
         $repId = $request->input('representante_id');
         if ($user->isRepresentante() && $repId != $user->id) {
-            return response()->json(['error' => 'Forbidden. Representatives can only create quotes for themselves.'], 403);
+            return response()->json(['error' => 'Acesso não autorizado. Representantes só podem criar cotações para si mesmos.'], 403);
         }
 
         try {
@@ -298,15 +298,15 @@ class QuoteController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Manually created quotation successfully.',
+                    'message' => 'Cotação criada manualmente com sucesso.',
                     'data' => $quote->fresh(['itens.produto', 'parceiro', 'representante'])
                 ], 201);
             });
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Failed to create quotation. ' . $e->getMessage()
+                'error' => 'Erro no banco de dados',
+                'message' => 'Falha ao criar cotação: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -318,7 +318,7 @@ class QuoteController extends Controller
     {
         $user = auth()->user();
         if (!$user) {
-            return response()->json(['error' => 'Unauthenticated.'], 401);
+            return response()->json(['error' => 'Não autenticado.'], 401);
         }
 
         $quote = Cotacao::findOrFail($id);
@@ -329,28 +329,28 @@ class QuoteController extends Controller
         } elseif ($user->isRepresentante() && $quote->representante_id == $user->id) {
             // Representative can delete only if status is EM_CRIACAO
             if ($quote->status !== 'EM_CRIACAO') {
-                return response()->json(['error' => 'Forbidden. You can only delete quotations in draft state.'], 403);
+                return response()->json(['error' => 'Acesso não autorizado.', 'message' => 'Você só pode excluir cotações em rascunho.'], 403);
             }
         } elseif ($user->isGestor()) {
             // Gestor can delete their team's quotes only if in draft
             $teamIds = $user->equipesGerenciadas->pluck('id');
             if (!in_array($quote->representante->equipe_id, $teamIds->toArray()) || $quote->status !== 'EM_CRIACAO') {
-                return response()->json(['error' => 'Forbidden. You can only delete draft quotations of your team.'], 403);
+                return response()->json(['error' => 'Acesso não autorizado.', 'message' => 'Você só pode excluir cotações em rascunho da sua equipe.'], 403);
             }
         } else {
-            return response()->json(['error' => 'Forbidden.'], 403);
+            return response()->json(['error' => 'Acesso não autorizado.'], 403);
         }
 
         try {
             $quote->delete();
             return response()->json([
                 'success' => true,
-                'message' => 'Quotation deleted successfully.'
+                'message' => 'Cotação excluída com sucesso.'
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Failed to delete quotation. ' . $e->getMessage()
+                'error' => 'Erro no banco de dados',
+                'message' => 'Falha ao excluir cotação: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -385,7 +385,7 @@ class QuoteController extends Controller
 
         if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
             return response()->json([
-                'error' => 'Locked status',
+                'error' => 'Status bloqueado',
                 'message' => "Esta cotação está com status {$quote->status} e não permite alterações."
             ], 422);
         }
@@ -405,7 +405,7 @@ class QuoteController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+            return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
         }
 
         try {
@@ -468,14 +468,14 @@ class QuoteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Quote updated successfully.',
+                'message' => 'Cotação atualizada com sucesso.',
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Failed to update quote. ' . $e->getMessage()
+                'error' => 'Erro no banco de dados',
+                'message' => 'Falha ao atualizar cotação: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -489,7 +489,7 @@ class QuoteController extends Controller
 
         if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
             return response()->json([
-                'error' => 'Locked status',
+                'error' => 'Status bloqueado',
                 'message' => "Esta cotação está com status {$quote->status} e não permite inclusão de itens."
             ], 422);
         }
@@ -507,7 +507,7 @@ class QuoteController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+            return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
         }
 
         try {
@@ -558,14 +558,14 @@ class QuoteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item added successfully.',
+                'message' => 'Item adicionado com sucesso.',
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Failed to add item. ' . $e->getMessage()
+                'error' => 'Erro no banco de dados',
+                'message' => 'Falha ao adicionar item: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -579,7 +579,7 @@ class QuoteController extends Controller
 
         if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
             return response()->json([
-                'error' => 'Locked status',
+                'error' => 'Status bloqueado',
                 'message' => "Esta cotação está com status {$quote->status} e não permite exclusão de itens."
             ], 422);
         }
@@ -587,7 +587,7 @@ class QuoteController extends Controller
         $item = CotacaoItem::where('cotacao_id', $quote->id)->where('id', $item_id)->first();
 
         if (!$item) {
-            return response()->json(['error' => 'Item not found.'], 404);
+            return response()->json(['error' => 'Item não encontrado.'], 404);
         }
 
         try {
@@ -606,14 +606,14 @@ class QuoteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item removed successfully.',
+                'message' => 'Item removido com sucesso.',
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Failed to remove item. ' . $e->getMessage()
+                'error' => 'Erro no banco de dados',
+                'message' => 'Falha ao remover item: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -627,7 +627,7 @@ class QuoteController extends Controller
 
         if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
             return response()->json([
-                'error' => 'Locked status',
+                'error' => 'Status bloqueado',
                 'message' => "Esta cotação está com status {$quote->status} e não permite envio de justificativa."
             ], 422);
         }
@@ -653,7 +653,7 @@ class QuoteController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'error' => 'Validation error',
+                'error' => 'Erro de validação',
                 'message' => $validator->errors()->first(),
                 'messages' => $validator->errors()
             ], 422);
@@ -698,7 +698,7 @@ class QuoteController extends Controller
                 // 1. Extension inspection
                 if (in_array($ext, $blockedExtensions) || !in_array($ext, $allowedExtensions)) {
                     return response()->json([
-                        'error' => 'Invalid file extension',
+                        'error' => 'Extensão de arquivo inválida',
                         'message' => "O arquivo '{$origName}' possui extensão não permitida (.{$ext}). Apenas PDF, imagens e documentos do Office são aceitos.",
                         'messages' => ['anexos' => ["O arquivo '{$origName}' possui extensão não permitida (.{$ext})."]]
                     ], 422);
@@ -707,7 +707,7 @@ class QuoteController extends Controller
                 // 2. File size inspection (10MB)
                 if ($file->getSize() > 10 * 1024 * 1024) {
                     return response()->json([
-                        'error' => 'File too large',
+                        'error' => 'Arquivo muito grande',
                         'message' => "O arquivo '{$origName}' ultrapassa o limite máximo de 10 MB.",
                         'messages' => ['anexos' => ["O arquivo '{$origName}' ultrapassa o limite máximo de 10 MB."]]
                     ], 422);
@@ -726,7 +726,7 @@ class QuoteController extends Controller
                 foreach ($blockedMimePatterns as $blockedMime) {
                     if (str_starts_with($realMime, $blockedMime) || Str::contains($realMime, $blockedMime)) {
                         return response()->json([
-                            'error' => 'Blocked file type',
+                            'error' => 'Tipo de arquivo bloqueado',
                             'message' => "O arquivo '{$origName}' foi recusado por conter formato ou conteúdo não permitido ({$realMime}).",
                             'messages' => ['anexos' => ["O arquivo '{$origName}' possui conteúdo não permitido ({$realMime})."]]
                         ], 422);
@@ -744,7 +744,7 @@ class QuoteController extends Controller
 
                 if (!$mimeAllowed) {
                     return response()->json([
-                        'error' => 'Unsupported MIME type',
+                        'error' => 'Tipo MIME não suportado',
                         'message' => "O conteúdo real do arquivo '{$origName}' ({$realMime}) não corresponde aos formatos aceitos (PDF, imagens ou Office).",
                         'messages' => ['anexos' => ["O conteúdo real do arquivo '{$origName}' ({$realMime}) não é permitido."]]
                     ], 422);
@@ -801,14 +801,14 @@ class QuoteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Justification added successfully.',
+                'message' => 'Justificativa salva com sucesso.',
                 'data' => $justification->load('anexos')
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Failed to save justification. ' . $e->getMessage()
+                'error' => 'Erro no banco de dados',
+                'message' => 'Falha ao salvar justificativa: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -822,7 +822,7 @@ class QuoteController extends Controller
 
         if (in_array($quote->status, ['AGUARDANDO_GESTOR', 'COM_DIRETOR', 'FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA'])) {
             return response()->json([
-                'error' => 'Locked status',
+                'error' => 'Status bloqueado',
                 'message' => "Cotação no status {$quote->status} não pode ser marcada como perdida."
             ], 422);
         }
@@ -853,14 +853,14 @@ class QuoteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Quote marked as lost.',
+                'message' => 'Cotação marcada como perdida com sucesso.',
                 'status' => 'PERDIDA'
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Failed to mark as lost. ' . $e->getMessage()
+                'error' => 'Erro no banco de dados',
+                'message' => 'Falha ao marcar como perdida: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -875,8 +875,8 @@ class QuoteController extends Controller
         // Verify that the quote is in a state that allows submission
         if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
             return response()->json([
-                'error' => 'Invalid status',
-                'message' => "Cannot submit a quotation in status {$quote->status}."
+                'error' => 'Status inválido',
+                'message' => "Não é permitido enviar uma cotação com status {$quote->status}."
             ], 422);
         }
 
@@ -910,7 +910,7 @@ class QuoteController extends Controller
 
         if (!$quote) {
             return response()->json([
-                'error' => 'Not found',
+                'error' => 'Não encontrado',
                 'message' => 'Cotação não encontrada.'
             ], 404);
         }
@@ -920,12 +920,12 @@ class QuoteController extends Controller
         if (!in_array($quote->status, $allowedStatuses)) {
             if (in_array($quote->status, ['PERDIDA', 'EXPIRADA'])) {
                 return response()->json([
-                    'error' => 'Locked status',
+                    'error' => 'Status bloqueado',
                     'message' => 'Não é permitido gerar PDF para uma cotação perdida ou expirada.'
                 ], 422);
             }
             return response()->json([
-                'error' => 'Locked status',
+                'error' => 'Status bloqueado',
                 'message' => "O PDF só pode ser gerado após a aprovação da cotação (status atual: {$quote->status})."
             ], 422);
         }
@@ -949,7 +949,7 @@ class QuoteController extends Controller
             return $pdf->stream("cotacao_{$quote->numero}.pdf");
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'PDF generation error',
+                'error' => 'Erro na geração do PDF',
                 'message' => $e->getMessage()
             ], 422);
         }
@@ -993,23 +993,23 @@ class QuoteController extends Controller
         $quote = $request->cotacao;
 
         if ($quote->status === 'FATURADA') {
-            return response()->json(['error' => 'Conflict', 'message' => 'Esta cotação já foi faturada.'], 422);
+            return response()->json(['error' => 'Conflito', 'message' => 'Esta cotação já foi faturada.'], 422);
         }
 
         if ($quote->status === 'FINALIZADA_COM_PEDIDO') {
-            return response()->json(['error' => 'Conflict', 'message' => 'Esta cotação já possui pedido externo registrado.'], 422);
+            return response()->json(['error' => 'Conflito', 'message' => 'Esta cotação já possui pedido externo registrado.'], 422);
         }
 
         if ($quote->status === 'APROVADA') {
             return response()->json([
-                'error' => 'PDF required',
+                'error' => 'PDF obrigatório',
                 'message' => 'É necessário gerar o PDF da cotação antes de liberá-la para faturamento.'
             ], 422);
         }
 
         if ($quote->status !== 'PDF_GERADO') {
             return response()->json([
-                'error' => 'Invalid status',
+                'error' => 'Status inválido',
                 'message' => "Esta cotação está com status {$quote->status} e não pode ser liberada para faturamento."
             ], 422);
         }
@@ -1021,7 +1021,7 @@ class QuoteController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+            return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
         }
 
         try {
@@ -1062,7 +1062,7 @@ class QuoteController extends Controller
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Database error',
+                'error' => 'Erro no banco de dados',
                 'message' => 'Falha ao liberar para faturamento. ' . $e->getMessage()
             ], 500);
         }

@@ -78,28 +78,28 @@ class ParameterController extends Controller
         if ($chave === 'DESCONTO_AVALIACAO_MODO' && !in_array($valor, ['ITEM_A_ITEM', 'MEDIA_TOTAL'])) {
             return response()->json([
                 'error' => 'Validation error',
-                'message' => 'DESCONTO_AVALIACAO_MODO must be either ITEM_A_ITEM or MEDIA_TOTAL.'
+                'message' => 'DESCONTO_AVALIACAO_MODO deve ser ITEM_A_ITEM ou MEDIA_TOTAL.'
             ], 422);
         }
 
         if ($chave === 'REENVIO_PARCIAL_MODO' && !in_array($valor, ['RECALCULA_TUDO', 'SO_ITENS_ALTERADOS'])) {
             return response()->json([
                 'error' => 'Validation error',
-                'message' => 'REENVIO_PARCIAL_MODO must be either RECALCULA_TUDO or SO_ITENS_ALTERADOS.'
+                'message' => 'REENVIO_PARCIAL_MODO deve ser RECALCULA_TUDO ou SO_ITENS_ALTERADOS.'
             ], 422);
         }
 
         if ($param->tipo === 'booleano' && !in_array(strtolower($valor), ['true', 'false', '1', '0'])) {
             return response()->json([
                 'error' => 'Validation error',
-                'message' => 'Value must be a boolean representation (true or false).'
+                'message' => 'O valor deve ser booleano (true ou false).'
             ], 422);
         }
 
         if ($param->tipo === 'numero' && !is_numeric($valor)) {
             return response()->json([
                 'error' => 'Validation error',
-                'message' => 'Value must be a valid number.'
+                'message' => 'O valor deve ser um número válido.'
             ], 422);
         }
 
@@ -107,7 +107,7 @@ class ParameterController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Parameter '{$chave}' updated successfully to '{$valor}'.",
+            'message' => "Parâmetro '{$chave}' atualizado com sucesso.",
             'data' => $param
         ]);
     }

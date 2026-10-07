@@ -111,7 +111,7 @@ class ApprovalController extends Controller
 
         // Validate status (must be pending approval)
         if (!in_array($quote->status, ['AGUARDANDO_GESTOR', 'COM_DIRETOR'])) {
-            return response()->json(['error' => 'Invalid state', 'message' => 'Cannot edit prices of a quote that is not in approval stage.'], 422);
+            return response()->json(['error' => 'Invalid state', 'message' => 'Não é possível editar preços de uma cotação que não está em fase de aprovação.'], 422);
         }
 
         $request->validate([
@@ -161,14 +161,14 @@ class ApprovalController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Price updated in simulation successfully.',
+                'message' => 'Preço simulado e atualizado com sucesso.',
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to simulate price. ' . $e->getMessage()
+                'message' => 'Falha ao simular preço: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -207,7 +207,7 @@ class ApprovalController extends Controller
                     ->count();
 
                 if ($validItemsCount !== count($itemIds)) {
-                    throw new \Exception('One or more item IDs do not belong to this quotation.');
+                    throw new \Exception('Um ou mais itens não pertencem a esta cotação.');
                 }
 
                 // Delete previous vinculos for these items in this quote
@@ -236,13 +236,13 @@ class ApprovalController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Items bound successfully.'
+                'message' => 'Itens vinculados com sucesso.'
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to bind items. ' . $e->getMessage()
+                'message' => 'Falha ao vincular itens: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -437,14 +437,14 @@ class ApprovalController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Decision processed successfully.',
+                'message' => 'Decisão processada com sucesso.',
                 'status' => $quote->fresh()->status
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to submit decision. ' . $e->getMessage()
+                'message' => 'Falha ao registrar decisão: ' . $e->getMessage()
             ], 500);
         }
     }

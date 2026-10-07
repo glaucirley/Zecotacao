@@ -80,7 +80,7 @@ class BillingController extends Controller
 
         // Block modifications if locked
         if ($quote->status === 'FATURADA') {
-            return response()->json(['error' => 'Locked quote', 'message' => 'This quotation has already been billed.'], 422);
+            return response()->json(['error' => 'Locked quote', 'message' => 'Esta cotação já foi faturada.'], 422);
         }
 
         $request->validate([
@@ -119,14 +119,14 @@ class BillingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'External order registered successfully. Quotation moved to FINALIZADA_COM_PEDIDO.',
+                'message' => 'Pedido externo registrado com sucesso. Cotação movida para FINALIZADA_COM_PEDIDO.',
                 'data' => $quote->fresh(['pedidoExterno'])
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to register external order. ' . $e->getMessage()
+                'message' => 'Falha ao registrar pedido externo: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -146,7 +146,7 @@ class BillingController extends Controller
         $pedido = $quote->pedidoExterno;
 
         if (!$pedido) {
-            return response()->json(['error' => 'Not found', 'message' => 'No external order registered for this quotation.'], 404);
+            return response()->json(['error' => 'Not found', 'message' => 'Nenhum pedido externo registrado para esta cotação.'], 404);
         }
 
         $request->validate([
@@ -169,14 +169,14 @@ class BillingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Conference status updated successfully.',
+                'message' => 'Status da conferência atualizado com sucesso.',
                 'data' => $pedido->fresh()
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to update conference status. ' . $e->getMessage()
+                'message' => 'Falha ao atualizar conferência: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -216,13 +216,13 @@ class BillingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Divergence logged successfully. Status set to divergente.'
+                'message' => 'Divergência registrada com sucesso. Status alterado para divergente.'
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to log divergence. ' . $e->getMessage()
+                'message' => 'Falha ao registrar divergência: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -242,7 +242,7 @@ class BillingController extends Controller
         $pedido = $quote->pedidoExterno;
 
         if ($quote->status === 'FATURADA') {
-            return response()->json(['error' => 'Conflict', 'message' => 'This quotation is already marked as billed (FATURADA).'], 422);
+            return response()->json(['error' => 'Conflict', 'message' => 'Esta cotação já está marcada como FATURADA.'], 422);
         }
 
         try {
@@ -266,14 +266,14 @@ class BillingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Quotation marked as FATURADA successfully.',
+                'message' => 'Cotação marcada como FATURADA com sucesso.',
                 'status' => 'FATURADA'
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Database error',
-                'message' => 'Failed to bill quotation. ' . $e->getMessage()
+                'message' => 'Falha ao faturar cotação: ' . $e->getMessage()
             ], 500);
         }
     }

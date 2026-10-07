@@ -72,7 +72,7 @@ class ChatLogController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Chat log recorded successfully.',
+                'message' => 'Mensagem de chat registrada com sucesso.',
                 'data' => $log
             ], 201);
 

@@ -313,10 +313,124 @@
             margin: 0 !important;
         }
     }
+
+    /* Toast Notification System */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none;
+        max-width: 90vw;
+        width: 380px;
+    }
+
+    @media (max-width: 640px) {
+        .toast-container {
+            top: 15px !important;
+            left: 50% !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+            width: calc(100vw - 28px) !important;
+            max-width: 100vw !important;
+        }
+    }
+
+    .app-toast {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 10px;
+        color: #ffffff;
+        font-size: 13px;
+        line-height: 1.4;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+        pointer-events: auto;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        transform: translateY(-15px);
+        opacity: 0;
+    }
+
+    .app-toast.show {
+        transform: translateY(0);
+        opacity: 1;
+    }
+
+    .app-toast.hide {
+        transform: translateY(-15px);
+        opacity: 0;
+    }
+
+    .app-toast-success {
+        background: #059669; /* Emerald 600 */
+        border: 1px solid #10b981;
+    }
+
+    .app-toast-error {
+        background: #dc2626; /* Red 600 */
+        border: 1px solid #ef4444;
+    }
+
+    .app-toast-warning {
+        background: #d97706; /* Amber 600 */
+        border: 1px solid #f59e0b;
+    }
+
+    .app-toast-info {
+        background: #2563eb; /* Blue 600 */
+        border: 1px solid #3b82f6;
+    }
+
+    .app-toast-icon {
+        font-size: 18px;
+        line-height: 1;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .app-toast-body {
+        flex-grow: 1;
+    }
+
+    .app-toast-title {
+        font-weight: 700;
+        font-size: 13.5px;
+        margin-bottom: 2px;
+    }
+
+    .app-toast-msg {
+        font-size: 12.5px;
+        word-break: break-word;
+        opacity: 0.95;
+    }
+
+    .app-toast-close {
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        opacity: 0.7;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0;
+        margin-left: 4px;
+        flex-shrink: 0;
+        transition: opacity 0.15s;
+    }
+
+    .app-toast-close:hover {
+        opacity: 1;
+    }
 </style>
 @endsection
 
 @section('content')
+<div id="toast-container" class="toast-container"></div>
 <div id="representative-panel" style="display: none;">
     <!-- Dynamic Authenticated User Top Navigation Bar -->
     <div id="user-auth-bar" style="display: none; margin-bottom: 16px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -676,6 +790,78 @@
 
 @section('scripts')
 <script>
+    // Responsive In-Screen Toast Notifications (replaces blocking browser alerts)
+    function showToast(message, type = 'info', title = null) {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `app-toast app-toast-${type}`;
+
+        let icon = 'ℹ️';
+        let defaultTitle = 'Aviso';
+        if (type === 'success') {
+            icon = '✓';
+            defaultTitle = 'Sucesso';
+        } else if (type === 'error') {
+            icon = '✕';
+            defaultTitle = 'Erro';
+        } else if (type === 'warning') {
+            icon = '⚠️';
+            defaultTitle = 'Atenção';
+        }
+
+        const toastTitle = title || defaultTitle;
+        const formattedMsg = String(message || '').replace(/\n/g, '<br>');
+
+        toast.innerHTML = `
+            <span class="app-toast-icon">${icon}</span>
+            <div class="app-toast-body">
+                <div class="app-toast-title">${toastTitle}</div>
+                <div class="app-toast-msg">${formattedMsg}</div>
+            </div>
+            <button type="button" class="app-toast-close" title="Fechar">&times;</button>
+        `;
+
+        const closeBtn = toast.querySelector('.app-toast-close');
+        const dismiss = () => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => {
+                if (toast.parentElement) toast.remove();
+            }, 250);
+        };
+
+        if (closeBtn) {
+            closeBtn.onclick = (e) => {
+                e.stopPropagation();
+                dismiss();
+            };
+        }
+
+        toast.onclick = dismiss;
+
+        container.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        const duration = (type === 'error' || String(message).length > 80) ? 6000 : 4000;
+        setTimeout(() => {
+            if (toast.parentElement) dismiss();
+        }, duration);
+    }
+
+    // Global override to guarantee no native alert locks the mobile screen
+    window.alert = function(msg) {
+        showToast(msg, 'warning');
+    };
+
     const QUOTE_ID = {{ isset($quoteId) ? (int)$quoteId : 'null' }};
     const TOKEN = "{{ $token ?? '' }}";
     const API_URL = "/api/v1";
@@ -701,13 +887,13 @@
                     const parsed = JSON.parse(errText);
                     if (parsed.error || parsed.message) errMsg = parsed.error || parsed.message;
                 } catch(e) {}
-                alert("Erro ao carregar a cotação: " + errMsg);
+                showToast("Erro ao carregar a cotação: " + errMsg, 'error');
                 return;
             }
 
             const quoteData = await quoteRes.json();
             if (!quoteData.success) {
-                alert("Erro ao carregar a cotação: " + (quoteData.error || quoteData.message || "Cotação não encontrada"));
+                showToast("Erro ao carregar a cotação: " + (quoteData.error || quoteData.message || "Cotação não encontrada"), 'error');
                 return;
             }
             quote = quoteData.data;
@@ -728,7 +914,7 @@
             renderView();
         } catch (e) {
             console.error("Erro em loadData:", e);
-            alert("Falha na conexão com o servidor: " + (e.message || "Erro de rede"));
+            showToast("Falha na conexão com o servidor: " + (e.message || "Erro de rede"), 'error');
         }
     }
 
@@ -885,7 +1071,7 @@
 
     function stepQty(itemId, delta) {
         if (isEditingLocked) {
-            alert("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.");
+            showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.", 'warning');
             return;
         }
         const item = quote.itens.find(i => i.id === itemId);
@@ -1283,7 +1469,7 @@
     async function addNewItem() {
         const productId = document.getElementById("selected-product-id").value;
         if (!productId) {
-            alert("Por favor, digite no campo de busca e selecione um produto da lista.");
+            showToast("Por favor, digite no campo de busca e selecione um produto da lista.", 'warning');
             return;
         }
 
@@ -1292,12 +1478,12 @@
         const proposto = parseFloat(parseFloat(document.getElementById("new-item-proposto").value).toFixed(2)) || 0;
 
         if (proposto <= 0) {
-            alert("Por favor, informe um preço proposto válido.");
+            showToast("Por favor, informe um preço proposto válido.", 'warning');
             return;
         }
 
         if (isEditingLocked) {
-            alert("Esta cotação não permite inclusão de produtos no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            showToast("Esta cotação não permite inclusão de produtos no status atual (" + quote.status.replace(/_/g, ' ') + ").", 'warning');
             return;
         }
 
@@ -1324,16 +1510,16 @@
                 renderItems();
                 clearSelectedProduct();
             } else {
-                alert("Erro ao adicionar item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)));
+                showToast("Erro ao adicionar item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)), 'error');
             }
         } catch (e) {
-            alert("Erro de conexão ao adicionar produto.");
+            showToast("Erro de conexão ao adicionar produto.", 'error');
         }
     }
 
     async function deleteItem(itemId) {
         if (isEditingLocked) {
-            alert("Esta cotação não permite remoção de itens no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            showToast("Esta cotação não permite remoção de itens no status atual (" + quote.status.replace(/_/g, ' ') + ").", 'warning');
             return;
         }
         if (!confirm("Deseja realmente remover este item?")) return;
@@ -1347,17 +1533,17 @@
                 quote.itens = data.data.itens;
                 renderItems();
             } else {
-                alert("Erro ao remover item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)));
+                showToast("Erro ao remover item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)), 'error');
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão.", 'error');
         }
     }
 
     // Save and Submit Actions
     async function saveDraft(showNotification = false) {
         if (isEditingLocked) {
-            alert("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edições.");
+            showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edições.", 'warning');
             return false;
         }
 
@@ -1386,15 +1572,15 @@
             if (res.ok && data.success) {
                 quote = data.data;
                 if (showNotification) {
-                    alert("Rascunho salvo com sucesso.");
+                    showToast("Rascunho salvo com sucesso.", 'success');
                 }
                 return true;
             } else {
-                alert("Erro ao salvar rascunho: " + (data.message || data.error || ("Falha no servidor HTTP " + res.status)));
+                showToast("Erro ao salvar rascunho: " + (data.message || data.error || ("Falha no servidor HTTP " + res.status)), 'error');
                 return false;
             }
         } catch (e) {
-            alert("Erro de conexão ao salvar.");
+            showToast("Erro de conexão ao salvar.", 'error');
             return false;
         }
     }
@@ -1435,7 +1621,7 @@
 
             // 1. Check size limit (10MB)
             if (file.size > MAX_ATTACHMENT_SIZE) {
-                alert(`O arquivo "${name}" ultrapassa o limite máximo de 10 MB (${(file.size / (1024*1024)).toFixed(1)} MB).\nPor favor, escolha um arquivo menor.`);
+                showToast(`O arquivo "${name}" ultrapassa o limite máximo de 10 MB (${(file.size / (1024*1024)).toFixed(1)} MB).\nPor favor, escolha um arquivo menor.`, 'error');
                 fileInput.value = "";
                 if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
                 return false;
@@ -1443,7 +1629,7 @@
 
             // 2. Check blocked or unapproved extension
             if (BLOCKED_ATTACHMENT_EXTS.includes(ext) || !ALLOWED_ATTACHMENT_EXTS.includes(ext)) {
-                alert(`O arquivo "${name}" não é permitido.\nApenas arquivos PDF, imagens (JPG, PNG, WEBP) e documentos do Office (Word, Excel, PowerPoint) são aceitos.`);
+                showToast(`O arquivo "${name}" não é permitido.\nApenas arquivos PDF, imagens (JPG, PNG, WEBP) e documentos do Office (Word, Excel, PowerPoint) são aceitos.`, 'error');
                 fileInput.value = "";
                 if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
                 return false;
@@ -1452,7 +1638,7 @@
             // 3. Check browser reported mime type for executables / archives
             const mime = (file.type || '').toLowerCase();
             if (mime.includes('zip') || mime.includes('executable') || mime.includes('x-dosexec') || mime.includes('x-msdownload')) {
-                alert(`O arquivo "${name}" possui formato executável ou compactado não permitido.`);
+                showToast(`O arquivo "${name}" possui formato executável ou compactado não permitido.`, 'error');
                 fileInput.value = "";
                 if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
                 return false;
@@ -1479,7 +1665,7 @@
 
         const file = audioInput.files[0];
         if (file.size > MAX_ATTACHMENT_SIZE) {
-            alert(`O arquivo de áudio "${file.name}" ultrapassa o limite máximo de 10 MB.`);
+            showToast(`O arquivo de áudio "${file.name}" ultrapassa o limite máximo de 10 MB.`, 'error');
             audioInput.value = "";
             if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
             return false;
@@ -1495,7 +1681,7 @@
 
     async function submitQuote() {
         if (isEditingLocked) {
-            alert("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + " e não permite novo envio.");
+            showToast("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + " e não permite novo envio.", 'warning');
             return;
         }
 
@@ -1511,7 +1697,7 @@
             const audioInput = document.getElementById("just-audio");
 
             if (!texto && !fileInput.files.length && !audioInput.files.length) {
-                alert("Justificativa é obrigatória por haver itens abaixo do preço mínimo.");
+                showToast("Justificativa e anexo comprovatório são obrigatórios para itens abaixo do preço mínimo.", 'error');
                 return;
             }
 
@@ -1549,7 +1735,7 @@
                         errorMsg = Array.isArray(val) ? val[0] : val;
                     }
                 }
-                alert("Erro ao enviar justificativa: " + errorMsg);
+                showToast("Erro ao enviar justificativa: " + errorMsg, 'error');
                 return;
             }
         }
@@ -1561,24 +1747,24 @@
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
-                alert("Cotação enviada com sucesso! Situação: " + data.status.replace(/_/g, ' '));
-                window.location.reload();
+                showToast("Cotação enviada com sucesso! Situação: " + data.status.replace(/_/g, ' '), 'success');
+                setTimeout(() => window.location.reload(), 1200);
             } else {
-                alert("Erro ao enviar cotação: " + (data.message || data.error || ("Falha no envio HTTP " + res.status)));
+                showToast("Erro ao enviar cotação: " + (data.message || data.error || ("Falha no envio HTTP " + res.status)), 'error');
             }
         } catch (e) {
-            alert("Erro de conexão ao enviar.");
+            showToast("Erro de conexão ao enviar.", 'error');
         }
     }
 
     function downloadPdf() {
         if (!quote) {
-            alert("Aguarde o carregamento da cotação.");
+            showToast("Aguarde o carregamento da cotação.", 'info');
             return;
         }
         const allowPdfStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
         if (!allowPdfStatuses.includes(quote.status)) {
-            alert("O PDF só pode ser gerado após a aprovação da cotação.");
+            showToast("O PDF só pode ser gerado após a aprovação da cotação.", 'warning');
             return;
         }
 
@@ -1599,7 +1785,7 @@
     // Mark as Lost Flow
     function openLostModal() {
         if (isEditingLocked) {
-            alert("Esta cotação não pode ser marcada como perdida no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            showToast("Esta cotação não pode ser marcada como perdida no status atual (" + quote.status.replace(/_/g, ' ') + ").", 'warning');
             return;
         }
         document.getElementById("lost-modal").style.display = "flex";
@@ -1612,13 +1798,13 @@
 
     async function confirmLost() {
         if (isEditingLocked) {
-            alert("Não é possível encerrar esta cotação no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            showToast("Não é possível encerrar esta cotação no status atual (" + quote.status.replace(/_/g, ' ') + ").", 'warning');
             return;
         }
 
         const justificativa = document.getElementById("lost-reason").value;
         if (!justificativa || justificativa.length < 5) {
-            alert("Digite um motivo válido (mínimo 5 caracteres).");
+            showToast("Digite um motivo válido (mínimo 5 caracteres).", 'warning');
             return;
         }
 
@@ -1630,14 +1816,14 @@
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
-                alert("Cotação encerrada como PERDIDA.");
+                showToast("Cotação encerrada como PERDIDA.", 'info');
                 closeLostModal();
-                window.location.reload();
+                setTimeout(() => window.location.reload(), 1200);
             } else {
-                alert("Erro ao encerrar cotação: " + (data.message || data.error || ("Falha no servidor HTTP " + res.status)));
+                showToast("Erro ao encerrar cotação: " + (data.message || data.error || ("Falha no servidor HTTP " + res.status)), 'error');
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão.", 'error');
         }
     }
 
@@ -1645,11 +1831,11 @@
     function openReleaseModal() {
         if (!quote) return;
         if (quote.status === 'APROVADA') {
-            alert("É necessário gerar o PDF da cotação antes de liberar para faturamento.");
+            showToast("É necessário gerar o PDF da cotação antes de liberar para faturamento.", 'warning');
             return;
         }
         if (quote.status !== 'PDF_GERADO') {
-            alert("Esta cotação não está apta para faturamento no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            showToast("Esta cotação não está apta para faturamento no status atual (" + quote.status.replace(/_/g, ' ') + ").", 'warning');
             return;
         }
 
@@ -1688,12 +1874,12 @@
         const orderValue = parseFloat(document.getElementById("release-valor-pedido").value);
 
         if (!orderNum) {
-            alert("O número do pedido no Sankhya é obrigatório.");
+            showToast("O número do pedido no Sankhya é obrigatório.", 'warning');
             return;
         }
 
         if (isNaN(orderValue) || orderValue <= 0) {
-            alert("Por favor, preencha um valor válido para o faturamento.");
+            showToast("Por favor, preencha um valor válido para o faturamento.", 'warning');
             return;
         }
 
@@ -1715,24 +1901,24 @@
                 const errText = await res.text();
                 try {
                     const errJson = JSON.parse(errText);
-                    alert("Erro: " + (errJson.message || errJson.error));
+                    showToast("Erro: " + (errJson.message || errJson.error), 'error');
                 } catch(e) {
-                    alert(`Erro ${res.status}: ` + errText.substring(0, 200));
+                    showToast(`Erro ${res.status}: ` + errText.substring(0, 200), 'error');
                 }
                 return;
             }
 
             const data = await res.json();
             if (data.success) {
-                alert("Cotação liberada para faturamento com sucesso!");
+                showToast("Cotação liberada para faturamento com sucesso!", 'success');
                 closeReleaseModal();
                 loadData(); // reload details and status
             } else {
-                alert("Erro: " + data.message);
+                showToast("Erro: " + data.message, 'error');
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão.");
+            showToast("Erro de conexão.", 'error');
         }
     }
 
