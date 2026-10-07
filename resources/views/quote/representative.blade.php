@@ -567,12 +567,22 @@
 
         <div class="grid-2">
             <div class="form-group">
-                <label class="form-label" style="color: #b45309;">Anexos / Documentos (Comprovante Concorrente, etc)</label>
-                <input type="file" id="just-anexos" class="form-control" multiple style="background-color: #ffffff; border-color: #fcd34d; padding: 6px 10px;">
+                <label class="form-label" style="color: #b45309; font-weight: 600;">Anexos / Documentos (Comprovante Concorrente, etc)</label>
+                <input type="file" id="just-anexos" class="form-control" multiple 
+                       accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.odt,.ods,.odp,application/pdf,image/jpeg,image/png,image/webp,image/gif,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                       style="background-color: #ffffff; border-color: #fcd34d; padding: 6px 10px;">
+                <small style="display: block; margin-top: 5px; font-size: 11px; color: #b45309;">
+                    Formatos aceitos: PDF, imagens (JPG, PNG, WEBP) e Office (Word, Excel, PowerPoint). Limite: 10MB por arquivo.
+                </small>
+                <div id="just-anexos-preview" style="margin-top: 6px; font-size: 12px; display: none;"></div>
             </div>
             <div class="form-group">
-                <label class="form-label" style="color: #b45309;">Upload de Justificativa por Áudio (Gravador/Arquivo)</label>
-                <input type="file" id="just-audio" class="form-control" accept="audio/*" style="background-color: #ffffff; border-color: #fcd34d; padding: 6px 10px;">
+                <label class="form-label" style="color: #b45309; font-weight: 600;">Upload de Justificativa por Áudio (Gravador/Arquivo)</label>
+                <input type="file" id="just-audio" class="form-control" accept="audio/*,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/m4a" style="background-color: #ffffff; border-color: #fcd34d; padding: 6px 10px;">
+                <small style="display: block; margin-top: 5px; font-size: 11px; color: #b45309;">
+                    Formatos aceitos: MP3, WAV, OGG, M4A. Limite: 10MB.
+                </small>
+                <div id="just-audio-preview" style="margin-top: 6px; font-size: 12px; display: none;"></div>
             </div>
         </div>
     </div>
@@ -677,6 +687,7 @@
     document.addEventListener("DOMContentLoaded", () => {
         checkUserSession();
         loadData();
+        setupAttachmentValidation();
     });
 
     async function loadData() {
@@ -1353,6 +1364,100 @@
         }
     }
 
+    const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_ATTACHMENT_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'odt', 'ods', 'odp'];
+    const BLOCKED_ATTACHMENT_EXTS = ['exe', 'zip', 'rar', '7z', 'tar', 'gz', 'bat', 'cmd', 'sh', 'com', 'scr', 'msi', 'vbs', 'js', 'bin', 'phtml', 'php', 'apk', 'jar'];
+
+    function setupAttachmentValidation() {
+        const fileInput = document.getElementById("just-anexos");
+        const audioInput = document.getElementById("just-audio");
+
+        if (fileInput) {
+            fileInput.addEventListener("change", function() {
+                validateAttachmentFiles(this);
+            });
+        }
+
+        if (audioInput) {
+            audioInput.addEventListener("change", function() {
+                validateAudioFile(this);
+            });
+        }
+    }
+
+    function validateAttachmentFiles(fileInput) {
+        const preview = document.getElementById("just-anexos-preview");
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+            return true;
+        }
+
+        let fileSummaries = [];
+        for (let i = 0; i < fileInput.files.length; i++) {
+            const file = fileInput.files[i];
+            const name = file.name;
+            const ext = (name.split('.').pop() || '').toLowerCase();
+
+            // 1. Check size limit (10MB)
+            if (file.size > MAX_ATTACHMENT_SIZE) {
+                alert(`O arquivo "${name}" ultrapassa o limite máximo de 10 MB (${(file.size / (1024*1024)).toFixed(1)} MB).\nPor favor, escolha um arquivo menor.`);
+                fileInput.value = "";
+                if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+                return false;
+            }
+
+            // 2. Check blocked or unapproved extension
+            if (BLOCKED_ATTACHMENT_EXTS.includes(ext) || !ALLOWED_ATTACHMENT_EXTS.includes(ext)) {
+                alert(`O arquivo "${name}" não é permitido.\nApenas arquivos PDF, imagens (JPG, PNG, WEBP) e documentos do Office (Word, Excel, PowerPoint) são aceitos.`);
+                fileInput.value = "";
+                if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+                return false;
+            }
+
+            // 3. Check browser reported mime type for executables / archives
+            const mime = (file.type || '').toLowerCase();
+            if (mime.includes('zip') || mime.includes('executable') || mime.includes('x-dosexec') || mime.includes('x-msdownload')) {
+                alert(`O arquivo "${name}" possui formato executável ou compactado não permitido.`);
+                fileInput.value = "";
+                if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+                return false;
+            }
+
+            const sizeKb = Math.round(file.size / 1024);
+            fileSummaries.push(`📁 ${name} (${sizeKb} KB)`);
+        }
+
+        if (preview) {
+            preview.style.display = "block";
+            preview.style.color = "#047857";
+            preview.innerHTML = fileSummaries.join("<br>");
+        }
+        return true;
+    }
+
+    function validateAudioFile(audioInput) {
+        const preview = document.getElementById("just-audio-preview");
+        if (!audioInput || !audioInput.files || audioInput.files.length === 0) {
+            if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+            return true;
+        }
+
+        const file = audioInput.files[0];
+        if (file.size > MAX_ATTACHMENT_SIZE) {
+            alert(`O arquivo de áudio "${file.name}" ultrapassa o limite máximo de 10 MB.`);
+            audioInput.value = "";
+            if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+            return false;
+        }
+
+        if (preview) {
+            preview.style.display = "block";
+            preview.style.color = "#047857";
+            preview.innerHTML = `🎵 ${file.name} (${Math.round(file.size / 1024)} KB)`;
+        }
+        return true;
+    }
+
     async function submitQuote() {
         if (isEditingLocked) {
             alert("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + " e não permite novo envio.");
@@ -1375,6 +1480,14 @@
                 return;
             }
 
+            // Client-side validations
+            if (!validateAttachmentFiles(fileInput)) {
+                return;
+            }
+            if (!validateAudioFile(audioInput)) {
+                return;
+            }
+
             // Perform multipart submit for attachments/justification
             const formData = new FormData();
             formData.append("texto", texto);
@@ -1393,7 +1506,15 @@
             });
             const justData = await justRes.json().catch(() => ({}));
             if (!justRes.ok || !justData.success) {
-                alert("Erro ao enviar justificativa: " + (justData.message || justData.error || ("Falha no envio HTTP " + justRes.status)));
+                let errorMsg = justData.message || justData.error || ("Falha no envio HTTP " + justRes.status);
+                if (justData.messages && typeof justData.messages === 'object') {
+                    const firstKey = Object.keys(justData.messages)[0];
+                    if (firstKey && justData.messages[firstKey]) {
+                        const val = justData.messages[firstKey];
+                        errorMsg = Array.isArray(val) ? val[0] : val;
+                    }
+                }
+                alert("Erro ao enviar justificativa: " + errorMsg);
                 return;
             }
         }
@@ -1581,11 +1702,6 @@
     }
 
     let loggedUser = null;
-
-    document.addEventListener("DOMContentLoaded", () => {
-        checkUserSession();
-        loadData();
-    });
 
     async function checkUserSession() {
         try {

@@ -629,11 +629,119 @@ class QuoteController extends Controller
             'audio' => 'nullable|file|mimes:audio/mpeg,mp3,wav,ogg,m4a,application/octet-stream|max:10240', // 10MB limit
             'cotacao_item_id' => 'nullable|exists:cotacao_itens,id',
             'anexos' => 'nullable|array',
-            'anexos.*' => 'file|max:10240', // 10MB limit per file
+            'anexos.*' => [
+                'file',
+                'max:10240', // 10MB limit per file
+                'mimes:pdf,jpeg,png,jpg,webp,gif,doc,docx,xls,xlsx,csv,ppt,pptx,odt,ods,odp',
+            ],
+        ], [
+            'anexos.*.file' => 'O arquivo enviado não é válido.',
+            'anexos.*.max' => 'Cada anexo deve ter no máximo 10MB.',
+            'anexos.*.mimes' => 'Formato não permitido. São aceitos apenas arquivos PDF, imagens (JPG, PNG, WEBP) e documentos do Office (Word, Excel, PowerPoint).',
+            'audio.file' => 'O arquivo de áudio enviado não é válido.',
+            'audio.max' => 'O arquivo de áudio deve ter no máximo 10MB.',
+            'audio.mimes' => 'Formato de áudio não suportado.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+            return response()->json([
+                'error' => 'Validation error',
+                'message' => $validator->errors()->first(),
+                'messages' => $validator->errors()
+            ], 422);
+        }
+
+        // Additional deep inspection on real file content, extensions, and real MIME types
+        if ($request->hasFile('anexos')) {
+            $allowedExtensions = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'odt', 'ods', 'odp'];
+            $blockedExtensions = ['exe', 'zip', 'rar', '7z', 'tar', 'gz', 'bat', 'cmd', 'sh', 'com', 'scr', 'msi', 'vbs', 'js', 'bin', 'phtml', 'php', 'apk', 'jar'];
+
+            $allowedMimePrefixesOrTypes = [
+                'application/pdf',
+                'image/',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'text/csv',
+                'text/plain',
+                'application/vnd.ms-powerpoint',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'application/vnd.oasis.opendocument.',
+            ];
+
+            $blockedMimePatterns = [
+                'application/x-dosexec',
+                'application/x-executable',
+                'application/x-msdownload',
+                'application/x-msdos-program',
+                'application/zip',
+                'application/x-zip-compressed',
+                'application/x-rar-compressed',
+                'application/x-7z-compressed',
+                'application/x-tar',
+                'application/gzip',
+            ];
+
+            foreach ($request->file('anexos') as $file) {
+                $origName = $file->getClientOriginalName();
+                $ext = strtolower($file->getClientOriginalExtension());
+
+                // 1. Extension inspection
+                if (in_array($ext, $blockedExtensions) || !in_array($ext, $allowedExtensions)) {
+                    return response()->json([
+                        'error' => 'Invalid file extension',
+                        'message' => "O arquivo '{$origName}' possui extensão não permitida (.{$ext}). Apenas PDF, imagens e documentos do Office são aceitos.",
+                        'messages' => ['anexos' => ["O arquivo '{$origName}' possui extensão não permitida (.{$ext})."]]
+                    ], 422);
+                }
+
+                // 2. File size inspection (10MB)
+                if ($file->getSize() > 10 * 1024 * 1024) {
+                    return response()->json([
+                        'error' => 'File too large',
+                        'message' => "O arquivo '{$origName}' ultrapassa o limite máximo de 10 MB.",
+                        'messages' => ['anexos' => ["O arquivo '{$origName}' ultrapassa o limite máximo de 10 MB."]]
+                    ], 422);
+                }
+
+                // 3. Real content MIME inspection
+                $realMime = $file->getMimeType();
+                if (!$realMime && function_exists('finfo_open')) {
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $realMime = finfo_file($finfo, $file->getRealPath());
+                    finfo_close($finfo);
+                }
+                $realMime = strtolower($realMime ?: '');
+
+                // Check blocked MIME patterns
+                foreach ($blockedMimePatterns as $blockedMime) {
+                    if (str_starts_with($realMime, $blockedMime) || Str::contains($realMime, $blockedMime)) {
+                        return response()->json([
+                            'error' => 'Blocked file type',
+                            'message' => "O arquivo '{$origName}' foi recusado por conter formato ou conteúdo não permitido ({$realMime}).",
+                            'messages' => ['anexos' => ["O arquivo '{$origName}' possui conteúdo não permitido ({$realMime})."]]
+                        ], 422);
+                    }
+                }
+
+                // Check allowed MIME patterns
+                $mimeAllowed = false;
+                foreach ($allowedMimePrefixesOrTypes as $allowedType) {
+                    if (str_starts_with($realMime, $allowedType)) {
+                        $mimeAllowed = true;
+                        break;
+                    }
+                }
+
+                if (!$mimeAllowed) {
+                    return response()->json([
+                        'error' => 'Unsupported MIME type',
+                        'message' => "O conteúdo real do arquivo '{$origName}' ({$realMime}) não corresponde aos formatos aceitos (PDF, imagens ou Office).",
+                        'messages' => ['anexos' => ["O conteúdo real do arquivo '{$origName}' ({$realMime}) não é permitido."]]
+                    ], 422);
+                }
+            }
         }
 
         try {
@@ -659,8 +767,17 @@ class QuoteController extends Controller
                     foreach ($request->file('anexos') as $file) {
                         $path = $file->store('justificativas/anexos', 'public');
                         $url = Storage::disk('public')->url($path);
-                        $mime = $file->getClientMimeType();
-                        $type = Str::contains($mime, 'image') ? 'imagem' : 'documento';
+                        $realMime = strtolower($file->getMimeType() ?: '');
+                        $ext = strtolower($file->getClientOriginalExtension());
+
+                        $type = 'documento';
+                        if (Str::startsWith($realMime, 'image/')) {
+                            $type = 'imagem';
+                        } elseif ($realMime === 'application/pdf' || $ext === 'pdf') {
+                            $type = 'pdf';
+                        } elseif (Str::contains($realMime, 'spreadsheet') || Str::contains($realMime, 'excel') || in_array($ext, ['xls', 'xlsx', 'csv'])) {
+                            $type = 'planilha';
+                        }
 
                         CotacaoAnexo::create([
                             'cotacao_id' => $quote->id,
