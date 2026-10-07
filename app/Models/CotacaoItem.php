@@ -62,6 +62,29 @@ class CotacaoItem extends Model
         return round($min, 2);
     }
 
+    protected static ?bool $hasInconsistenteColumn = null;
+
+    public static function hasInconsistenteColumn(): bool
+    {
+        if (static::$hasInconsistenteColumn === null) {
+            try {
+                static::$hasInconsistenteColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'inconsistente');
+            } catch (\Throwable $e) {
+                static::$hasInconsistenteColumn = false;
+            }
+        }
+        return static::$hasInconsistenteColumn;
+    }
+
+    protected static function booted()
+    {
+        static::saving(function ($model) {
+            if (!static::hasInconsistenteColumn()) {
+                unset($model->attributes['inconsistente']);
+            }
+        });
+    }
+
     public function setPrecoUnitSugeridoAttribute($value): void
     {
         $this->attributes['preco_unit_sugerido'] = round((float)$value, 2);
@@ -88,7 +111,9 @@ class CotacaoItem extends Model
     {
         $sug = (float)($this->attributes['preco_unit_sugerido'] ?? 0);
         $min = (float)($this->attributes['preco_minimo'] ?? 0);
-        $this->attributes['inconsistente'] = ($sug > 0 && $min > $sug);
+        if (static::hasInconsistenteColumn()) {
+            $this->attributes['inconsistente'] = ($sug > 0 && $min > $sug);
+        }
     }
 
     public function cotacao()

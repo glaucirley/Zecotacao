@@ -1904,6 +1904,13 @@
             itens: itens
         };
 
+        const submitBtn = document.querySelector("#create-quote-form button[type='submit']");
+        const origSubmitText = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⏳ Gerando Cotação...';
+        }
+
         try {
             const res = await fetch(`${API_URL}/cotacoes/manual`, {
                 method: 'POST',
@@ -1915,21 +1922,40 @@
                 body: JSON.stringify(payload)
             });
 
-            const data = await res.json();
-            if (data.success || data.cotacao) {
+            let data = null;
+            try {
+                data = await res.json();
+            } catch(e) {
+                data = null;
+            }
+
+            if (res.ok && (data?.success || data?.cotacao || data?.id)) {
                 alert("✅ Cotação criada com sucesso!");
                 closeCreateModal();
                 loadQuotes();
             } else {
-                let errMsg = data.error || data.message || "Erro desconhecido ao salvar cotação.";
-                if (data.messages) {
-                    errMsg += "\n" + JSON.stringify(data.messages);
+                let errMsg = "Não foi possível gerar a cotação no momento.";
+                if (data?.message) {
+                    errMsg = data.message;
+                } else if (data?.error) {
+                    errMsg = data.error;
+                } else if (!res.ok) {
+                    errMsg = `Erro no servidor (código ${res.status}). Por favor, tente novamente.`;
                 }
-                alert("⚠️ Erro ao salvar cotação: " + errMsg);
+                if (data?.messages && typeof data.messages === 'object') {
+                    const details = Object.values(data.messages).flat().join("\n• ");
+                    errMsg += "\n\n• " + details;
+                }
+                alert("⚠️ " + errMsg);
             }
         } catch (err) {
             console.error(err);
-            alert("Erro de comunicação com o servidor ao salvar cotação.");
+            alert("Erro de comunicação com o servidor ao salvar cotação. Verifique sua conexão e tente novamente.");
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origSubmitText;
+            }
         }
     }
 </script>

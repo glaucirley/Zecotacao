@@ -165,10 +165,11 @@ class ApprovalController extends Controller
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao simular preço da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao simular preço: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível simular o preço. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -239,10 +240,11 @@ class ApprovalController extends Controller
                 'message' => 'Itens vinculados com sucesso.'
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao vincular itens da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao vincular itens: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível vincular os itens. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -441,10 +443,11 @@ class ApprovalController extends Controller
                 'status' => $quote->fresh()->status
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao registrar decisão da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao registrar decisão: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível registrar a decisão. Por favor, tente novamente.'
             ], 500);
         }
     }

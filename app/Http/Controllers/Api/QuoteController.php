@@ -303,10 +303,15 @@ class QuoteController extends Controller
                 ], 201);
             });
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao criar cotação manual: " . $e->getMessage(), [
+                'exception' => $e,
+                'user_id' => $user->id ?? null,
+                'request' => $request->except(['_token'])
+            ]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao criar cotação: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Ocorreu um erro interno ao processar a cotação. Por favor, tente novamente ou contate o suporte.'
             ], 500);
         }
     }
@@ -347,10 +352,11 @@ class QuoteController extends Controller
                 'success' => true,
                 'message' => 'Cotação excluída com sucesso.'
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao excluir cotação ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao excluir cotação: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível excluir a cotação. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -472,10 +478,11 @@ class QuoteController extends Controller
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao atualizar cotação ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao atualizar cotação: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível atualizar a cotação. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -562,10 +569,11 @@ class QuoteController extends Controller
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao adicionar item na cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao adicionar item: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível adicionar o item à cotação. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -610,10 +618,11 @@ class QuoteController extends Controller
                 'data' => $quote->fresh(['itens.produto'])
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao remover item {$item_id} da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao remover item: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível remover o item da cotação. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -805,10 +814,11 @@ class QuoteController extends Controller
                 'data' => $justification->load('anexos')
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao salvar justificativa da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao salvar justificativa: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível salvar a justificativa. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -857,10 +867,11 @@ class QuoteController extends Controller
                 'status' => 'PERDIDA'
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao marcar cotação ID {$quote->id} como perdida: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao marcar como perdida: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível marcar a cotação como perdida. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -1060,10 +1071,11 @@ class QuoteController extends Controller
                 'status' => 'FINALIZADA_COM_PEDIDO'
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao liberar cotação ID {$quote->id} para faturamento: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Erro no banco de dados',
-                'message' => 'Falha ao liberar para faturamento. ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível liberar a cotação para faturamento. Por favor, tente novamente.'
             ], 500);
         }
     }

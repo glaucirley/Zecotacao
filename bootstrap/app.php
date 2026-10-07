@@ -27,4 +27,34 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 401);
             }
         });
+
+        $exceptions->render(function (\Illuminate\Database\QueryException $e, \Illuminate\Http\Request $request) {
+            \Illuminate\Support\Facades\Log::error("Database QueryException on {$request->method()} {$request->path()}: " . $e->getMessage(), [
+                'sql' => $e->getSql(),
+                'bindings' => $e->getBindings(),
+                'url' => $request->fullUrl(),
+                'user_id' => auth()->id() ?? null,
+            ]);
+
+            if ($request->is('api/*') || $request->wantsJson()) {
+                return response()->json([
+                    'error' => 'Erro interno do servidor',
+                    'message' => 'Ocorreu um erro no banco de dados ao processar sua solicitação. Os detalhes foram registrados nos logs do servidor.'
+                ], 500);
+            }
+        });
+
+        $exceptions->render(function (\PDOException $e, \Illuminate\Http\Request $request) {
+            \Illuminate\Support\Facades\Log::error("PDOException on {$request->method()} {$request->path()}: " . $e->getMessage(), [
+                'url' => $request->fullUrl(),
+                'user_id' => auth()->id() ?? null,
+            ]);
+
+            if ($request->is('api/*') || $request->wantsJson()) {
+                return response()->json([
+                    'error' => 'Erro interno do servidor',
+                    'message' => 'Ocorreu uma falha de conexão com o banco de dados. Os detalhes foram registrados nos logs do servidor.'
+                ], 500);
+            }
+        });
     })->create();

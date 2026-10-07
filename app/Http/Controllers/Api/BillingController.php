@@ -123,10 +123,11 @@ class BillingController extends Controller
                 'data' => $quote->fresh(['pedidoExterno'])
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao registrar pedido externo da cotação ID {$cotacao_id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao registrar pedido externo: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível registrar o pedido externo. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -173,10 +174,11 @@ class BillingController extends Controller
                 'data' => $pedido->fresh()
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao atualizar conferência da cotação ID {$cotacao_id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao atualizar conferência: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível atualizar a conferência. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -219,10 +221,11 @@ class BillingController extends Controller
                 'message' => 'Divergência registrada com sucesso. Status alterado para divergente.'
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao registrar divergência da cotação ID {$cotacao_id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao registrar divergência: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível registrar a divergência. Por favor, tente novamente.'
             ], 500);
         }
     }
@@ -270,10 +273,11 @@ class BillingController extends Controller
                 'status' => 'FATURADA'
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao faturar cotação ID {$cotacao_id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao faturar cotação: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'message' => 'Não foi possível faturar a cotação. Por favor, tente novamente.'
             ], 500);
         }
     }

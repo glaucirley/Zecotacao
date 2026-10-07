@@ -1379,9 +1379,18 @@
                         </div>
                     </div>
 
+                    <!-- Inline Error Banner for New Quote -->
+                    <div id="new-quote-error-banner" style="display:none; margin-top:14px; padding:12px 14px; background:#fef2f2; border:1px solid #f87171; border-radius:12px; color:#991b1b; font-size:13px; line-height:1.4; box-shadow:0 2px 6px rgba(239,68,68,0.12);">
+                        <div style="font-weight:700; display:flex; align-items:center; gap:6px;">
+                            <span style="font-size:16px;">⚠️</span>
+                            <span id="new-quote-error-title">Atenção ao gerar cotação</span>
+                        </div>
+                        <div id="new-quote-error-msg" style="margin-top:4px; font-size:12px; color:#b91c1c;"></div>
+                    </div>
+
                     <div style="display:flex; gap:8px; margin-top:16px;">
                         <button type="button" class="btn-secondary-mobile" onclick="goToStep(2)">&larr; Voltar</button>
-                        <button type="button" style="background:#0284c7; color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;" onclick="saveDraftQuote(false)">💾 Rascunho</button>
+                        <button type="button" id="btn-draft-quote" style="background:#0284c7; color:white; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;" onclick="saveDraftQuote(false)">💾 Rascunho</button>
                         <button type="button" id="btn-submit-quote" class="btn-success-mobile" style="flex:1;" onclick="submitNewQuote()">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                             Gerar Cotação
@@ -2196,7 +2205,26 @@
         let currentWizardStep = 1;
         let isProductsLoading = false;
 
+        function showQuoteFormError(message, title = 'Não foi possível gerar a cotação') {
+            const banner = document.getElementById("new-quote-error-banner");
+            const titleEl = document.getElementById("new-quote-error-title");
+            const msgEl = document.getElementById("new-quote-error-msg");
+            if (banner && msgEl) {
+                if (titleEl) titleEl.innerText = title;
+                msgEl.innerHTML = String(message || '').replace(/\n/g, '<br>');
+                banner.style.display = "block";
+                banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            showToast(String(message || '').replace(/<br>/g, ' '), 'error', title);
+        }
+
+        function clearQuoteFormError() {
+            const banner = document.getElementById("new-quote-error-banner");
+            if (banner) banner.style.display = "none";
+        }
+
         async function openNewQuoteModal() {
+            clearQuoteFormError();
             document.getElementById("new-quote-overlay").style.display = "block";
             document.getElementById("new-quote-drawer").style.display = "flex";
             
@@ -2242,6 +2270,7 @@
             }
 
             isSavingDraft = true;
+            clearQuoteFormError();
             const repId = Number("{{ auth()->user()->id }}");
 
             let freteVal = document.getElementById("nq-frete-tipo") ? document.getElementById("nq-frete-tipo").value : 'CIF';
@@ -2274,12 +2303,18 @@
                     body: JSON.stringify(payload)
                 });
 
-                const data = await res.json();
+                let data = null;
+                try {
+                    data = await res.json();
+                } catch(e) {
+                    data = null;
+                }
                 isSavingDraft = false;
 
-                if (res.ok || data.id || data.success) {
+                if (res.ok && (data?.id || data?.success || data?.data)) {
                     selectedPartner = null;
                     quoteCartItems = [];
+                    clearQuoteFormError();
                     closeNewQuoteModal();
                     showToast("💾 Cotação salva com sucesso em 'Em Criação'!", 'success');
                     loadQuotes();
@@ -2287,18 +2322,28 @@
                     return true;
                 } else {
                     if (!isClosing) {
-                        let errMsg = data.error || data.message || "Erro de validação ao salvar rascunho.";
-                        if (data.messages && typeof data.messages === 'object') {
-                            const details = Object.values(data.messages).flat().join("\n• ");
-                            errMsg += "\n\n• " + details;
+                        let errMsg = "Não foi possível salvar o rascunho.";
+                        if (data?.message) {
+                            errMsg = data.message;
+                        } else if (data?.error) {
+                            errMsg = data.error;
+                        } else if (!res.ok) {
+                            errMsg = `Erro no servidor (código ${res.status}). Por favor, tente novamente.`;
                         }
-                        showToast("Erro ao salvar rascunho: " + errMsg, 'error');
+                        if (data?.messages && typeof data.messages === 'object') {
+                            const details = Object.values(data.messages).flat().join("<br>• ");
+                            errMsg += "<br><br>• " + details;
+                        }
+                        showQuoteFormError(errMsg, 'Falha ao salvar rascunho');
                     }
                     return false;
                 }
             } catch(e) {
                 console.error("Error saving draft quote:", e);
                 isSavingDraft = false;
+                if (!isClosing) {
+                    showQuoteFormError("Erro de comunicação ao salvar rascunho. Tente novamente.", 'Erro de Conexão');
+                }
                 return false;
             }
         }
@@ -2312,11 +2357,13 @@
         }
 
         function closeNewQuoteModal() {
+            clearQuoteFormError();
             document.getElementById("new-quote-overlay").style.display = "none";
             document.getElementById("new-quote-drawer").style.display = "none";
         }
 
         function goToStep(stepNum) {
+            clearQuoteFormError();
             if (stepNum > 1 && !selectedPartner) {
                 showToast("Por favor, selecione um cliente primeiro.", 'warning');
                 return;
@@ -3036,6 +3083,8 @@
         }
 
         async function submitNewQuote() {
+            clearQuoteFormError();
+
             if (!selectedPartner) {
                 showToast("Por favor, selecione um cliente no Passo 1.", "warning");
                 goToStep(1);
@@ -3049,7 +3098,10 @@
 
             const btn = document.getElementById("btn-submit-quote");
             const origText = btn.innerHTML;
-            btn.innerText = "Gerando Cotação...";
+            btn.innerHTML = `
+                <span style="display:inline-block; animation:spin 0.8s linear infinite; margin-right:6px;">⏳</span>
+                Gerando Cotação...
+            `;
             btn.disabled = true;
 
             const repId = Number("{{ auth()->user()->id }}");
@@ -3084,30 +3136,44 @@
                     body: JSON.stringify(payload)
                 });
 
-                const data = await res.json();
+                let data = null;
+                try {
+                    data = await res.json();
+                } catch(parseErr) {
+                    data = null;
+                }
+
                 btn.innerHTML = origText;
                 btn.disabled = false;
 
-                if (res.ok || data.id || data.success) {
+                if (res.ok && (data?.id || data?.success || data?.data)) {
                     selectedPartner = null;
                     quoteCartItems = [];
+                    clearQuoteFormError();
                     closeNewQuoteModal();
                     showToast("Cotação criada com sucesso!", "success");
                     loadQuotes(); // Refresh quotes list
                     switchTab('quotes');
                 } else {
-                    let errMsg = data.error || data.message || "Erro de validação ao criar cotação.";
-                    if (data.messages && typeof data.messages === 'object') {
+                    let errMsg = "Não foi possível gerar a cotação no momento.";
+                    if (data?.message) {
+                        errMsg = data.message;
+                    } else if (data?.error) {
+                        errMsg = data.error;
+                    } else if (!res.ok) {
+                        errMsg = `Erro no servidor (código ${res.status}). Por favor, tente novamente.`;
+                    }
+                    if (data?.messages && typeof data.messages === 'object') {
                         const details = Object.values(data.messages).flat().join("<br>• ");
                         errMsg += "<br><br>• " + details;
                     }
-                    showToast("Erro ao criar cotação: " + errMsg, "error");
+                    showQuoteFormError(errMsg, "Falha ao gerar cotação");
                 }
             } catch(e) {
                 console.error("Error submitting quote:", e);
                 btn.innerHTML = origText;
                 btn.disabled = false;
-                showToast("Erro de conexão ao enviar cotação.", "error");
+                showQuoteFormError("Erro de comunicação com o servidor. Verifique sua conexão e tente novamente.", "Erro de Conexão");
             }
         }
     </script>
