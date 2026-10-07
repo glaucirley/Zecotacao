@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('page_title')
-Análise da Cotação #<span id="header-quote-number">...</span> <span id="header-priority" class="badge-status priority" style="display:none; background-color:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); font-size:12px; font-weight:700; margin-left:8px; padding: 2px 8px; border-radius: 4px; vertical-align: middle;">⚡ GRANDE CONTA</span>
+Análise da Cotação #<span id="header-quote-number">...</span> <span id="header-priority" class="badge-status priority" style="display:none; background-color:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); font-size:12px; font-weight:700; margin-left:8px; padding: 2px 8px; border-radius: 4px; vertical-align: middle;">⚡ GRANDE CONTA</span><span id="header-low-margin" class="badge-status" style="display:none; background-color:rgba(245,158,11,0.1); color:#d97706; border:1px solid rgba(245,158,11,0.3); font-size:12px; font-weight:700; margin-left:8px; padding: 2px 8px; border-radius: 4px; vertical-align: middle;">⚠️ MARGEM BAIXA</span>
 @endsection
 
 @section('content')
@@ -422,6 +422,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         let totalNetRevenue = 0;
         let totalCost = 0;
         let totalSuggestedRevenue = 0;
+        let validItemsForMargin = 0;
 
         quote.itens.forEach(item => {
             const row = document.getElementById(`item-row-${item.id}`);
@@ -441,45 +442,65 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
 
             const proposedPrice = parseFloat(item.preco_unit_proposto || 0);
             const suggestedPrice = parseFloat(item.preco_unit_sugerido || 0);
+            const minPrice = parseFloat(item.preco_minimo || 0);
             const cost = parseFloat(item.custo || 0);
             const tax = parseFloat(item.imposto || 0);
             const qty = parseInt(item.qtd || 1);
 
             const proposedSubtotal = qty * proposedPrice;
             const suggestedSubtotal = qty * Math.max(suggestedPrice, proposedPrice);
-            const itemNetRevenue = qty * proposedPrice * (1 - (tax / 100));
-            const itemTotalCost = qty * cost;
 
             totalProposedRevenue += proposedSubtotal;
             totalSuggestedRevenue += suggestedSubtotal;
-            totalNetRevenue += itemNetRevenue;
-            totalCost += itemTotalCost;
+
+            // Ignorar itens com dados inconsistentes no cálculo da margem:
+            const isInconsistent = (suggestedPrice > 0 && minPrice > suggestedPrice)
+                || (cost <= 0 || (suggestedPrice > 0 && cost > suggestedPrice))
+                || (tax < 0 || tax >= 100)
+                || (proposedPrice <= 0);
+
+            if (!isInconsistent) {
+                const itemNetRevenue = qty * proposedPrice * (1 - (tax / 100));
+                const itemTotalCost = qty * cost;
+                totalNetRevenue += itemNetRevenue;
+                totalCost += itemTotalCost;
+                validItemsForMargin++;
+            }
         });
 
         const overallDiscount = totalSuggestedRevenue - totalProposedRevenue;
 
         // Calculate overall margin percentage
         let overallMargin = 0;
-        if (totalNetRevenue > 0) {
+        const marginEl = document.getElementById("summary-overall-margin");
+        const lowMarginBadge = document.getElementById("header-low-margin");
+
+        if (validItemsForMargin > 0 && totalNetRevenue > 0) {
             overallMargin = ((totalNetRevenue - totalCost) / totalNetRevenue) * 100;
+            marginEl.innerText = overallMargin.toFixed(2) + "%";
+
+            // Color code margin
+            if (overallMargin >= 25) {
+                marginEl.style.color = "#10b981"; // green
+            } else if (overallMargin >= 15) {
+                marginEl.style.color = "#d97706"; // yellow
+            } else {
+                marginEl.style.color = "#ef4444"; // red
+            }
+
+            if (lowMarginBadge) {
+                lowMarginBadge.style.display = (overallMargin <= 15) ? "inline-block" : "none";
+            }
+        } else {
+            marginEl.innerText = "N/D";
+            marginEl.style.color = "#64748b";
+            if (lowMarginBadge) lowMarginBadge.style.display = "none";
         }
 
         // Update elements in DOM
         document.getElementById("summary-subtotal").innerText = "R$ " + totalSuggestedRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2});
         document.getElementById("summary-discount").innerText = "R$ " + (overallDiscount > 0 ? overallDiscount : 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
         document.getElementById("summary-total").innerText = "R$ " + totalProposedRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2});
-
-        const marginEl = document.getElementById("summary-overall-margin");
-        marginEl.innerText = overallMargin.toFixed(2) + "%";
-
-        // Color code margin
-        if (overallMargin >= 25) {
-            marginEl.style.color = "#10b981"; // green
-        } else if (overallMargin >= 15) {
-            marginEl.style.color = "#d97706"; // yellow
-        } else {
-            marginEl.style.color = "#ef4444"; // red
-        }
     }
 
     function onItemActionChange(itemId, action) {

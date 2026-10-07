@@ -29,26 +29,47 @@ class QuoteWorkflowService
             ];
         }
 
-        // Calculate totals for priority assessment
+        // Calculate totals for priority assessment and overall margin
         $totalQuantity = 0;
         $totalNetRevenue = 0.00;
         $totalCost = 0.00;
+        $itensComDadosValidos = 0;
+
         foreach ($quote->itens as $item) {
             if ($item->status_item === 'recusado') {
                 continue;
             }
+
+            $qty = (int)($item->qtd ?? 1);
+            $totalQuantity += $qty;
+
             $proposedPrice = (float)($item->preco_unit_proposto ?? 0);
             $cost = (float)($item->custo ?? 0);
             $tax = (float)($item->imposto ?? 0);
-            $qty = (int)($item->qtd ?? 1);
+            $suggested = (float)($item->preco_unit_sugerido ?? 0);
+            $minPrice = (float)($item->preco_minimo ?? 0);
+
+            // Ignorar itens com dados cadastrais ou numéricos inconsistentes no cálculo da margem:
+            // 1. Preço mínimo maior que o sugerido/tabela (inconsistência cadastral, ex: item com dados invertidos)
+            // 2. Custo inválido (zerado, negativo ou maior que o preço de referência)
+            // 3. Alíquota de imposto inválida (< 0% ou >= 100%)
+            // 4. Preço proposto zerado ou negativo
+            $hasInconsistentData = ($suggested > 0 && $minPrice > $suggested)
+                || ($cost <= 0 || ($suggested > 0 && $cost > $suggested))
+                || ($tax < 0 || $tax >= 100)
+                || ($proposedPrice <= 0);
+
+            if ($hasInconsistentData) {
+                continue;
+            }
 
             $totalNetRevenue += $qty * $proposedPrice * (1 - ($tax / 100));
             $totalCost += $qty * $cost;
-            $totalQuantity += $qty;
+            $itensComDadosValidos++;
         }
 
         $overallMargin = 0.00;
-        if ($totalNetRevenue > 0) {
+        if ($totalNetRevenue > 0 && $itensComDadosValidos > 0) {
             $overallMargin = (($totalNetRevenue - $totalCost) / $totalNetRevenue) * 100;
         }
 
@@ -57,25 +78,22 @@ class QuoteWorkflowService
         $grandeContaQtd = (int)ParametroSistema::getVal('ALCADA_GRANDE_CONTA_QTD', 100);
         $grandeContaMargem = (float)ParametroSistema::getVal('ALCADA_GRANDE_CONTA_MARGEM', 15.00);
 
-        $isPriority = false;
+        // REGRA ESTRITA: Cotação só é classificada como Grande Conta se atingir o valor ou a quantidade relevante.
+        // A margem baixa NÃO classifica como Grande Conta (gera apenas alerta comercial à parte).
+        $isGrandeConta = false;
         $reasons = [];
 
         if ((float)$quote->total >= $grandeContaValor) {
-            $isPriority = true;
-            $reasons[] = sprintf('Valor proposto (R$ %.2f) >= Limite (R$ %.2f)', $quote->total, $grandeContaValor);
+            $isGrandeConta = true;
+            $reasons[] = sprintf('Valor proposto (R$ %.2f) >= Limite de Grande Conta (R$ %.2f)', $quote->total, $grandeContaValor);
         }
 
         if ($totalQuantity >= $grandeContaQtd) {
-            $isPriority = true;
-            $reasons[] = sprintf('Qtd itens (%d) >= Limite (%d)', $totalQuantity, $grandeContaQtd);
+            $isGrandeConta = true;
+            $reasons[] = sprintf('Qtd itens (%d) >= Limite de Grande Conta (%d)', $totalQuantity, $grandeContaQtd);
         }
 
-        if ($totalNetRevenue > 0 && $overallMargin <= $grandeContaMargem) {
-            $isPriority = true;
-            $reasons[] = sprintf('Margem geral (%.2f%%) <= Limite (%.2f%%)', $overallMargin, $grandeContaMargem);
-        }
-
-        if ($isPriority && !$quote->prioridade) {
+        if ($isGrandeConta && !$quote->prioridade) {
             $quote->update(['prioridade' => true]);
 
             CotacaoHistorico::create([
@@ -118,8 +136,53 @@ class QuoteWorkflowService
                     'lida' => false
                 ]);
             }
-        } elseif (!$isPriority && $quote->prioridade) {
+        } elseif (!$isGrandeConta && $quote->prioridade) {
             $quote->update(['prioridade' => false]);
+        }
+
+        // Alerta à parte para margem baixa (não confunde com Grande Conta)
+        if ($itensComDadosValidos > 0 && $totalNetRevenue > 0 && $overallMargin <= $grandeContaMargem) {
+            $jaAlertouMargem = CotacaoHistorico::where('cotacao_id', $quote->id)
+                ->where('evento', 'ALERTA_MARGEM_BAIXA')
+                ->exists();
+
+            if (!$jaAlertouMargem) {
+                CotacaoHistorico::create([
+                    'cotacao_id' => $quote->id,
+                    'evento' => 'ALERTA_MARGEM_BAIXA',
+                    'usuario_id' => $quote->representante_id,
+                    'papel' => 'sistema',
+                    'condicao' => sprintf(
+                        'Alerta comercial: Margem líquida estimada da cotação (%.2f%%) está abaixo ou igual ao limite de atenção comercial (%.2f%%).',
+                        $overallMargin,
+                        $grandeContaMargem
+                    ),
+                ]);
+
+                // Notificar Gestor
+                $gestorId = $quote->representante->equipe?->gestor_id;
+                if ($gestorId) {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $gestorId,
+                        'titulo' => '⚠️ Alerta: Margem Comercial Baixa',
+                        'mensagem' => sprintf('A cotação nº %s do vendedor %s possui margem estimada de %.2f%% (limite de atenção: %.2f%%).', $quote->numero, $quote->representante->nome, $overallMargin, $grandeContaMargem),
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false
+                    ]);
+                }
+
+                // Notificar Diretores
+                $directors = \App\Models\User::where('papel', 'diretor')->get();
+                foreach ($directors as $dir) {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $dir->id,
+                        'titulo' => '⚠️ Alerta: Margem Comercial Baixa',
+                        'mensagem' => sprintf('A cotação nº %s do vendedor %s possui margem estimada de %.2f%% (limite de atenção: %.2f%%).', $quote->numero, $quote->representante->nome, $overallMargin, $grandeContaMargem),
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false
+                    ]);
+                }
+            }
         }
 
         // Check the reenvio parcial mode parameter
@@ -392,6 +455,9 @@ class QuoteWorkflowService
         // Reconcile quotes orphaned without manager
         self::reconcileOrphanedQuotes();
 
+        // Reconcile Grande Conta / Priority quotes below thresholds
+        self::reconcileGrandeContaPriorities();
+
         $activeStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
 
         $now = now();
@@ -500,6 +566,31 @@ class QuoteWorkflowService
                         ]);
                     }
                 }
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Remove priority / Big Account flag from quotes that are below the value and quantity thresholds.
+     */
+    public static function reconcileGrandeContaPriorities(): int
+    {
+        $valorLimite = (float) ParametroSistema::getVal('ALCADA_GRANDE_CONTA_VALOR', 10000.00);
+        $qtdLimite = (int) ParametroSistema::getVal('ALCADA_GRANDE_CONTA_QTD', 100);
+
+        $cotacoesPrioritarias = Cotacao::where('prioridade', true)
+            ->where('total', '<', $valorLimite)
+            ->with('itens')
+            ->get();
+
+        $count = 0;
+        foreach ($cotacoesPrioritarias as $c) {
+            $totalQtd = $c->itens->where('status_item', '!=', 'recusado')->sum('qtd');
+            if ($totalQtd < $qtdLimite) {
+                $c->update(['prioridade' => false]);
                 $count++;
             }
         }

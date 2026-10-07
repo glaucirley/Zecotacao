@@ -42,6 +42,7 @@ class Cotacao extends Model
         'subtotal' => 'decimal:2',
         'desconto' => 'decimal:2',
         'total' => 'decimal:2',
+        'prioridade' => 'boolean',
     ];
 
     public function parceiro()
