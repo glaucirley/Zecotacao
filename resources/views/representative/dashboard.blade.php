@@ -914,7 +914,7 @@
                 <button type="button" class="filter-pill active" onclick="setStatusFilter('ALL')">Todas</button>
                 <button type="button" class="filter-pill" onclick="setStatusFilter('EM_CRIACAO')">Rascunhos</button>
                 <button type="button" class="filter-pill" onclick="setStatusFilter('PENDENTE')">Pendentes</button>
-                <button type="button" class="filter-pill" onclick="setStatusFilter('PDF_GERADO')">Aprovadas</button>
+                <button type="button" class="filter-pill" onclick="setStatusFilter('APROVADA')">Aprovadas</button>
                 <button type="button" class="filter-pill" onclick="setStatusFilter('FINALIZADA')">Faturadas</button>
                 <button type="button" class="filter-pill" onclick="setStatusFilter('PERDIDA')">Perdidas</button>
             </div>
@@ -1327,7 +1327,7 @@
             filteredQuotesList.forEach(q => {
                 const dateStr = new Date(q.created_at).toLocaleDateString('pt-BR');
                 const statusClass = q.status.toLowerCase().replace(/_/g, '-');
-                const statusText = q.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : q.status.replace(/_/g, ' ');
+                const statusText = q.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (q.status === 'PDF_GERADO' ? 'PDF Gerado' : q.status.replace(/_/g, ' '));
                 const valStr = parseFloat(q.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
                 
                 container.innerHTML += `
@@ -1374,6 +1374,8 @@
                 if (activeStatusFilter !== 'ALL') {
                     if (activeStatusFilter === 'PENDENTE') {
                         matchesStatus = q.status === 'AGUARDANDO_GESTOR' || q.status === 'COM_DIRETOR';
+                    } else if (activeStatusFilter === 'APROVADA' || activeStatusFilter === 'PDF_GERADO') {
+                        matchesStatus = q.status === 'APROVADA' || q.status === 'PDF_GERADO';
                     } else if (activeStatusFilter === 'FINALIZADA') {
                         matchesStatus = q.status === 'FINALIZADA_COM_PEDIDO' || q.status === 'FATURADA';
                     } else {

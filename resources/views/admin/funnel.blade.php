@@ -67,7 +67,7 @@
         <div class="kanban-column" id="col-liberada">
             <div class="kanban-header">
                 <div>
-                    <span class="kanban-title">🔓 Liberada (Pendente PDF)</span>
+                    <span class="kanban-title">🔓 Aprovada / PDF</span>
                     <span class="kanban-badge" id="badge-liberada">0</span>
                 </div>
                 <div class="kanban-value" id="val-liberada">R$ 0,00</div>
@@ -385,7 +385,7 @@
             } else if (q.status === 'AGUARDANDO_GESTOR' || q.status === 'COM_DIRETOR') {
                 phases.analise.cards.push(q);
                 phases.analise.val += price;
-            } else if (q.status === 'PDF_GERADO') {
+            } else if (q.status === 'APROVADA' || q.status === 'PDF_GERADO') {
                 phases.liberada.cards.push(q);
                 phases.liberada.val += price;
             } else if (q.status === 'AGUARDANDO_PEDIDO') {
@@ -483,7 +483,7 @@
             
             const statusEl = document.getElementById("modal-status");
             statusEl.className = `badge-status ${q.status.toLowerCase().replace(/_/g, '-')}`;
-            statusEl.innerText = q.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : q.status.replace(/_/g, ' ');
+            statusEl.innerText = q.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (q.status === 'PDF_GERADO' ? 'PDF Gerado' : q.status.replace(/_/g, ' '));
 
             const priorityEl = document.getElementById("modal-priority");
             if (q.prioridade) {

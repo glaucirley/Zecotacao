@@ -584,7 +584,7 @@
         </div>
         <div class="right-actions" style="display: flex; gap: 12px; align-items: center;">
             <button id="btn-draft" class="btn btn-outline" onclick="saveDraft(true)">Salvar Rascunho</button>
-            <button id="btn-pdf" class="btn btn-secondary" onclick="downloadPdf()" style="background-color: #10b981; border-color: #10b981; color: white;">📄 Gerar PDF</button>
+            <button id="btn-pdf" class="btn btn-secondary" onclick="downloadPdf()" style="background-color: #10b981; border-color: #10b981; color: white; display: none;">📄 Gerar PDF</button>
             <button id="btn-release" class="btn btn-primary" onclick="openReleaseModal()" style="background-color: #0d9488; border-color: #0d9488; display: none;">Liberar para Faturamento</button>
             <button id="btn-submit" class="btn btn-primary" onclick="submitQuote()">Enviar para Aprovação</button>
         </div>
@@ -748,8 +748,10 @@
                     bannerText.innerHTML = "<strong>Cotação em análise de alçada:</strong> Aguardando aprovação do Gestor de Equipe. Os campos estão em modo somente leitura.";
                 } else if (quote.status === 'COM_DIRETOR') {
                     bannerText.innerHTML = "<strong>Cotação em análise com a Diretoria:</strong> Aguardando decisão superior. Os campos estão em modo somente leitura.";
+                } else if (quote.status === 'APROVADA') {
+                    bannerText.innerHTML = "<strong>Cotação Aprovada:</strong> Proposta comercial aprovada! Clique em <strong>'📄 Gerar PDF'</strong> para emitir o documento e habilitar a liberação de faturamento.";
                 } else if (quote.status === 'PDF_GERADO') {
-                    bannerText.innerHTML = "<strong>Cotação Liberada:</strong> Proposta comercial aprovada e pronta para emissão de PDF e fechamento de pedido.";
+                    bannerText.innerHTML = "<strong>PDF Gerado:</strong> Proposta em PDF emitida com sucesso. Clique em <strong>'Liberar para Faturamento'</strong> para registrar o pedido.";
                 } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
                     bannerText.innerHTML = "<strong>Cotação Finalizada:</strong> Pedido externo já registrado para conferência e faturamento.";
                 } else if (quote.status === 'FATURADA') {
@@ -769,7 +771,13 @@
         // Bind status badge
         const badge = document.getElementById("quote-status-badge");
         badge.className = "badge-status " + quote.status.toLowerCase().replace(/_/g, '-');
-        badge.innerText = quote.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : quote.status.replace(/_/g, ' ');
+        if (quote.status === 'APROVADA') {
+            badge.innerText = 'Aprovada (Pendente PDF)';
+        } else if (quote.status === 'PDF_GERADO') {
+            badge.innerText = 'PDF Gerado';
+        } else {
+            badge.innerText = quote.status.replace(/_/g, ' ');
+        }
 
         // Bind Client profile
         const clientCity = (quote.parceiro && quote.parceiro.cidade && quote.parceiro.cidade !== 'null') ? quote.parceiro.cidade : '';
@@ -795,6 +803,7 @@
         document.getElementById("obs-cliente").value = quote.observacao_cliente || "";
         document.getElementById("obs-interna").value = quote.observacao_interna || "";
 
+        const btnPdf = document.getElementById("btn-pdf");
         const btnRelease = document.getElementById("btn-release");
         const btnSubmit = document.getElementById("btn-submit");
         const btnDraft = document.getElementById("btn-draft");
@@ -815,12 +824,6 @@
             if (btnDraft) btnDraft.style.display = "none";
             if (btnSubmit) btnSubmit.style.display = "none";
             if (mobileActionContainer) mobileActionContainer.style.display = "none";
-
-            if (quote.status === 'PDF_GERADO') {
-                btnRelease.style.display = "inline-block";
-            } else {
-                btnRelease.style.display = "none";
-            }
         } else {
             document.getElementById("forma-pagamento").disabled = false;
             document.getElementById("prazo-entrega").disabled = false;
@@ -834,11 +837,20 @@
             if (btnDraft) btnDraft.style.display = "inline-block";
             if (btnSubmit) btnSubmit.style.display = "inline-block";
             if (mobileActionContainer) mobileActionContainer.style.display = "block";
-            btnRelease.style.display = "none";
         }
 
-        // Enable PDF for all quotations
-        document.getElementById("btn-pdf").disabled = false;
+        // Action Sequence Rules:
+        // 1. PDF can ONLY be generated after approval (APROVADA, PDF_GERADO, and post-approval)
+        const allowPdfStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
+        if (btnPdf) {
+            btnPdf.style.display = allowPdfStatuses.includes(quote.status) ? "inline-block" : "none";
+            btnPdf.disabled = !allowPdfStatuses.includes(quote.status);
+        }
+
+        // 2. "Liberar para Faturamento" can ONLY be executed after PDF has been generated (PDF_GERADO)
+        if (btnRelease) {
+            btnRelease.style.display = (quote.status === 'PDF_GERADO') ? "inline-block" : "none";
+        }
 
         // Bind Items List
         renderItems();
@@ -1404,7 +1416,28 @@
     }
 
     function downloadPdf() {
+        if (!quote) {
+            alert("Aguarde o carregamento da cotação.");
+            return;
+        }
+        const allowPdfStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
+        if (!allowPdfStatuses.includes(quote.status)) {
+            alert("O PDF só pode ser gerado após a aprovação da cotação.");
+            return;
+        }
+
         window.open(`${QUOTE_BASE_URL}/pdf`, '_blank');
+
+        if (quote.status === 'APROVADA') {
+            setTimeout(() => {
+                loadData();
+            }, 1500);
+            window.addEventListener('focus', () => {
+                if (quote && quote.status === 'APROVADA') {
+                    loadData();
+                }
+            }, { once: true });
+        }
     }
 
     // Mark as Lost Flow
@@ -1454,6 +1487,16 @@
 
     // Faturamento Release Flow
     function openReleaseModal() {
+        if (!quote) return;
+        if (quote.status === 'APROVADA') {
+            alert("É necessário gerar o PDF da cotação antes de liberar para faturamento.");
+            return;
+        }
+        if (quote.status !== 'PDF_GERADO') {
+            alert("Esta cotação não está apta para faturamento no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            return;
+        }
+
         document.getElementById("release-pedido-externo").value = "";
         document.getElementById("release-tipo-faturamento").value = "total";
         
@@ -1600,14 +1643,6 @@
 
     function goBackToQuotes() {
         goToHomeDashboard();
-    }
-
-    function downloadPdf() {
-        if (!quote) {
-            alert("Aguarde o carregamento da cotação.");
-            return;
-        }
-        window.open(`${QUOTE_BASE_URL}/pdf`, '_blank');
     }
 </script>
 @endsection

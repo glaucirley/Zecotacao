@@ -73,7 +73,7 @@
 
                 list.forEach(q => {
                     const statusClass = q.status.toLowerCase().replace(/_/g, '-');
-                    const statusText = q.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : q.status.replace(/_/g, ' ');
+                    const statusText = q.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (q.status === 'PDF_GERADO' ? 'PDF Gerado' : q.status.replace(/_/g, ' '));
 
                     // Check if external order is registered
                     let orderMarkup = `<span style="color:var(--color-text-muted); font-size:12px;">Não registrado</span>`;

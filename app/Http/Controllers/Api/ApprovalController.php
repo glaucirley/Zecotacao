@@ -378,41 +378,59 @@ class ApprovalController extends Controller
                             ->where('status_item', 'aprovado')
                             ->get();
 
-                        $finalSubtotal = 0;
-                        $finalTotal = 0;
+                        if ($approvedItems->isEmpty()) {
+                            $quote->update(['status' => 'DEVOLVIDA']);
+                            CotacaoHistorico::create([
+                                'cotacao_id' => $quote->id,
+                                'evento' => 'TODOS_ITENS_RECUSADOS',
+                                'usuario_id' => $user->id,
+                                'papel' => $user->papel,
+                                'condicao' => 'Todos os itens foram recusados pelo avaliador. Cotação devolvida ao representante.',
+                            ]);
+                            \App\Models\Notificacao::create([
+                                'usuario_id' => $quote->representante_id,
+                                'titulo' => 'Cotação Devolvida',
+                                'mensagem' => "Todos os itens da cotação {$quote->numero} foram recusados.",
+                                'link' => url("/cotacoes/id/{$quote->id}"),
+                                'lida' => false,
+                            ]);
+                        } else {
+                            $finalSubtotal = 0;
+                            $finalTotal = 0;
 
-                        foreach ($approvedItems as $it) {
-                            $finalSubtotal += $it->qtd * max((float)$it->preco_unit_sugerido, (float)$it->preco_unit_proposto);
-                            $finalTotal += (float)$it->subtotal;
+                            foreach ($approvedItems as $it) {
+                                $finalSubtotal += $it->qtd * max((float)$it->preco_unit_sugerido, (float)$it->preco_unit_proposto);
+                                $finalTotal += (float)$it->subtotal;
+                            }
+
+                            $desconto = $finalSubtotal - $finalTotal;
+
+                            // Transition quote status to APROVADA and update to final totals
+                            $quote->update([
+                                'status' => 'APROVADA',
+                                'subtotal' => $finalSubtotal,
+                                'desconto' => $desconto,
+                                'total' => $finalTotal,
+                            ]);
+
+                            $roleUpper = strtoupper($user->papel);
+                            CotacaoHistorico::create([
+                                'cotacao_id' => $quote->id,
+                                'evento' => "APROVADA_{$roleUpper}",
+                                'usuario_id' => $user->id,
+                                'papel' => $user->papel,
+                                'condicao' => 'Todos os itens foram avaliados. Cotação aprovada com totais recalculados sobre itens aprovados. Pendente emissão de PDF.',
+                            ]);
+
+                            // Create Notification for Representative
+                            \App\Models\Notificacao::create([
+                                'usuario_id' => $quote->representante_id,
+                                'titulo' => 'Cotação Aprovada!',
+                                'mensagem' => "A cotação {$quote->numero} foi revisada e aprovada! Gere o PDF para liberar o faturamento.",
+                                'link' => url("/cotacoes/id/{$quote->id}"),
+                                'lida' => false,
+                            ]);
                         }
-
-                        $desconto = $finalSubtotal - $finalTotal;
-
-                        // Transition quote status to PDF_GERADO and update to final totals
-                        $quote->update([
-                            'status' => 'PDF_GERADO',
-                            'subtotal' => $finalSubtotal,
-                            'desconto' => $desconto,
-                            'total' => $finalTotal,
-                        ]);
-
-                        $roleUpper = strtoupper($user->papel);
-                        CotacaoHistorico::create([
-                            'cotacao_id' => $quote->id,
-                            'evento' => "APROVADA_{$roleUpper}",
-                            'usuario_id' => $user->id,
-                            'papel' => $user->papel,
-                            'condicao' => 'Todos os itens foram avaliados. Status alterado para PDF_GERADO com totais recalculados apenas sobre itens aprovados.',
-                        ]);
-
-                        // Create Notification for Representative
-                        \App\Models\Notificacao::create([
-                            'usuario_id' => $quote->representante_id,
-                            'titulo' => 'Cotação Aprovada!',
-                            'mensagem' => "A cotação {$quote->numero} foi revisada e liberada! PDF pronto para faturamento.",
-                            'link' => url("/cotacoes/id/{$quote->id}"),
-                            'lida' => false,
-                        ]);
                     }
                 }
             });

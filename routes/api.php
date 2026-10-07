@@ -130,6 +130,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/cotacoes/{id}/enviar', [QuoteController::class, 'submit']);
         Route::post('/cotacoes/{id}/perdida', [QuoteController::class, 'markAsLost']);
         Route::post('/cotacoes/{id}/faturar', [QuoteController::class, 'releaseForBilling']);
+        Route::get('/cotacoes/{id}/pdf', [QuoteController::class, 'generatePdf']);
         Route::get('/cotacoes/{id}/produtos', [QuoteController::class, 'listProducts']);
     });
 });

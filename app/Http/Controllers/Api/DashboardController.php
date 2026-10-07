@@ -111,7 +111,7 @@ class DashboardController extends Controller
                 ->pluck('count', 'status')
                 ->toArray();
 
-            $allStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'];
+            $allStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'];
             $distribution = [];
             foreach ($allStatuses as $st) {
                 $distribution[$st] = $statusCounts[$st] ?? 0;

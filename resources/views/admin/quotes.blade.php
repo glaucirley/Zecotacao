@@ -573,7 +573,8 @@
             <option value="EM_CRIACAO">Rascunho (Em criação)</option>
             <option value="AGUARDANDO_GESTOR">Pendente (Gestor)</option>
             <option value="COM_DIRETOR">Pendente (Diretor)</option>
-            <option value="PDF_GERADO">Liberada (Pendente PDF)</option>
+            <option value="APROVADA">Aprovada (Pendente PDF)</option>
+            <option value="PDF_GERADO">PDF Gerado</option>
             <option value="AGUARDANDO_PEDIDO">Em Faturamento</option>
             <option value="FATURADA">Faturada</option>
             <option value="PERDIDA">Perdida</option>
@@ -1054,9 +1055,13 @@
                 case 'EM_CRIACAO':
                     statusText = 'EM CRIACAO';
                     break;
+                case 'APROVADA':
+                    statusText = 'APROVADA';
+                    subText = 'Pendente PDF';
+                    break;
                 case 'PDF_GERADO':
-                    statusText = 'LIBERADA';
-                    subText = 'Aguardando PDF';
+                    statusText = 'PDF GERADO';
+                    subText = 'Apto Faturamento';
                     break;
                 case 'AGUARDANDO_GESTOR':
                     statusText = 'PENDENTE GESTOR';
@@ -1275,7 +1280,7 @@
         document.getElementById("modal-delivery").innerText = quote.prazo_entrega || '3 dias';
         document.getElementById("modal-freight").innerText = quote.tipo_frete || 'CIF';
 
-        const statusText = quote.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : (quote.status ? quote.status.replace(/_/g, ' ') : 'N/A');
+        const statusText = quote.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (quote.status === 'PDF_GERADO' ? 'PDF Gerado' : (quote.status ? quote.status.replace(/_/g, ' ') : 'N/A'));
         document.getElementById("modal-status").innerText = statusText;
 
         const priorityBadge = document.getElementById("modal-priority");

@@ -790,9 +790,44 @@ class QuoteController extends Controller
             ], 404);
         }
 
-        $pdf = $pdfService->generateQuotePdf($quote);
+        // Sequence requirement: PDF can only be generated after quotation approval!
+        $allowedStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
+        if (!in_array($quote->status, $allowedStatuses)) {
+            if (in_array($quote->status, ['PERDIDA', 'EXPIRADA'])) {
+                return response()->json([
+                    'error' => 'Locked status',
+                    'message' => 'Não é permitido gerar PDF para uma cotação perdida ou expirada.'
+                ], 422);
+            }
+            return response()->json([
+                'error' => 'Locked status',
+                'message' => "O PDF só pode ser gerado após a aprovação da cotação (status atual: {$quote->status})."
+            ], 422);
+        }
 
-        return $pdf->stream("cotacao_{$quote->numero}.pdf");
+        try {
+            $pdf = $pdfService->generateQuotePdf($quote);
+
+            // If quote was in APROVADA (Pendente PDF), advance status to PDF_GERADO
+            if ($quote->status === 'APROVADA') {
+                $quote->update(['status' => 'PDF_GERADO']);
+
+                CotacaoHistorico::create([
+                    'cotacao_id' => $quote->id,
+                    'evento' => 'PDF_GERADO',
+                    'usuario_id' => auth()->id() ?? $quote->representante_id,
+                    'papel' => auth()->user()?->papel ?? 'representante',
+                    'condicao' => 'PDF da cotação gerado com sucesso com itens aprovados. Cotação pronta para liberação de faturamento.',
+                ]);
+            }
+
+            return $pdf->stream("cotacao_{$quote->numero}.pdf");
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'PDF generation error',
+                'message' => $e->getMessage()
+            ], 422);
+        }
     }
 
     /**
@@ -832,6 +867,24 @@ class QuoteController extends Controller
 
         if ($quote->status === 'FATURADA') {
             return response()->json(['error' => 'Conflict', 'message' => 'Esta cotação já foi faturada.'], 422);
+        }
+
+        if ($quote->status === 'FINALIZADA_COM_PEDIDO') {
+            return response()->json(['error' => 'Conflict', 'message' => 'Esta cotação já possui pedido externo registrado.'], 422);
+        }
+
+        if ($quote->status === 'APROVADA') {
+            return response()->json([
+                'error' => 'PDF required',
+                'message' => 'É necessário gerar o PDF da cotação antes de liberá-la para faturamento.'
+            ], 422);
+        }
+
+        if ($quote->status !== 'PDF_GERADO') {
+            return response()->json([
+                'error' => 'Invalid status',
+                'message' => "Esta cotação está com status {$quote->status} e não pode ser liberada para faturamento."
+            ], 422);
         }
 
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [

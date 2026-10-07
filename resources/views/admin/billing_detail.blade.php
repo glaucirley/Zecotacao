@@ -256,7 +256,7 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
         // Bind status badge
         const badge = document.getElementById("quote-status-badge");
         badge.className = "badge-status " + quote.status.toLowerCase().replace(/_/g, '-');
-        badge.innerText = quote.status === 'PDF_GERADO' ? 'Liberada (Pendente PDF)' : quote.status.replace(/_/g, ' ');
+        badge.innerText = quote.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (quote.status === 'PDF_GERADO' ? 'PDF Gerado' : quote.status.replace(/_/g, ' '));
 
         document.getElementById("totals-compare-label").innerText = `Valor Cotação Aprovada: R$ ${parseFloat(quote.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 

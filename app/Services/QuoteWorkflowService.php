@@ -221,7 +221,7 @@ class QuoteWorkflowService
 
         // 4. Auto-approve if permitted
         if ($canAutoApprove) {
-            $quote->update(['status' => 'PDF_GERADO']);
+            $quote->update(['status' => 'APROVADA']);
 
             // Set remaining non-approved items status to approved
             foreach ($quote->itens as $item) {
@@ -240,7 +240,7 @@ class QuoteWorkflowService
 
             return [
                 'success' => true,
-                'status' => 'PDF_GERADO',
+                'status' => 'APROVADA',
                 'message' => 'Quote approved automatically. PDF is ready for generation.'
             ];
         }
@@ -392,7 +392,7 @@ class QuoteWorkflowService
         // Reconcile quotes orphaned without manager
         self::reconcileOrphanedQuotes();
 
-        $activeStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
+        $activeStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
 
         $now = now();
 
