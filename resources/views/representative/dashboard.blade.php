@@ -1459,6 +1459,13 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             loadData();
+
+            // Sincroniza aba solicitada via parâmetro de URL (?tab=quotes|checkin|alerts|profile)
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam && ['quotes', 'checkin', 'alerts', 'profile'].includes(tabParam)) {
+                switchTab(tabParam);
+            }
             
             // Start Notification Poller (every 10 seconds)
             setInterval(pollNotifications, 10000);

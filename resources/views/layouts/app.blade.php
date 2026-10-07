@@ -23,6 +23,7 @@
         <div class="sidebar-mobile-backdrop" onclick="toggleSidebar()"></div>
         
         <!-- Sidebar Navigation -->
+        @if(auth()->check() && !auth()->user()->isRepresentante())
         <aside class="sidebar">
             <div class="sidebar-brand">
                 <span class="brand-full">Zé <span>Cotação</span></span>
@@ -116,15 +117,18 @@
                 </form>
             </div>
         </aside>
+        @endif
 
         <!-- Main Wrapper -->
         <div class="main-wrapper">
             <!-- Navbar -->
             <header class="navbar">
                 <div style="display: flex; align-items: center; gap: 14px;">
+                    @if(auth()->check() && !auth()->user()->isRepresentante())
                     <button type="button" id="sidebar-toggle" style="background: none; border: none; cursor: pointer; color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 8px; transition: var(--transition);" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-text-muted)'" onclick="toggleSidebar()">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
+                    @endif
                     <button type="button" class="btn-go-back" onclick="appGoBack()" title="Voltar para a página anterior">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         <span>Voltar</span>

@@ -1,4 +1,4 @@
-@extends(auth()->check() ? 'layouts.app' : 'layouts.public')
+@extends(auth()->check() ? (auth()->user()->isRepresentante() ? 'layouts.representative' : 'layouts.app') : 'layouts.public')
 
 @section('styles')
 <style>
@@ -1943,14 +1943,19 @@
         const bar = document.getElementById("user-auth-bar");
         if (!bar) return;
 
+        // Representante no layout mobile já possui o cabeçalho oficial e a barra inferior
+        if (user.papel === 'representante') {
+            bar.style.display = "none";
+            return;
+        }
+
         let roleText = 'Usuário';
-        if (user.papel === 'representante') roleText = 'Representante';
-        else if (user.papel === 'administrador') roleText = 'Administrador';
+        if (user.papel === 'administrador') roleText = 'Administrador';
         else if (user.papel === 'diretor') roleText = 'Diretor';
         else if (user.papel === 'faturamento') roleText = 'Faturamento';
         else if (user.papel === 'gestor') roleText = 'Gestor';
 
-        const btnText = user.papel === 'representante' ? 'Ir para o Painel do Representante' : 'Ir para o Painel Principal';
+        const btnText = 'Ir para o Painel Principal';
 
         const roleEl = document.getElementById("logged-user-role");
         const nameEl = document.getElementById("logged-user-name");
