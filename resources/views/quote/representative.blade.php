@@ -350,6 +350,12 @@
         </div>
     </div>
 
+    <!-- Locked Status Notice Banner -->
+    <div id="locked-status-banner" style="display: none; margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; font-size: 14px; font-weight: 500; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <span style="font-size: 18px;">🔒</span>
+        <span id="locked-status-banner-text">Esta cotação está em modo somente leitura e não permite edições.</span>
+    </div>
+
     <!-- Info Cards Row -->
     <div class="grid-2" style="margin-bottom: 24px;">
         <!-- Client Card -->
@@ -650,8 +656,8 @@
         <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Total da Cotação</div>
         <div id="mobile-sticky-total" style="font-size: 18px; font-weight: 700;">R$ 0,00</div>
     </div>
-    <div>
-        <button type="button" class="btn btn-primary" onclick="submitQuote()" style="padding: 8px 16px; font-size: 13px; background: #2563eb; border: none; border-radius: 8px; font-weight: 600;">
+    <div id="mobile-action-container">
+        <button id="mobile-btn-submit" type="button" class="btn btn-primary" onclick="submitQuote()" style="padding: 8px 16px; font-size: 13px; background: #2563eb; border: none; border-radius: 8px; font-weight: 600;">
             Enviar Cotação
         </button>
     </div>
@@ -728,9 +734,37 @@
         document.getElementById("quote-emission").innerText = new Date(quote.data_emissao).toLocaleString('pt-BR');
         document.getElementById("quote-validity").innerText = quote.data_validade ? new Date(quote.data_validade).toLocaleString('pt-BR') : 'Sem data';
 
-        // Check if locked from editing
-        const lockedStatuses = ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA'];
-        isEditingLocked = lockedStatuses.includes(quote.status);
+        // Check if locked from editing (only EM_CRIACAO and DEVOLVIDA allow modifications)
+        const editableStatuses = ['EM_CRIACAO', 'DEVOLVIDA'];
+        isEditingLocked = !editableStatuses.includes(quote.status);
+
+        // Update Locked Notice Banner
+        const banner = document.getElementById("locked-status-banner");
+        const bannerText = document.getElementById("locked-status-banner-text");
+        if (banner && bannerText) {
+            if (isEditingLocked) {
+                banner.style.display = "flex";
+                if (quote.status === 'AGUARDANDO_GESTOR') {
+                    bannerText.innerHTML = "<strong>Cotação em análise de alçada:</strong> Aguardando aprovação do Gestor de Equipe. Os campos estão em modo somente leitura.";
+                } else if (quote.status === 'COM_DIRETOR') {
+                    bannerText.innerHTML = "<strong>Cotação em análise com a Diretoria:</strong> Aguardando decisão superior. Os campos estão em modo somente leitura.";
+                } else if (quote.status === 'PDF_GERADO') {
+                    bannerText.innerHTML = "<strong>Cotação Liberada:</strong> Proposta comercial aprovada e pronta para emissão de PDF e fechamento de pedido.";
+                } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
+                    bannerText.innerHTML = "<strong>Cotação Finalizada:</strong> Pedido externo já registrado para conferência e faturamento.";
+                } else if (quote.status === 'FATURADA') {
+                    bannerText.innerHTML = "<strong>Cotação Faturada:</strong> Processo comercial e faturamento concluídos.";
+                } else if (quote.status === 'PERDIDA') {
+                    bannerText.innerHTML = "<strong>Cotação Perdida:</strong> Negociação encerrada sem fechamento de pedido.";
+                } else if (quote.status === 'EXPIRADA') {
+                    bannerText.innerHTML = "<strong>Cotação Expirada:</strong> Prazo de validade comercial ultrapassado.";
+                } else {
+                    bannerText.innerHTML = "<strong>Modo Somente Leitura:</strong> Cotação com status " + quote.status.replace(/_/g, ' ') + ".";
+                }
+            } else {
+                banner.style.display = "none";
+            }
+        }
 
         // Bind status badge
         const badge = document.getElementById("quote-status-badge");
@@ -762,13 +796,11 @@
         document.getElementById("obs-interna").value = quote.observacao_interna || "";
 
         const btnRelease = document.getElementById("btn-release");
-        if (quote.status === 'PDF_GERADO') {
-            btnRelease.style.display = "inline-block";
-            document.getElementById("btn-submit").style.display = "none";
-        } else {
-            btnRelease.style.display = "none";
-            document.getElementById("btn-submit").style.display = "inline-block";
-        }
+        const btnSubmit = document.getElementById("btn-submit");
+        const btnDraft = document.getElementById("btn-draft");
+        const btnLost = document.getElementById("btn-lost");
+        const addItemContainer = document.getElementById("add-item-form-container");
+        const mobileActionContainer = document.getElementById("mobile-action-container");
 
         if (isEditingLocked) {
             document.getElementById("forma-pagamento").disabled = true;
@@ -777,10 +809,31 @@
             document.getElementById("transportadora").disabled = true;
             document.getElementById("obs-cliente").disabled = true;
             document.getElementById("obs-interna").disabled = true;
-            document.getElementById("add-item-form-container").style.display = "none";
-            document.getElementById("btn-lost").style.display = "none";
-            document.getElementById("btn-draft").style.display = "none";
-            document.getElementById("btn-submit").style.display = "none";
+            
+            if (addItemContainer) addItemContainer.style.display = "none";
+            if (btnLost) btnLost.style.display = "none";
+            if (btnDraft) btnDraft.style.display = "none";
+            if (btnSubmit) btnSubmit.style.display = "none";
+            if (mobileActionContainer) mobileActionContainer.style.display = "none";
+
+            if (quote.status === 'PDF_GERADO') {
+                btnRelease.style.display = "inline-block";
+            } else {
+                btnRelease.style.display = "none";
+            }
+        } else {
+            document.getElementById("forma-pagamento").disabled = false;
+            document.getElementById("prazo-entrega").disabled = false;
+            document.getElementById("frete-tipo").disabled = false;
+            document.getElementById("transportadora").disabled = false;
+            document.getElementById("obs-cliente").disabled = false;
+            document.getElementById("obs-interna").disabled = false;
+            
+            if (addItemContainer) addItemContainer.style.display = "block";
+            if (btnLost) btnLost.style.display = "inline-block";
+            if (btnDraft) btnDraft.style.display = "inline-block";
+            if (btnSubmit) btnSubmit.style.display = "inline-block";
+            if (mobileActionContainer) mobileActionContainer.style.display = "block";
             btnRelease.style.display = "none";
         }
 
@@ -808,6 +861,10 @@
     }
 
     function stepQty(itemId, delta) {
+        if (isEditingLocked) {
+            alert("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.");
+            return;
+        }
         const item = quote.itens.find(i => i.id === itemId);
         if (!item) return;
         const current = parseInt(item.qtd) || 1;
@@ -942,6 +999,7 @@
     }
 
     function updateItemCalculations(itemId, newQtd, newPrice) {
+        if (isEditingLocked) return;
         const item = quote.itens.find(i => i.id === itemId);
         if (!item) return;
 
@@ -980,6 +1038,7 @@
     }
 
     function resetToMin(itemId, minPrice) {
+        if (isEditingLocked) return;
         const row = document.getElementById(`row-${itemId}`);
         if (row) {
             const inputPrice = row.querySelector("td:nth-child(7) input[type='number']");
@@ -1179,6 +1238,11 @@
             return;
         }
 
+        if (isEditingLocked) {
+            alert("Esta cotação não permite inclusão de produtos no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            return;
+        }
+
         const payload = {
             produto_id: parseInt(productId),
             qtd: parseInt(document.getElementById("new-item-qtd").value) || 1,
@@ -1196,13 +1260,13 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            if (data.success) {
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
                 quote.itens = data.data.itens;
                 renderItems();
                 clearSelectedProduct();
             } else {
-                alert("Erro ao adicionar item: " + (data.message || data.error));
+                alert("Erro ao adicionar item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)));
             }
         } catch (e) {
             alert("Erro de conexão ao adicionar produto.");
@@ -1210,18 +1274,22 @@
     }
 
     async function deleteItem(itemId) {
+        if (isEditingLocked) {
+            alert("Esta cotação não permite remoção de itens no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            return;
+        }
         if (!confirm("Deseja realmente remover este item?")) return;
 
         try {
             const res = await fetch(`${QUOTE_BASE_URL}/itens/${itemId}`, {
                 method: "DELETE"
             });
-            const data = await res.json();
-            if (data.success) {
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
                 quote.itens = data.data.itens;
                 renderItems();
             } else {
-                alert("Erro ao remover item: " + data.message);
+                alert("Erro ao remover item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)));
             }
         } catch (e) {
             alert("Erro de conexão.");
@@ -1230,6 +1298,11 @@
 
     // Save and Submit Actions
     async function saveDraft(showNotification = false) {
+        if (isEditingLocked) {
+            alert("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edições.");
+            return false;
+        }
+
         // Collect current values from page
         const payload = {
             forma_pagamento: document.getElementById("forma-pagamento").value,
@@ -1251,15 +1324,15 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            if (data.success) {
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
                 quote = data.data;
                 if (showNotification) {
                     alert("Rascunho salvo com sucesso.");
                 }
                 return true;
             } else {
-                alert("Erro ao salvar rascunho: " + data.error);
+                alert("Erro ao salvar rascunho: " + (data.message || data.error || ("Falha no servidor HTTP " + res.status)));
                 return false;
             }
         } catch (e) {
@@ -1269,6 +1342,11 @@
     }
 
     async function submitQuote() {
+        if (isEditingLocked) {
+            alert("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + " e não permite novo envio.");
+            return;
+        }
+
         // 1. Save draft changes first
         const saved = await saveDraft(false);
         if (!saved) return;
@@ -1301,9 +1379,9 @@
                 method: "POST",
                 body: formData
             });
-            const justData = await justRes.json();
-            if (!justData.success) {
-                alert("Erro ao enviar justificativa: " + justData.message);
+            const justData = await justRes.json().catch(() => ({}));
+            if (!justRes.ok || !justData.success) {
+                alert("Erro ao enviar justificativa: " + (justData.message || justData.error || ("Falha no envio HTTP " + justRes.status)));
                 return;
             }
         }
@@ -1313,12 +1391,12 @@
             const res = await fetch(`${QUOTE_BASE_URL}/enviar`, {
                 method: "POST"
             });
-            const data = await res.json();
-            if (data.success) {
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
                 alert("Cotação enviada com sucesso! Situação: " + data.status.replace(/_/g, ' '));
                 window.location.reload();
             } else {
-                alert("Erro ao enviar cotação: " + data.message);
+                alert("Erro ao enviar cotação: " + (data.message || data.error || ("Falha no envio HTTP " + res.status)));
             }
         } catch (e) {
             alert("Erro de conexão ao enviar.");
@@ -1331,6 +1409,10 @@
 
     // Mark as Lost Flow
     function openLostModal() {
+        if (isEditingLocked) {
+            alert("Esta cotação não pode ser marcada como perdida no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            return;
+        }
         document.getElementById("lost-modal").style.display = "flex";
     }
 
@@ -1340,6 +1422,11 @@
     }
 
     async function confirmLost() {
+        if (isEditingLocked) {
+            alert("Não é possível encerrar esta cotação no status atual (" + quote.status.replace(/_/g, ' ') + ").");
+            return;
+        }
+
         const justificativa = document.getElementById("lost-reason").value;
         if (!justificativa || justificativa.length < 5) {
             alert("Digite um motivo válido (mínimo 5 caracteres).");
@@ -1352,13 +1439,13 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ justificativa })
             });
-            const data = await res.json();
-            if (data.success) {
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
                 alert("Cotação encerrada como PERDIDA.");
                 closeLostModal();
                 window.location.reload();
             } else {
-                alert("Erro ao encerrar cotação: " + data.message);
+                alert("Erro ao encerrar cotação: " + (data.message || data.error || ("Falha no servidor HTTP " + res.status)));
             }
         } catch (e) {
             alert("Erro de conexão.");

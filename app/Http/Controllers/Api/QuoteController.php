@@ -383,6 +383,13 @@ class QuoteController extends Controller
     {
         $quote = $request->cotacao;
 
+        if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
+            return response()->json([
+                'error' => 'Locked status',
+                'message' => "Esta cotação está com status {$quote->status} e não permite alterações."
+            ], 422);
+        }
+
         $validator = Validator::make($request->all(), [
             'forma_pagamento' => 'nullable|string',
             'prazo_entrega' => 'nullable|string',
@@ -479,6 +486,13 @@ class QuoteController extends Controller
     {
         $quote = $request->cotacao;
 
+        if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
+            return response()->json([
+                'error' => 'Locked status',
+                'message' => "Esta cotação está com status {$quote->status} e não permite inclusão de itens."
+            ], 422);
+        }
+
         $validator = Validator::make($request->all(), [
             'produto_id' => 'required|exists:produtos,id',
             'qtd' => 'required|integer|min:1',
@@ -555,6 +569,13 @@ class QuoteController extends Controller
     {
         $quote = $request->cotacao;
 
+        if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
+            return response()->json([
+                'error' => 'Locked status',
+                'message' => "Esta cotação está com status {$quote->status} e não permite exclusão de itens."
+            ], 422);
+        }
+
         $item = CotacaoItem::where('cotacao_id', $quote->id)->where('id', $item_id)->first();
 
         if (!$item) {
@@ -595,6 +616,13 @@ class QuoteController extends Controller
     public function addJustification(Request $request)
     {
         $quote = $request->cotacao;
+
+        if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
+            return response()->json([
+                'error' => 'Locked status',
+                'message' => "Esta cotação está com status {$quote->status} e não permite envio de justificativa."
+            ], 422);
+        }
 
         $validator = Validator::make($request->all(), [
             'texto' => 'nullable|string',
@@ -666,6 +694,13 @@ class QuoteController extends Controller
     public function markAsLost(Request $request)
     {
         $quote = $request->cotacao;
+
+        if (in_array($quote->status, ['AGUARDANDO_GESTOR', 'COM_DIRETOR', 'FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA'])) {
+            return response()->json([
+                'error' => 'Locked status',
+                'message' => "Cotação no status {$quote->status} não pode ser marcada como perdida."
+            ], 422);
+        }
 
         $request->validate([
             'justificativa' => 'required|string|min:5'
