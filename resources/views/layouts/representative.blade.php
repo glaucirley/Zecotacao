@@ -276,6 +276,10 @@
                     <div class="logo-title">Zé <span>Cotação</span></div>
                 </div>
                 <div class="user-info">
+                    <a href="{{ url('/painel-representante?tab=alerts') }}" style="color:white; text-decoration:none; position:relative; display:flex; align-items:center; justify-content:center; padding:4px 6px; border-radius:8px;" title="Ver Alertas">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <div id="rep-header-alerts-badge" class="notification-dot" style="display:none; top:-2px; right:-2px;">0</div>
+                    </a>
                     <span id="header-user-name">{{ auth()->user()->nome ?? 'Representante' }}</span>
                     <span class="role-badge">Representante</span>
                 </div>
@@ -318,12 +322,21 @@
                     const data = await res.json();
                     const unread = (data.data || []).filter(n => !n.lida).length;
                     const badge = document.getElementById("rep-alerts-badge");
+                    const headerBadge = document.getElementById("rep-header-alerts-badge");
                     if (badge) {
                         if (unread > 0) {
                             badge.innerText = unread > 99 ? '99+' : unread;
                             badge.style.display = 'block';
                         } else {
                             badge.style.display = 'none';
+                        }
+                    }
+                    if (headerBadge) {
+                        if (unread > 0) {
+                            headerBadge.innerText = unread > 99 ? '99+' : unread;
+                            headerBadge.style.display = 'flex';
+                        } else {
+                            headerBadge.style.display = 'none';
                         }
                     }
                 }

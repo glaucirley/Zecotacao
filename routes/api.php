@@ -60,6 +60,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/notificacoes', [NotificationController::class, 'index']);
             Route::get('/notificacoes/unread-count', [NotificationController::class, 'unreadCount']);
             Route::patch('/notificacoes/{id}/ler', [NotificationController::class, 'markAsRead']);
+            Route::post('/notificacoes/marcar-lidas', [NotificationController::class, 'markBatchAsRead']);
             Route::post('/notificacoes/ler-tudo', [NotificationController::class, 'markAllAsRead']);
 
             // 11. Dashboard Route

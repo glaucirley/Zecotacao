@@ -379,6 +379,23 @@
             background-color: #f0f5ff;
             border-left: 4px solid var(--color-primary);
         }
+
+        .btn-mark-item-read {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .btn-mark-item-read:hover {
+            background: #0284c7;
+            color: #ffffff;
+        }
         
         .notification-header {
             display: flex;
@@ -1013,6 +1030,10 @@
                     <div class="logo-title">Zé <span>Cotação</span></div>
                 </div>
                 <div class="user-info">
+                    <button type="button" onclick="switchTab('alerts')" style="background:none; border:none; color:white; cursor:pointer; position:relative; display:flex; align-items:center; justify-content:center; padding:4px 6px; border-radius:8px;" title="Ver Alertas">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <div id="header-alerts-badge" class="notification-dot" style="display:none; top:-2px; right:-2px;">0</div>
+                    </button>
                     <span id="header-user-name">{{ auth()->user()->nome }}</span>
                     <span class="role-badge">Representante</span>
                 </div>
@@ -1602,40 +1623,163 @@
             const container = document.getElementById("notifications-list-container");
             container.innerHTML = "";
 
-            if (notifications.length === 0) {
+            if (!notifications || notifications.length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; color: var(--color-text-muted); padding: 40px 10px;">
-                        Nenhuma notificação por aqui.
+                        Nenhuma notificação encontrada nos últimos 30 dias.
                     </div>
                 `;
                 return;
             }
 
+            // Agrupa notificações de cotações expiradas do mesmo dia
+            const groupedExpiredByDate = {};
+            const regularNotifications = [];
+
             notifications.forEach(n => {
-                const timeStr = new Date(n.created_at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-                const dateStr = new Date(n.created_at).toLocaleDateString('pt-BR');
-                const unreadClass = n.lida ? '' : 'unread';
-                
-                container.innerHTML += `
-                    <div class="notification-item ${unreadClass}" onclick="openNotification(${n.id}, '${n.link}')">
-                        <div class="notification-header">
-                            <span class="notification-title">${n.titulo}</span>
-                            <span class="notification-time">${dateStr} às ${timeStr}</span>
+                const titleLower = (n.titulo || '').toLowerCase();
+                const msgLower = (n.mensagem || '').toLowerCase();
+                const isExpired = titleLower.includes('expirada') || msgLower.includes('expirou') || titleLower.includes('validade');
+
+                if (isExpired) {
+                    const d = new Date(n.created_at);
+                    const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    if (!groupedExpiredByDate[dayKey]) {
+                        groupedExpiredByDate[dayKey] = [];
+                    }
+                    groupedExpiredByDate[dayKey].push(n);
+                } else {
+                    regularNotifications.push(n);
+                }
+            });
+
+            // Constrói lista ordenada de itens a renderizar
+            const displayItems = [];
+
+            regularNotifications.forEach(n => {
+                displayItems.push({
+                    type: 'single',
+                    timestamp: new Date(n.created_at).getTime(),
+                    data: n
+                });
+            });
+
+            Object.keys(groupedExpiredByDate).forEach(dayKey => {
+                const items = groupedExpiredByDate[dayKey];
+                if (items.length === 1) {
+                    displayItems.push({
+                        type: 'single',
+                        timestamp: new Date(items[0].created_at).getTime(),
+                        data: items[0]
+                    });
+                } else {
+                    const maxTimestamp = Math.max(...items.map(i => new Date(i.created_at).getTime()));
+                    displayItems.push({
+                        type: 'group_expired',
+                        dayKey: dayKey,
+                        timestamp: maxTimestamp,
+                        items: items
+                    });
+                }
+            });
+
+            displayItems.sort((a, b) => b.timestamp - a.timestamp);
+
+            displayItems.forEach(item => {
+                if (item.type === 'single') {
+                    const n = item.data;
+                    const dateObj = new Date(n.created_at);
+                    const timeStr = dateObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                    const dateStr = dateObj.toLocaleDateString('pt-BR');
+                    const unreadClass = n.lida ? '' : 'unread';
+
+                    container.innerHTML += `
+                        <div class="notification-item ${unreadClass}" onclick="openNotification(${n.id}, '${n.link || ''}')">
+                            <div class="notification-header">
+                                <span class="notification-title">${n.titulo}</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="notification-time">${dateStr} às ${timeStr}</span>
+                                    ${!n.lida ? `
+                                        <button type="button" class="btn-mark-item-read" onclick="event.stopPropagation(); markSingleRead(${n.id})" title="Marcar esta notificação como lida">
+                                            ✓ Marcar lida
+                                        </button>
+                                    ` : `
+                                        <span style="font-size:11px; color:#10b981; font-weight:600;">✓ Lida</span>
+                                    `}
+                                </div>
+                            </div>
+                            <div class="notification-body">${n.mensagem}</div>
                         </div>
-                        <div class="notification-body">${n.mensagem}</div>
-                    </div>
-                `;
+                    `;
+                } else if (item.type === 'group_expired') {
+                    const items = item.items;
+                    const anyUnread = items.some(i => !i.lida);
+                    const unreadClass = anyUnread ? 'unread' : '';
+                    const dateObj = new Date(item.timestamp);
+                    const dateStr = dateObj.toLocaleDateString('pt-BR');
+                    const groupIds = items.map(i => i.id);
+
+                    const quotesDetails = items.map(i => {
+                        const match = (i.mensagem || '').match(/COT-[A-Za-z0-9-]+/) || (i.titulo || '').match(/COT-[A-Za-z0-9-]+/);
+                        const cotNum = match ? match[0] : `Cotação #${i.id}`;
+                        return { id: i.id, num: cotNum, link: i.link, lida: i.lida };
+                    });
+
+                    container.innerHTML += `
+                        <div class="notification-item ${unreadClass}" style="border-left-color: #ef4444;">
+                            <div class="notification-header">
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span class="notification-title" style="color:#b91c1c;">⏰ ${items.length} Cotações Expiradas</span>
+                                    <span style="font-size:10px; background:#fee2e2; color:#dc2626; font-weight:700; padding:1px 6px; border-radius:10px;">${items.length} agrupadas</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="notification-time">${dateStr}</span>
+                                    ${anyUnread ? `
+                                        <button type="button" class="btn-mark-item-read" onclick="event.stopPropagation(); markBatchRead([${groupIds.join(',')}])" title="Marcar todas as expiradas deste dia como lidas">
+                                            ✓ Marcar todas
+                                        </button>
+                                    ` : `
+                                        <span style="font-size:11px; color:#10b981; font-weight:600;">✓ Lidas</span>
+                                    `}
+                                </div>
+                            </div>
+                            <div class="notification-body" style="margin-top:2px;">
+                                ${items.length} cotações ultrapassaram a validade em ${dateStr}.
+                            </div>
+                            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                                ${quotesDetails.map(q => `
+                                    <a href="${q.link || 'javascript:void(0)'}" onclick="event.stopPropagation(); markSingleRead(${q.id});" style="font-size:11px; font-weight:600; text-decoration:none; padding:3px 8px; border-radius:6px; background:${q.lida ? '#f1f5f9' : '#fee2e2'}; color:${q.lida ? '#475569' : '#b91c1c'}; border:1px solid ${q.lida ? '#cbd5e1' : '#fca5a5'}; display:inline-flex; align-items:center; gap:3px;">
+                                        ${q.num} ↗
+                                    </a>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
             });
         }
 
         function updateBadge() {
             unreadCount = notifications.filter(n => !n.lida).length;
             const badge = document.getElementById("alerts-badge");
-            if (unreadCount > 0) {
-                badge.innerText = unreadCount;
-                badge.style.display = "flex";
-            } else {
-                badge.style.display = "none";
+            const headerBadge = document.getElementById("header-alerts-badge");
+            
+            if (badge) {
+                if (unreadCount > 0) {
+                    badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+                    badge.style.display = "flex";
+                } else {
+                    badge.style.display = "none";
+                }
+            }
+
+            if (headerBadge) {
+                if (unreadCount > 0) {
+                    headerBadge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+                    headerBadge.style.display = "flex";
+                } else {
+                    headerBadge.style.display = "none";
+                }
             }
         }
 
@@ -1751,16 +1895,22 @@
         }
 
         async function openNotification(id, link) {
-            await markNotificationAsRead(id);
+            await markSingleRead(id);
             if (link) {
                 window.location.href = link;
-            } else {
-                loadNotifications();
             }
         }
 
-        async function markNotificationAsRead(id) {
+        async function markSingleRead(id) {
             try {
+                // Atualização otimista na tela
+                const n = notifications.find(item => item.id == id);
+                if (n) {
+                    n.lida = true;
+                    updateBadge();
+                    renderNotifications();
+                }
+
                 await fetch(`${API_URL}/notificacoes/${id}/ler`, {
                     method: 'PATCH',
                     headers: {
@@ -1769,23 +1919,56 @@
                 });
             } catch (e) {
                 console.error("Error marking notification as read:", e);
+                loadNotifications();
             }
+        }
+
+        async function markBatchRead(ids) {
+            try {
+                // Atualização otimista na tela
+                ids.forEach(id => {
+                    const n = notifications.find(item => item.id == id);
+                    if (n) n.lida = true;
+                });
+                updateBadge();
+                renderNotifications();
+
+                await fetch(`${API_URL}/notificacoes/marcar-lidas`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ ids: ids })
+                });
+                showToast("Notificações marcadas como lidas.", "success");
+            } catch (e) {
+                console.error("Error marking batch notifications as read:", e);
+                loadNotifications();
+            }
+        }
+
+        async function markNotificationAsRead(id) {
+            return markSingleRead(id);
         }
 
         async function markAllAsRead() {
             try {
+                notifications.forEach(n => n.lida = true);
+                updateBadge();
+                renderNotifications();
+
                 const res = await fetch(`${API_URL}/notificacoes/ler-tudo`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     }
                 });
-                const data = await res.json();
-                if (data.success) {
-                    loadNotifications();
-                }
+                showToast("Todas as notificações foram marcadas como lidas.", "success");
             } catch (e) {
                 console.error("Error marking all read:", e);
+                loadNotifications();
             }
         }
 

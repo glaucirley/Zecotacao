@@ -101,6 +101,9 @@ Route::middleware([
 
         // Approvals (Gestor & Diretor)
         Route::get('/aprovacoes', function () {
+            if (auth()->user()->isRepresentante()) {
+                return redirect('/painel-representante');
+            }
             if (auth()->user()->isFaturamento()) {
                 return redirect('/faturamento');
             }
@@ -108,6 +111,9 @@ Route::middleware([
         });
         
         Route::get('/aprovacoes/{id}', function ($id) {
+            if (auth()->user()->isRepresentante()) {
+                return redirect('/painel-representante');
+            }
             if (auth()->user()->isFaturamento()) {
                 return redirect('/faturamento');
             }
@@ -116,6 +122,9 @@ Route::middleware([
 
         // Billing (Faturamento, Diretor & Administrador)
         Route::get('/faturamento', function () {
+            if (auth()->user()->isRepresentante()) {
+                return redirect('/painel-representante');
+            }
             if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
                 return redirect('/aprovacoes');
             }
@@ -123,6 +132,9 @@ Route::middleware([
         });
         
         Route::get('/faturamento/{id}', function ($id) {
+            if (auth()->user()->isRepresentante()) {
+                return redirect('/painel-representante');
+            }
             if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
                 return redirect('/aprovacoes');
             }
@@ -171,6 +183,9 @@ Route::middleware([
 
         // General Business Intelligence Dashboard
         Route::get('/dashboard', function () {
+            if (auth()->user()->isRepresentante()) {
+                return redirect('/painel-representante');
+            }
             return view('admin.dashboard');
         });
 
