@@ -1045,12 +1045,12 @@
             </div>
 
             <div class="filters-scroll" id="filters-scroll-container" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; padding-top: 4px;">
-                <button type="button" class="filter-pill active" onclick="setStatusFilter('ALL')">Todas</button>
-                <button type="button" class="filter-pill" onclick="setStatusFilter('EM_CRIACAO')">Rascunhos</button>
-                <button type="button" class="filter-pill" onclick="setStatusFilter('PENDENTE')">Pendentes</button>
-                <button type="button" class="filter-pill" onclick="setStatusFilter('APROVADA')">Aprovadas</button>
-                <button type="button" class="filter-pill" onclick="setStatusFilter('FINALIZADA')">Faturadas</button>
-                <button type="button" class="filter-pill" onclick="setStatusFilter('PERDIDA')">Perdidas</button>
+                <button type="button" class="filter-pill active" id="pill-filter-ativas" onclick="setStatusFilter('ATIVAS')">Ativas <span id="count-pill-ativas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
+                <button type="button" class="filter-pill" id="pill-filter-rascunhos" onclick="setStatusFilter('EM_CRIACAO')">Rascunhos <span id="count-pill-rascunhos" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
+                <button type="button" class="filter-pill" id="pill-filter-pendentes" onclick="setStatusFilter('PENDENTE')">Pendentes <span id="count-pill-pendentes" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
+                <button type="button" class="filter-pill" id="pill-filter-aprovadas" onclick="setStatusFilter('APROVADA')">Aprovadas <span id="count-pill-aprovadas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
+                <button type="button" class="filter-pill" id="pill-filter-encerradas" onclick="setStatusFilter('ENCERRADAS')">Encerradas <span id="count-pill-encerradas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
+                <button type="button" class="filter-pill" id="pill-filter-todas" onclick="setStatusFilter('ALL')">Todas <span id="count-pill-todas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
             </div>
         </header>
         
@@ -1407,8 +1407,19 @@
 
     <!-- Scripts -->
     <script>
-        // Responsive In-Screen Toast Notifications (replaces blocking browser alerts)
+        // Responsive In-Screen Toast Notifications with message deduplication
+        let lastDashboardToastMsg = "";
+        let lastDashboardToastTime = 0;
+
         function showToast(message, type = 'info', title = null) {
+            const now = Date.now();
+            const strMsg = String(message || '').trim();
+            if (strMsg === lastDashboardToastMsg && (now - lastDashboardToastTime) < 2000) {
+                return;
+            }
+            lastDashboardToastMsg = strMsg;
+            lastDashboardToastTime = now;
+
             let container = document.getElementById('toast-container');
             if (!container) {
                 container = document.createElement('div');
@@ -1509,6 +1520,79 @@
             ]);
         }
 
+        function getFriendlyStatusInfo(status) {
+            const map = {
+                'EM_CRIACAO': { label: 'Em criação', color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' },
+                'AGUARDANDO_GESTOR': { label: 'Em análise (Gestor)', color: '#92400e', bg: '#fef3c7', border: '#fcd34d' },
+                'COM_DIRETOR': { label: 'Em análise (Diretoria)', color: '#9a3412', bg: '#ffedd5', border: '#fdba74' },
+                'DEVOLVIDA': { label: 'Devolvida', color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
+                'APROVADA': { label: 'Aprovada (Pendente PDF)', color: '#166534', bg: '#dcfce7', border: '#86efac' },
+                'PDF_GERADO': { label: 'PDF Gerado', color: '#115e59', bg: '#ccfbf1', border: '#5eead4' },
+                'AGUARDANDO_PEDIDO': { label: 'Aguardando pedido', color: '#075985', bg: '#e0f2fe', border: '#7dd3fc' },
+                'FINALIZADA_COM_PEDIDO': { label: 'Pedido registrado', color: '#3730a3', bg: '#e0e7ff', border: '#a5b4fc' },
+                'FATURADA': { label: 'Faturada', color: '#14532d', bg: '#dcfce7', border: '#86efac' },
+                'PERDIDA': { label: 'Perdida', color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5' },
+                'EXPIRADA': { label: 'Expirada', color: '#64748b', bg: '#f1f5f9', border: '#cbd5e1' }
+            };
+            return map[status] || { label: (status || '').replace(/_/g, ' '), color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' };
+        }
+
+        function getCardValidityBadge(validityDateStr, status) {
+            if (['FATURADA', 'FINALIZADA_COM_PEDIDO', 'PERDIDA'].includes(status)) {
+                return '';
+            }
+            if (!validityDateStr) return '';
+            const now = new Date();
+            const valDate = new Date(validityDateStr);
+            const diffMs = valDate.getTime() - now.getTime();
+            if (diffMs <= 0 || status === 'EXPIRADA') {
+                return '<span style="font-size:11px; color:#ef4444; font-weight:600; display:inline-flex; align-items:center; gap:2px;">⚠️ Expirada</span>';
+            }
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            if (diffHours < 24) {
+                const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                return `<span style="font-size:11px; color:#d97706; font-weight:600; display:inline-flex; align-items:center; gap:2px;">⏳ vence hoje ${timeStr}</span>`;
+            } else if (diffDays === 1) {
+                return '<span style="font-size:11px; color:#2563eb; font-weight:600; display:inline-flex; align-items:center; gap:2px;">⏳ vence amanhã</span>';
+            } else {
+                return `<span style="font-size:11px; color:#64748b; display:inline-flex; align-items:center; gap:2px;">⏳ vence em ${diffDays}d</span>`;
+            }
+        }
+
+        function updateFilterPillCounters() {
+            let countAtivas = 0;
+            let countRascunhos = 0;
+            let countPendentes = 0;
+            let countAprovadas = 0;
+            let countEncerradas = 0;
+
+            const ativasStatuses = ['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'DEVOLVIDA', 'APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
+            const encerradasStatuses = ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'];
+
+            quotes.forEach(q => {
+                if (ativasStatuses.includes(q.status)) countAtivas++;
+                if (q.status === 'EM_CRIACAO') countRascunhos++;
+                if (q.status === 'AGUARDANDO_GESTOR' || q.status === 'COM_DIRETOR') countPendentes++;
+                if (q.status === 'APROVADA' || q.status === 'PDF_GERADO') countAprovadas++;
+                if (encerradasStatuses.includes(q.status)) countEncerradas++;
+            });
+
+            const elAtivas = document.getElementById("count-pill-ativas");
+            const elRascunhos = document.getElementById("count-pill-rascunhos");
+            const elPendentes = document.getElementById("count-pill-pendentes");
+            const elAprovadas = document.getElementById("count-pill-aprovadas");
+            const elEncerradas = document.getElementById("count-pill-encerradas");
+            const elTodas = document.getElementById("count-pill-todas");
+
+            if (elAtivas) elAtivas.innerText = `(${countAtivas})`;
+            if (elRascunhos) elRascunhos.innerText = `(${countRascunhos})`;
+            if (elPendentes) elPendentes.innerText = `(${countPendentes})`;
+            if (elAprovadas) elAprovadas.innerText = `(${countAprovadas})`;
+            if (elEncerradas) elEncerradas.innerText = `(${countEncerradas})`;
+            if (elTodas) elTodas.innerText = `(${quotes.length})`;
+        }
+
         async function loadQuotes() {
             try {
                 const res = await fetch(`${API_URL}/cotacoes/todas`);
@@ -1519,8 +1603,8 @@
                 const data = await res.json();
                 if (data.success) {
                     quotes = data.data;
-                    filteredQuotesList = [...quotes];
-                    renderQuotes();
+                    updateFilterPillCounters();
+                    filterQuotes();
                     
                     // Bind team value in profile screen using the first quote metadata as backup
                     if (quotes.length > 0 && quotes[0].representante) {
@@ -1537,13 +1621,13 @@
 
         function renderQuotes() {
             const container = document.getElementById("quotes-list-container");
-            document.getElementById("quotes-count").innerText = `${filteredQuotesList.length} carregadas`;
+            document.getElementById("quotes-count").innerText = `${filteredQuotesList.length} exibidas`;
             container.innerHTML = "";
 
             if (filteredQuotesList.length === 0) {
                 container.innerHTML = `
-                    <div style="text-align: center; color: var(--color-text-muted); padding: 40px 10px;">
-                        Nenhuma cotação encontrada no momento.
+                    <div style="text-align: center; color: var(--color-text-muted); padding: 40px 10px; background: white; border-radius: 12px; border: 1px dashed var(--color-border);">
+                        Nenhuma cotação encontrada nesta categoria.
                     </div>
                 `;
                 return;
@@ -1551,19 +1635,23 @@
 
             filteredQuotesList.forEach(q => {
                 const dateStr = new Date(q.created_at).toLocaleDateString('pt-BR');
-                const statusClass = q.status.toLowerCase().replace(/_/g, '-');
-                const statusText = q.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (q.status === 'PDF_GERADO' ? 'PDF Gerado' : q.status.replace(/_/g, ' '));
+                const stInfo = getFriendlyStatusInfo(q.status);
+                const validityBadge = getCardValidityBadge(q.data_validade, q.status);
                 const valStr = parseFloat(q.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                const partnerName = (q.parceiro && q.parceiro.razao_social) ? q.parceiro.razao_social : 'Cliente não informado';
                 
                 container.innerHTML += `
                     <a href="${PUBLIC_URL}/cotacoes/id/${q.id}" class="quote-card">
-                        <div class="card-row-top">
+                        <div class="card-row-top" style="align-items: center;">
                             <span class="quote-num">${q.numero}</span>
-                            <span class="status-badge status-${statusClass}">${statusText}</span>
+                            <span class="status-badge" style="background:${stInfo.bg}; color:${stInfo.color}; border:1px solid ${stInfo.border};">${stInfo.label}</span>
                         </div>
-                        <div class="client-name">${q.parceiro.razao_social}</div>
-                        <div class="card-row-bottom">
-                            <span class="quote-date">Criada em ${dateStr}</span>
+                        <div class="client-name" style="margin: 6px 0;">${partnerName}</div>
+                        <div class="card-row-bottom" style="align-items: center;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="quote-date">${dateStr}</span>
+                                ${validityBadge ? `<span>·</span>${validityBadge}` : ''}
+                            </div>
                             <span class="quote-total">R$ ${valStr}</span>
                         </div>
                     </a>
@@ -1571,7 +1659,7 @@
             });
         }
 
-        let activeStatusFilter = 'ALL';
+        let activeStatusFilter = 'ATIVAS';
 
         function setStatusFilter(status) {
             activeStatusFilter = status;
@@ -1580,32 +1668,36 @@
             document.querySelectorAll(".filter-pill").forEach(btn => {
                 btn.classList.remove("active");
             });
-            event.currentTarget.classList.add("active");
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add("active");
+            }
             
             filterQuotes();
         }
 
         function filterQuotes() {
-            const query = document.getElementById("search-input").value.toLowerCase().trim();
-            
+            const query = (document.getElementById("search-input") ? document.getElementById("search-input").value : "").toLowerCase().trim();
+            const ativasStatuses = ['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'DEVOLVIDA', 'APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
+            const encerradasStatuses = ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'];
+
             filteredQuotesList = quotes.filter(q => {
                 // 1. Filter by search query
                 const matchesSearch = query === "" || 
-                    q.numero.toLowerCase().includes(query) || 
-                    q.parceiro.razao_social.toLowerCase().includes(query);
+                    (q.numero && q.numero.toLowerCase().includes(query)) || 
+                    (q.parceiro && q.parceiro.razao_social && q.parceiro.razao_social.toLowerCase().includes(query));
                 
                 // 2. Filter by status
                 let matchesStatus = true;
-                if (activeStatusFilter !== 'ALL') {
-                    if (activeStatusFilter === 'PENDENTE') {
-                        matchesStatus = q.status === 'AGUARDANDO_GESTOR' || q.status === 'COM_DIRETOR';
-                    } else if (activeStatusFilter === 'APROVADA' || activeStatusFilter === 'PDF_GERADO') {
-                        matchesStatus = q.status === 'APROVADA' || q.status === 'PDF_GERADO';
-                    } else if (activeStatusFilter === 'FINALIZADA') {
-                        matchesStatus = q.status === 'FINALIZADA_COM_PEDIDO' || q.status === 'FATURADA';
-                    } else {
-                        matchesStatus = q.status === activeStatusFilter;
-                    }
+                if (activeStatusFilter === 'ATIVAS') {
+                    matchesStatus = ativasStatuses.includes(q.status);
+                } else if (activeStatusFilter === 'PENDENTE') {
+                    matchesStatus = q.status === 'AGUARDANDO_GESTOR' || q.status === 'COM_DIRETOR';
+                } else if (activeStatusFilter === 'APROVADA') {
+                    matchesStatus = q.status === 'APROVADA' || q.status === 'PDF_GERADO';
+                } else if (activeStatusFilter === 'ENCERRADAS') {
+                    matchesStatus = encerradasStatuses.includes(q.status);
+                } else if (activeStatusFilter !== 'ALL') {
+                    matchesStatus = q.status === activeStatusFilter;
                 }
                 
                 return matchesSearch && matchesStatus;
@@ -3064,12 +3156,12 @@
                             <div class="cart-item-controls" style="margin-top:8px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; padding:6px 10px; border-radius:8px;">
                                 <div class="qty-stepper" style="display:flex; align-items:center; gap:5px;">
                                     <button type="button" class="btn-stepper" onclick="updateCartQty(${index}, -1)">-</button>
-                                    <input type="number" min="1" value="${item.qty}" onchange="setCartItemExactQty(${index}, this.value)" style="width:44px; text-align:center; font-weight:800; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; padding:3px 2px;">
+                                    <input type="number" min="1" value="${item.qty}" inputmode="numeric" onchange="setCartItemExactQty(${index}, this.value)" style="width:44px; text-align:center; font-weight:800; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; padding:3px 2px;">
                                     <button type="button" class="btn-stepper" onclick="updateCartQty(${index}, 1)">+</button>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:4px;">
                                     <span style="font-size:11px; color:var(--color-text-muted); font-weight:600;">R$/un:</span>
-                                    <input type="number" step="0.01" value="${item.price.toFixed(2)}" oninput="updateCartPrice(${index}, this.value)" style="width:78px; padding:4px 6px; border:1px solid var(--color-border); border-radius:6px; font-size:12px; font-weight:700; text-align:right;">
+                                    <input type="number" step="0.01" value="${item.price.toFixed(2)}" inputmode="decimal" oninput="updateCartPrice(${index}, this.value)" style="width:78px; padding:4px 6px; border:1px solid var(--color-border); border-radius:6px; font-size:12px; font-weight:700; text-align:right;">
                                 </div>
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:4px; border-top:1px dashed #e2e8f0;">

@@ -226,92 +226,337 @@
         #items-table thead {
             display: none;
         }
-        
-        .item-card-row {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            padding: 14px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            position: relative;
-        }
-        .item-card-row.below-min-card {
-            border-color: #fca5a5;
-            background: #fef2f2;
-        }
+    }
 
-        .item-card-row td {
-            padding: 4px 0 !important;
-            border: none !important;
-            text-align: left !important;
-        }
+    body {
+        padding-bottom: 85px !important;
+    }
 
-        .item-card-row td.col-code {
-            font-size: 11px;
-            color: #64748b;
-            margin-bottom: 2px;
-        }
-        .item-card-row td.col-desc {
-            font-size: 14px;
-            font-weight: 600;
-            color: #0f172a;
-            margin-bottom: 8px;
-            padding-right: 36px !important;
-        }
-        .item-card-row td.col-un {
-            display: inline-block;
-            margin-right: 15px;
-        }
-        .item-card-row td.col-qtd {
-            display: inline-block;
-            margin-bottom: 8px;
-        }
-        .item-card-row td.col-proposto {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 6px;
-            padding-top: 8px !important;
-            border-top: 1px dashed #e2e8f0 !important;
-        }
-        .item-card-row td.col-status {
-            display: inline-block;
-            margin-top: 6px;
-        }
-        .item-card-row td.col-actions {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-        }
-        
-        .sticky-mobile-total-bar {
-            display: flex;
-        }
-        body {
-            padding-bottom: 70px;
-        }
+    /* Compact Item Card (3 Lines Layout) */
+    .item-card-row {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        padding: 0 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        position: relative;
+        transition: border-color 0.15s;
+    }
+    .item-card-row.below-min-card {
+        border-color: #fca5a5 !important;
+        background: #fff8f8 !important;
+    }
+    .compact-item-card {
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .item-line-1 {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .item-title-box {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        flex-wrap: wrap;
+        flex: 1;
+        min-width: 0;
+    }
+    .item-desc-text {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.3;
+    }
+    .item-meta-text {
+        font-size: 11.5px;
+        color: #64748b;
+        font-weight: 500;
+    }
+    .badge-campanha-sm {
+        background: #fdf2f8;
+        color: #be185d;
+        border: 1px solid #fbcfe8;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 4px;
+    }
+    .badge-inconsistent-sm {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fcd34d;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 4px;
+    }
+    .btn-delete-item {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.15s, background 0.15s;
+    }
+    .btn-delete-item:hover {
+        color: #ef4444;
+        background: #fee2e2;
+    }
 
-        /* Actions Panel Vertical Stacking for Mobile */
-        .actions-panel-card {
-            flex-direction: column-reverse !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-            padding: 16px !important;
-        }
-        .actions-panel-card .left-actions,
-        .actions-panel-card .right-actions {
-            flex-direction: column-reverse !important;
-            width: 100% !important;
-            gap: 10px !important;
-        }
-        .actions-panel-card button {
-            width: 100% !important;
-            justify-content: center !important;
-            padding: 12px 16px !important;
-            font-size: 14px !important;
-            margin: 0 !important;
-        }
+    .item-line-2 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+    .item-qty-container {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .item-price-container {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .item-field-label {
+        font-size: 11.5px;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    .item-line-3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding-top: 6px;
+        border-top: 1px dashed #e2e8f0;
+        font-size: 11.5px;
+    }
+    .item-benchmarks {
+        color: #64748b;
+        font-weight: 500;
+    }
+    .badge-price-tag {
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .badge-price-tag.tag-table {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+    }
+    .badge-price-tag.tag-discount {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+    }
+    .badge-price-tag.tag-below-min {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+    .badge-price-tag.tag-above {
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    /* Stepper Progress Bar (Fluxo 5 Etapas) */
+    .quote-stepper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        padding: 4px 0;
+    }
+    .step-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        z-index: 2;
+    }
+    .step-circle {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+    .step-item.active .step-circle {
+        background: #2563eb;
+        color: #ffffff;
+        box-shadow: 0 0 0 3px rgba(37,99,235,0.2);
+    }
+    .step-item.completed .step-circle {
+        background: #16a34a;
+        color: #ffffff;
+    }
+    .step-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #64748b;
+        white-space: nowrap;
+    }
+    .step-item.active .step-label {
+        color: #0f172a;
+        font-weight: 700;
+    }
+    .step-item.completed .step-label {
+        color: #16a34a;
+    }
+    .step-line {
+        flex: 1;
+        height: 2px;
+        background: #e2e8f0;
+        margin: 0 4px;
+        margin-bottom: 14px;
+        z-index: 1;
+        transition: background 0.2s ease;
+    }
+    .step-line.completed {
+        background: #16a34a;
+    }
+
+    /* Sticky Bottom Bar */
+    .sticky-footer-quote-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-top: 1px solid #e2e8f0;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+        padding: 10px 16px;
+        z-index: 999;
+    }
+    .sticky-footer-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+    .sticky-total-block {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .sticky-total-val {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+    .sticky-discount-val {
+        font-size: 11px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .sticky-actions-block {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-sticky-primary {
+        background: #2563eb;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 18px;
+        font-size: 13.5px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+        transition: all 0.15s ease;
+        white-space: nowrap;
+    }
+    .btn-sticky-primary:active {
+        transform: scale(0.98);
+    }
+    .btn-options-menu {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        border-radius: 8px;
+        width: 38px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .btn-options-menu:hover {
+        background: #e2e8f0;
+    }
+    .options-menu-dropdown {
+        position: absolute;
+        bottom: 46px;
+        right: 0;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        padding: 6px;
+        min-width: 200px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .options-menu-item {
+        background: none;
+        border: none;
+        text-align: left;
+        padding: 8px 12px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #334155;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.15s;
+    }
+    .options-menu-item:hover {
+        background: #f1f5f9;
     }
 
     /* Toast Notification System */
@@ -449,56 +694,97 @@
         </div>
     </div>
 
-    <!-- Title and Status Row -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
-        <div>
-            <h1 style="font-size: 28px; margin-bottom: 4px;">Cotação <span id="quote-number" style="color: var(--color-primary);">...</span></h1>
-            <p style="color: var(--color-text-muted); font-size: 13px;">
-                Origem: <span id="quote-origin" style="font-weight: 600;">...</span> | 
-                Emitido em: <span id="quote-emission">...</span> | 
-                Válido até: <span id="quote-validity">...</span>
-            </p>
+    <!-- Title and Stepper Row -->
+    <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h1 style="font-size: 24px; margin: 0; font-weight: 700;">Cotação <span id="quote-number" style="color: var(--color-primary);">...</span></h1>
+                    <span id="quote-status-badge" class="badge-status">...</span>
+                </div>
+                <div style="color: var(--color-text-muted); font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span>Origem: <strong id="quote-origin">...</strong></span>
+                    <span>·</span>
+                    <span>Emitida: <span id="quote-emission">...</span></span>
+                    <span>·</span>
+                    <span id="validity-relative-badge" style="font-weight: 600; color: #475569;">Válida até: <span id="quote-validity">...</span></span>
+                </div>
+            </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <span id="quote-status-badge" class="badge-status">...</span>
+
+        <!-- Visual 5-Step Progress Timeline -->
+        <div class="quote-stepper-wrapper" style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
+            <div class="quote-stepper">
+                <div class="step-item" id="step-node-1">
+                    <div class="step-circle">1</div>
+                    <span class="step-label">Criada</span>
+                </div>
+                <div class="step-line" id="step-line-1"></div>
+                <div class="step-item" id="step-node-2">
+                    <div class="step-circle">2</div>
+                    <span class="step-label">Em Análise</span>
+                </div>
+                <div class="step-line" id="step-line-2"></div>
+                <div class="step-item" id="step-node-3">
+                    <div class="step-circle">3</div>
+                    <span class="step-label">Aprovada</span>
+                </div>
+                <div class="step-line" id="step-line-3"></div>
+                <div class="step-item" id="step-node-4">
+                    <div class="step-circle">4</div>
+                    <span class="step-label">PDF</span>
+                </div>
+                <div class="step-line" id="step-line-4"></div>
+                <div class="step-item" id="step-node-5">
+                    <div class="step-circle">5</div>
+                    <span class="step-label">Faturada</span>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Locked Status Notice Banner -->
-    <div id="locked-status-banner" style="display: none; margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; font-size: 14px; font-weight: 500; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <span style="font-size: 18px;">🔒</span>
+    <div id="locked-status-banner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; font-size: 13.5px; font-weight: 500; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         <span id="locked-status-banner-text">Esta cotação está em modo somente leitura e não permite edições.</span>
     </div>
 
-    <!-- Info Cards Row -->
-    <div class="grid-2" style="margin-bottom: 24px;">
-        <!-- Client Card -->
-        <div class="card" style="margin-bottom: 0;">
-            <div class="card-header" style="margin-bottom: 12px; padding-bottom: 8px;">
-                <h3 style="font-size: 16px;">Dados do Cliente</h3>
+    <!-- Compact Client Header Strip -->
+    <div class="compact-client-strip" style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px;">
+                <span style="font-size: 16px;">🏢</span>
+                <strong id="client-name" style="color: var(--color-text); font-size: 14.5px;">...</strong>
+                <span style="color: #94a3b8;">·</span>
+                <span id="client-cnpj" style="color: var(--color-text-muted);">CNPJ: ...</span>
+                <span style="color: #94a3b8;">·</span>
+                <span id="client-location" style="color: var(--color-text-muted); font-weight: 500;">Cidade: ...</span>
             </div>
-            <p style="font-size: 15px; font-weight: 600; margin-bottom: 8px;" id="client-name">...</p>
-            <p style="font-size: 13px; color: var(--color-text-muted);" id="client-cnpj">CNPJ: ...</p>
-            <p style="font-size: 13px; color: var(--color-text-muted);" id="client-location">Cidade: ...</p>
-            <p style="font-size: 13px; color: var(--color-text-muted);" id="client-contact">Contato: ...</p>
+            <button type="button" class="btn btn-outline" onclick="toggleClientDetails()" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; border-color: #cbd5e1; color: #475569; display: inline-flex; align-items: center; gap: 4px;">
+                <span id="btn-client-details-text">Detalhes</span>
+                <svg id="client-details-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
         </div>
-
-        <!-- Sales Rep Card -->
-        <div class="card" style="margin-bottom: 0;">
-            <div class="card-header" style="margin-bottom: 12px; padding-bottom: 8px;">
-                <h3 style="font-size: 16px;">Vendedor & Equipe</h3>
+        <!-- Collapsible Client Details -->
+        <div id="client-details-panel" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 12.5px; color: var(--color-text-muted);">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                <div><strong>Contato / Telefone:</strong> <span id="client-contact">...</span></div>
+                <div><strong>Representante:</strong> <span id="rep-name">...</span></div>
             </div>
-            <p style="font-size: 15px; font-weight: 600; margin-bottom: 8px;" id="rep-name">...</p>
-            <p style="font-size: 13px; color: var(--color-text-muted);" id="rep-team">Equipe: ...</p>
-            <p style="font-size: 13px; color: var(--color-text-muted);" id="rep-email">E-mail: ...</p>
-            <p style="font-size: 13px; color: var(--color-text-muted);" id="rep-phone">Celular: ...</p>
         </div>
     </div>
 
-    <!-- Items Grid Card -->
-    <div class="card">
+    <!-- Items Section Card -->
+    <div class="card" style="margin-bottom: 16px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <h3 style="font-size: 16px; margin: 0; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <span>Itens da Cotação</span>
+                <span class="tab-badge" id="count-all-badge" style="background: var(--color-bg); color: var(--color-text-muted); font-size: 12px; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--color-border);">0</span>
+            </h3>
+        </div>
+
         <!-- Live Search and Filter Bar -->
-        <div class="items-filter-bar" style="margin-bottom: 16px;">
+        <div class="items-filter-bar" style="margin-bottom: 14px;">
             <div class="search-box-wrapper">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="item-search-input" class="search-items-input" placeholder="Buscar por código ou produto..." oninput="onSearchInput(this.value)">
@@ -508,7 +794,7 @@
                     Todos <span class="tab-badge" id="count-all">0</span>
                 </button>
                 <button type="button" class="filter-tab-btn tab-attention" id="tab-attention" onclick="setFilterTab('attention')">
-                    ⚠️ Requer Atenção <span class="tab-badge" id="count-attention">0</span>
+                    ⚠️ Atenção <span class="tab-badge" id="count-attention">0</span>
                 </button>
                 <button type="button" class="filter-tab-btn" id="tab-approved" onclick="setFilterTab('approved')">
                     ✅ Normais <span class="tab-badge" id="count-approved">0</span>
@@ -516,42 +802,26 @@
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table-premium" id="items-table">
-                <thead>
-                    <tr>
-                        <th style="width: 8%;">Código</th>
-                        <th style="width: 30%;">Descrição</th>
-                        <th style="width: 8%; text-align: center;">Un.</th>
-                        <th style="width: 12%; text-align: center;">Qtd</th>
-                        <th style="width: 11%; text-align: right;" class="desktop-only">Preço Sugerido</th>
-                        <th style="width: 11%; text-align: right;" class="desktop-only">Preço Mínimo</th>
-                        <th style="width: 14%; text-align: right;">Preço Proposto</th>
-                        <th style="width: 9%; text-align: center;">Situação</th>
-                        <th style="width: 7%; text-align: center;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="items-table-body">
-                    <!-- Dynamic Rows -->
-                </tbody>
-            </table>
+        <!-- Compact Item Cards Container (Replacing heavy table) -->
+        <div id="items-cards-container" class="items-cards-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Dynamically injected 3-line compact item cards -->
         </div>
 
         <!-- Add Item Row -->
-        <div id="add-item-form-container" style="margin-top: 20px; background-color: var(--color-bg); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
-            <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--color-primary); display: flex; align-items: center; gap: 6px;">
+        <div id="add-item-form-container" style="margin-top: 16px; background-color: var(--color-bg); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+            <h4 style="font-size: 13.5px; margin-bottom: 10px; color: var(--color-primary); display: flex; align-items: center; gap: 6px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                Adicionar Produto à Cotação
+                Adicionar Produto
             </h4>
             
-            <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
                 <!-- Live Product Search Box with Dropdown -->
-                <div style="flex-grow: 1; min-width: 280px; position: relative;">
-                    <label class="form-label" style="font-size: 12px; font-weight: 600;">Buscar Produto (Código, Nome ou Marca)</label>
+                <div style="flex-grow: 1; min-width: 240px; position: relative;">
+                    <label class="form-label" style="font-size: 12px; font-weight: 600;">Produto (Código ou Descrição)</label>
                     <input type="hidden" id="selected-product-id">
                     <div style="position: relative;">
                         <input type="text" id="add-product-search-input" class="form-control" 
-                               placeholder="🔍 Digite para buscar qualquer produto..." 
+                               placeholder="🔍 Buscar produto no catálogo..." 
                                oninput="onAddProductSearchInput(this.value)" 
                                onfocus="onAddProductSearchFocus()" 
                                autocomplete="off" 
@@ -563,111 +833,109 @@
                     <div id="add-product-results-menu" class="product-autocomplete-results" style="display: none;"></div>
                 </div>
 
-                <div style="width: 100px;">
-                    <label class="form-label" style="font-size: 12px;">Quantidade</label>
-                    <input type="number" id="new-item-qtd" class="form-control text-center" value="1" min="1" oninput="calculateNewItemSubtotal()">
+                <div style="width: 85px;">
+                    <label class="form-label" style="font-size: 12px;">Qtd</label>
+                    <input type="number" id="new-item-qtd" class="form-control text-center" value="1" min="1" inputmode="numeric" oninput="calculateNewItemSubtotal()">
                 </div>
-                <div style="width: 120px;">
-                    <label class="form-label" style="font-size: 12px;">Preço Sugerido</label>
-                    <input type="number" id="new-item-sugerido" class="form-control text-right" readonly style="background-color: #f1f5f9; font-weight: 600;">
+                <div style="width: 105px;">
+                    <label class="form-label" style="font-size: 12px;">Preço Sug.</label>
+                    <input type="text" id="new-item-sugerido" class="form-control text-right" readonly style="background-color: #f1f5f9; font-weight: 600;">
                 </div>
-                <div style="width: 120px;">
-                    <label class="form-label" style="font-size: 12px;">Preço Mínimo</label>
-                    <input type="number" id="new-item-minimo" class="form-control text-right" readonly style="background-color: #f1f5f9; color: #64748b;">
+                <div style="width: 105px;">
+                    <label class="form-label" style="font-size: 12px;">Preço Mín.</label>
+                    <input type="text" id="new-item-minimo" class="form-control text-right" readonly style="background-color: #f1f5f9; color: #64748b;">
                 </div>
-                <div style="width: 130px;">
-                    <label class="form-label" style="font-size: 12px;">Preço Proposto</label>
-                    <input type="number" id="new-item-proposto" class="form-control text-right" step="0.01" min="0.01" style="font-weight: 700; color: var(--color-primary);" oninput="calculateNewItemSubtotal()">
+                <div style="width: 115px;">
+                    <label class="form-label" style="font-size: 12px;">Preço Prop.</label>
+                    <input type="number" id="new-item-proposto" class="form-control text-right" step="0.01" min="0.01" inputmode="decimal" style="font-weight: 700; color: var(--color-primary);" oninput="calculateNewItemSubtotal()">
                 </div>
                 <div>
-                    <button type="button" class="btn btn-secondary" onclick="addNewItem()" style="padding: 9px 18px; font-weight: 600; font-size: 13px;">
+                    <button type="button" class="btn btn-secondary" onclick="addNewItem()" style="padding: 9px 16px; font-weight: 600; font-size: 13px;">
                         + Adicionar
                     </button>
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
                 <div id="selected-product-badge" style="display: none; font-size: 12px; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px;">
-                    ✓ Produto selecionado: <strong id="selected-product-label"></strong>
+                    ✓ <strong id="selected-product-label"></strong>
                 </div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--color-primary); margin-left: auto;" id="new-item-subtotal-label">
-                    Subtotal Proposto: R$ 0,00
+                    Subtotal: R$ 0,00
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Totals & Notes Section -->
-    <div class="grid-2">
-        <!-- Notes Card -->
-        <div class="card">
-            <div class="card-header">
-                <h3>Observações da Cotação</h3>
+    <!-- Collapsible Conditions & Observations Accordion -->
+    <div class="card" style="margin-bottom: 16px; padding: 0; overflow: hidden; border: 1px solid var(--color-border);">
+        <div onclick="toggleConditionsAccordion()" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #f8fafc; transition: background 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 16px;">📋</span>
+                <span id="conditions-summary-badge" style="font-size: 13px; font-weight: 600; color: #334155;">
+                    Condições & Observações
+                </span>
+                <span style="color: #94a3b8;">·</span>
+                <span id="conditions-summary-details" style="font-size: 12.5px; color: #64748b;">
+                    Carregando...
+                </span>
             </div>
-            <div class="form-group">
-                <label for="obs-cliente" class="form-label">Observações para o Cliente (Visível no PDF)</label>
-                <textarea id="obs-cliente" class="form-control" rows="3" placeholder="Ex: Prazo de entrega de 5 dias úteis."></textarea>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="obs-interna" class="form-label">Observações Internas (Exclusivo da Empresa)</label>
-                <textarea id="obs-interna" class="form-control" rows="3" placeholder="Ex: Cliente solicita prioridade no faturamento."></textarea>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #2563eb; font-weight: 600;">
+                <span id="conditions-toggle-text">Ver / Editar</span>
+                <svg id="conditions-toggle-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s ease;"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
         </div>
 
-        <!-- Totals Card -->
-        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
-            <div class="card-header">
-                <h3>Valores Finais</h3>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--color-text-muted);">Subtotal Sugerido:</span>
-                    <span style="font-weight: 500;" id="total-sugerido">R$ 0,00</span>
+        <div id="conditions-accordion-body" style="display: none; padding: 18px; border-top: 1px solid var(--color-border); background: white;">
+            <div class="grid-2" style="gap: 16px;">
+                <!-- Conditions -->
+                <div>
+                    <h4 style="font-size: 13px; margin-bottom: 12px; font-weight: 700; color: #1e293b;">Condições Comerciais</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label class="form-label" style="font-size: 11px;">Forma de Pagamento</label>
+                            <input type="text" id="forma-pagamento" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="updateConditionsSummaryText()">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label class="form-label" style="font-size: 11px;">Prazo de Entrega</label>
+                            <input type="text" id="prazo-entrega" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="updateConditionsSummaryText()">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label class="form-label" style="font-size: 11px;">Tipo de Frete</label>
+                            <select id="frete-tipo" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="updateConditionsSummaryText()">
+                                <option value="CIF">CIF (Por conta do remetente)</option>
+                                <option value="FOB">FOB (Por conta do destinatário)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label class="form-label" style="font-size: 11px;">Transportadora</label>
+                            <input type="text" id="transportadora" class="form-control" style="padding: 8px 10px; font-size: 12.5px;">
+                        </div>
+                    </div>
                 </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--color-text-muted);">Desconto Comercial:</span>
-                    <span style="font-weight: 500; color: #dc2626;" id="total-desconto">- R$ 0,00</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; border-top: 2px solid var(--color-border); padding-top: 15px;">
-                    <span style="font-size: 16px; font-weight: 600;">Total Proposto:</span>
-                    <span style="font-size: 20px; font-weight: 700; color: var(--color-primary);" id="total-liquido">R$ 0,00</span>
-                </div>
-            </div>
 
-            <!-- Conditions Form -->
-            <div style="background-color: var(--color-bg); padding: 15px; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
-                <h4 style="font-size: 13px; margin-bottom: 10px; font-weight: 600;">Condições de Entrega / Pagamento</h4>
-                <div class="grid-2" style="gap: 10px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label" style="font-size: 11px;">Forma Pagamento</label>
-                        <input type="text" id="forma-pagamento" class="form-control" style="padding: 6px 10px; font-size: 12px;">
+                <!-- Observations -->
+                <div>
+                    <h4 style="font-size: 13px; margin-bottom: 12px; font-weight: 700; color: #1e293b;">Observações</h4>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label for="obs-cliente" class="form-label" style="font-size: 11px;">Observação para o Cliente (Visível no PDF)</label>
+                        <textarea id="obs-cliente" class="form-control" rows="2" style="font-size: 12.5px;" placeholder="Ex: Prazo de entrega de 5 dias úteis."></textarea>
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label" style="font-size: 11px;">Prazo Entrega</label>
-                        <input type="text" id="prazo-entrega" class="form-control" style="padding: 6px 10px; font-size: 12px;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label" style="font-size: 11px;">Frete Tipo</label>
-                        <select id="frete-tipo" class="form-control" style="padding: 6px 10px; font-size: 12px;">
-                            <option value="CIF">CIF (Por conta do remetente)</option>
-                            <option value="FOB">FOB (Por conta do destinatário)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label class="form-label" style="font-size: 11px;">Transportadora</label>
-                        <input type="text" id="transportadora" class="form-control" style="padding: 6px 10px; font-size: 12px;">
+                        <label for="obs-interna" class="form-label" style="font-size: 11px;">Observação Interna (Apenas Equipe)</label>
+                        <textarea id="obs-interna" class="form-control" rows="2" style="font-size: 12.5px;" placeholder="Ex: Cliente solicita prioridade no faturamento."></textarea>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Justification panel (Visible if items below minimum) -->
-    <div id="justification-panel" class="card" style="display: none; border: 1px solid #f59e0b; background-color: #fffbeb;">
+    <!-- Justification Panel (Shown if any item is below minimum) -->
+    <div id="justification-panel" class="card" style="display: none; border: 1px solid #f59e0b; background-color: #fffbeb; margin-bottom: 20px;">
         <div class="card-header" style="border-bottom: 1px solid #fef3c7;">
-            <h3 style="color: #d97706; display: flex; align-items: center; gap: 8px;">
+            <h3 style="color: #d97706; display: flex; align-items: center; gap: 8px; font-size: 15px;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                Justificativa Necessária — Desconto Especial Detectado
+                Justificativa Obrigatória — Itens Abaixo do Mínimo
             </h3>
         </div>
         <p style="font-size: 13px; color: #b45309; margin-bottom: 15px;">
@@ -676,7 +944,7 @@
         
         <div class="form-group">
             <label class="form-label" style="color: #b45309;">Justificativa por Escrito</label>
-            <textarea id="just-texto" class="form-control" rows="3" placeholder="Justifique o motivo do desconto especial (ex: equiparação de preço com concorrente X)..." style="background-color: #ffffff; border-color: #fcd34d;"></textarea>
+            <textarea id="just-texto" class="form-control" rows="3" placeholder="Justifique o motivo do desconto especial (ex: equiparação de preço com concorrente X)..." style="background-color: #ffffff; border-color: #fcd34d; font-size: 13px;"></textarea>
         </div>
 
         <div class="grid-2">
@@ -686,31 +954,60 @@
                        accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.odt,.ods,.odp,application/pdf,image/jpeg,image/png,image/webp,image/gif,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                        style="background-color: #ffffff; border-color: #fcd34d; padding: 6px 10px;">
                 <small style="display: block; margin-top: 5px; font-size: 11px; color: #b45309;">
-                    Formatos aceitos: PDF, imagens (JPG, PNG, WEBP) e Office (Word, Excel, PowerPoint). Limite: 10MB por arquivo.
+                    Formatos aceitos: PDF, imagens (JPG, PNG, WEBP) e Office. Limite: 10MB por arquivo.
                 </small>
                 <div id="just-anexos-preview" style="margin-top: 6px; font-size: 12px; display: none;"></div>
             </div>
             <div class="form-group">
-                <label class="form-label" style="color: #b45309; font-weight: 600;">Upload de Justificativa por Áudio (Gravador/Arquivo)</label>
+                <label class="form-label" style="color: #b45309; font-weight: 600;">Áudio de Justificativa</label>
                 <input type="file" id="just-audio" class="form-control" accept="audio/*,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/m4a" style="background-color: #ffffff; border-color: #fcd34d; padding: 6px 10px;">
                 <small style="display: block; margin-top: 5px; font-size: 11px; color: #b45309;">
-                    Formatos aceitos: MP3, WAV, OGG, M4A. Limite: 10MB.
+                    Formatos: MP3, WAV, OGG, M4A. Limite: 10MB.
                 </small>
                 <div id="just-audio-preview" style="margin-top: 6px; font-size: 12px; display: none;"></div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Floating Actions Panel -->
-    <div class="card actions-panel-card" style="display: flex; justify-content: space-between; align-items: center; background-color: var(--color-card); box-shadow: var(--shadow-lg);">
-        <div class="left-actions">
-            <button id="btn-lost" class="btn btn-danger" onclick="openLostModal()">Marcar como Perdida</button>
+<!-- Sticky Bottom Action & Totals Bar (Point 2) -->
+<div class="sticky-footer-quote-bar" id="sticky-footer-bar">
+    <div class="sticky-footer-inner">
+        <!-- Totals & Discount -->
+        <div class="sticky-footer-totals">
+            <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Total Proposto</div>
+            <div class="sticky-footer-val" id="sticky-total-proposto">R$ 0,00</div>
+            <div class="sticky-footer-discount" id="sticky-total-discount">Desconto: R$ 0,00 (0,0%)</div>
         </div>
-        <div class="right-actions" style="display: flex; gap: 12px; align-items: center;">
-            <button id="btn-draft" class="btn btn-outline" onclick="saveDraft(true)">Salvar Rascunho</button>
-            <button id="btn-pdf" class="btn btn-secondary" onclick="downloadPdf()" style="background-color: #10b981; border-color: #10b981; color: white; display: none;">📄 Gerar PDF</button>
-            <button id="btn-release" class="btn btn-primary" onclick="openReleaseModal()" style="background-color: #0d9488; border-color: #0d9488; display: none;">Liberar para Faturamento</button>
-            <button id="btn-submit" class="btn btn-primary" onclick="submitQuote()">Enviar para Aprovação</button>
+
+        <!-- Action Buttons -->
+        <div class="sticky-footer-actions">
+            <!-- Secondary Options Menu Button "⋯" -->
+            <div class="dropdown-wrapper" style="position: relative;">
+                <button type="button" class="btn-options-menu" onclick="toggleOptionsMenu(event)" title="Mais opções">
+                    ⋯
+                </button>
+                <div class="options-menu-dropdown" id="options-menu-dropdown">
+                    <button type="button" class="menu-item" id="menu-save-draft" onclick="handleMenuAction('draft')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Salvar Rascunho
+                    </button>
+                    <button type="button" class="menu-item" onclick="handleMenuAction('conditions')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        Editar Condições
+                    </button>
+                    <button type="button" class="menu-item item-danger" id="menu-mark-lost" onclick="handleMenuAction('lost')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        Marcar como Perdida
+                    </button>
+                </div>
+            </div>
+
+            <!-- Single Dynamic Primary Action Button -->
+            <button type="button" class="btn-sticky-primary btn-submit-action" id="btn-sticky-primary" onclick="handlePrimaryAction()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <span id="btn-sticky-primary-label">Enviar para Aprovação</span>
+            </button>
         </div>
     </div>
 </div>
@@ -751,7 +1048,7 @@
         
         <div class="form-group" style="margin-bottom: 12px;">
             <label for="release-pedido-externo" class="form-label">Número do Pedido no Sankhya</label>
-            <input type="text" id="release-pedido-externo" class="form-control" placeholder="Ex: 509230" required>
+            <input type="text" id="release-pedido-externo" class="form-control" inputmode="numeric" placeholder="Ex: 509230" required>
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
@@ -764,7 +1061,7 @@
 
         <div class="form-group" style="margin-bottom: 20px;">
             <label for="release-valor-pedido" class="form-label">Valor do Pedido (R$)</label>
-            <input type="number" id="release-valor-pedido" class="form-control" step="0.01" min="0.01" required>
+            <input type="number" id="release-valor-pedido" class="form-control" step="0.01" min="0.01" inputmode="decimal" required>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 12px;">
@@ -773,25 +1070,24 @@
         </div>
     </div>
 </div>
-
-<!-- Floating Sticky Total Bar for Mobile -->
-<div id="sticky-mobile-bar" class="sticky-mobile-total-bar">
-    <div>
-        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Total da Cotação</div>
-        <div id="mobile-sticky-total" style="font-size: 18px; font-weight: 700;">R$ 0,00</div>
-    </div>
-    <div id="mobile-action-container">
-        <button id="mobile-btn-submit" type="button" class="btn btn-primary" onclick="submitQuote()" style="padding: 8px 16px; font-size: 13px; background: #2563eb; border: none; border-radius: 8px; font-weight: 600;">
-            Enviar Cotação
-        </button>
-    </div>
-</div>
 @endsection
 
 @section('scripts')
 <script>
-    // Responsive In-Screen Toast Notifications (replaces blocking browser alerts)
+    // Responsive In-Screen Toast Notifications with message deduplication
+    let lastToastMessage = "";
+    let lastToastTime = 0;
+
     function showToast(message, type = 'info', title = null) {
+        const now = Date.now();
+        const strMsg = String(message || '').trim();
+        // Prevent duplicate toasts within 2 seconds
+        if (strMsg === lastToastMessage && (now - lastToastTime) < 2000) {
+            return;
+        }
+        lastToastMessage = strMsg;
+        lastToastTime = now;
+
         let container = document.getElementById('toast-container');
         if (!container) {
             container = document.createElement('div');
@@ -918,6 +1214,179 @@
         }
     }
 
+    // Friendly status labels, styles, and relative expiry helper
+    function getFriendlyStatus(status) {
+        const map = {
+            'EM_CRIACAO': { label: 'Em criação', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' },
+            'AGUARDANDO_GESTOR': { label: 'Em análise (Gestor)', bg: '#fef3c7', color: '#92400e', border: '#fcd34d' },
+            'COM_DIRETOR': { label: 'Em análise (Diretoria)', bg: '#ffedd5', color: '#9a3412', border: '#fdba74' },
+            'DEVOLVIDA': { label: 'Devolvida para ajuste', bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
+            'APROVADA': { label: 'Aprovada (Pendente PDF)', bg: '#dcfce7', color: '#166534', border: '#86efac' },
+            'PDF_GERADO': { label: 'PDF Gerado', bg: '#ccfbf1', color: '#115e59', border: '#5eead4' },
+            'AGUARDANDO_PEDIDO': { label: 'Aguardando pedido', bg: '#e0f2fe', color: '#075985', border: '#7dd3fc' },
+            'FINALIZADA_COM_PEDIDO': { label: 'Pedido registrado', bg: '#e0e7ff', color: '#3730a3', border: '#a5b4fc' },
+            'FATURADA': { label: 'Faturada', bg: '#dcfce7', color: '#14532d', border: '#4ade80' },
+            'PERDIDA': { label: 'Perdida', bg: '#fee2e2', color: '#b91c1c', border: '#f87171' },
+            'EXPIRADA': { label: 'Expirada', bg: '#f1f5f9', color: '#64748b', border: '#cbd5e1' }
+        };
+        return map[status] || { label: (status || '').replace(/_/g, ' '), bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
+    }
+
+    function getRelativeValidityText(validityDateStr) {
+        if (!validityDateStr) return 'Sem validade definida';
+        const now = new Date();
+        const valDate = new Date(validityDateStr);
+        const diffMs = valDate.getTime() - now.getTime();
+        if (diffMs <= 0) {
+            return '⚠️ Validade expirada';
+        }
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffMinutes < 60) {
+            return `⏳ Vence em ${diffMinutes} min`;
+        } else if (diffHours < 24) {
+            const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            return `⏳ Vence hoje às ${timeStr} (${diffHours}h restantes)`;
+        } else if (diffDays === 1) {
+            const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            return `⏳ Vence amanhã às ${timeStr}`;
+        } else {
+            return `⏳ Vence em ${diffDays} dias (${valDate.toLocaleDateString('pt-BR')})`;
+        }
+    }
+
+    function updateStepper(status) {
+        // 5 stages: 1=Criada, 2=Em Análise, 3=Aprovada, 4=PDF, 5=Faturada
+        let activeStep = 1;
+        let isCompletedUpto = 1;
+
+        if (['EM_CRIACAO', 'DEVOLVIDA'].includes(status)) {
+            activeStep = 1;
+            isCompletedUpto = 1;
+        } else if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(status)) {
+            activeStep = 2;
+            isCompletedUpto = 2;
+        } else if (status === 'APROVADA') {
+            activeStep = 3;
+            isCompletedUpto = 3;
+        } else if (['PDF_GERADO', 'AGUARDANDO_PEDIDO'].includes(status)) {
+            activeStep = 4;
+            isCompletedUpto = 4;
+        } else if (['FINALIZADA_COM_PEDIDO', 'FATURADA'].includes(status)) {
+            activeStep = 5;
+            isCompletedUpto = 5;
+        } else {
+            activeStep = 1;
+            isCompletedUpto = 1;
+        }
+
+        for (let i = 1; i <= 5; i++) {
+            const node = document.getElementById(`step-node-${i}`);
+            if (!node) continue;
+            node.classList.remove('completed', 'active');
+            if (i < isCompletedUpto) {
+                node.classList.add('completed');
+            } else if (i === activeStep) {
+                node.classList.add('active');
+            }
+
+            const line = document.getElementById(`step-line-${i}`);
+            if (line) {
+                if (i < isCompletedUpto) {
+                    line.classList.add('completed');
+                } else {
+                    line.classList.remove('completed');
+                }
+            }
+        }
+    }
+
+    function toggleClientDetails() {
+        const panel = document.getElementById("client-details-panel");
+        const arrow = document.getElementById("client-details-arrow");
+        const text = document.getElementById("btn-client-details-text");
+        if (!panel) return;
+        const isHidden = panel.style.display === "none";
+        panel.style.display = isHidden ? "block" : "none";
+        if (arrow) arrow.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+        if (text) text.innerText = isHidden ? "Recolher" : "Detalhes";
+    }
+
+    function toggleConditionsAccordion() {
+        const body = document.getElementById("conditions-accordion-body");
+        const arrow = document.getElementById("conditions-toggle-arrow");
+        const text = document.getElementById("conditions-toggle-text");
+        if (!body) return;
+        const isHidden = body.style.display === "none";
+        body.style.display = isHidden ? "block" : "none";
+        if (arrow) arrow.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+        if (text) text.innerText = isHidden ? "Recolher" : "Ver / Editar";
+    }
+
+    function updateConditionsSummaryText() {
+        const forma = document.getElementById("forma-pagamento") ? document.getElementById("forma-pagamento").value.trim() : "";
+        const prazo = document.getElementById("prazo-entrega") ? document.getElementById("prazo-entrega").value.trim() : "";
+        const frete = document.getElementById("frete-tipo") ? document.getElementById("frete-tipo").value.trim() : "CIF";
+        
+        const parts = [];
+        if (forma) parts.push(forma);
+        if (prazo) parts.push(prazo);
+        if (frete) parts.push(`Frete ${frete}`);
+        
+        const summaryText = parts.length > 0 ? parts.join(" · ") : "Toque para definir pagamento e prazos";
+        const el = document.getElementById("conditions-summary-details");
+        if (el) el.innerText = summaryText;
+    }
+
+    function toggleOptionsMenu(event) {
+        if (event) event.stopPropagation();
+        const dropdown = document.getElementById("options-menu-dropdown");
+        if (dropdown) {
+            dropdown.classList.toggle("show");
+        }
+    }
+
+    document.addEventListener("click", () => {
+        const dropdown = document.getElementById("options-menu-dropdown");
+        if (dropdown && dropdown.classList.contains("show")) {
+            dropdown.classList.remove("show");
+        }
+    });
+
+    function handleMenuAction(action) {
+        const dropdown = document.getElementById("options-menu-dropdown");
+        if (dropdown) dropdown.classList.remove("show");
+
+        if (action === 'draft') {
+            saveDraft(true);
+        } else if (action === 'conditions') {
+            const body = document.getElementById("conditions-accordion-body");
+            if (body && body.style.display === "none") {
+                toggleConditionsAccordion();
+            }
+            body?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (action === 'lost') {
+            openLostModal();
+        }
+    }
+
+    function handlePrimaryAction() {
+        if (!quote) return;
+        if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
+            submitQuote();
+        } else if (quote.status === 'APROVADA') {
+            downloadPdf();
+        } else if (quote.status === 'PDF_GERADO') {
+            openReleaseModal();
+        } else if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote.status)) {
+            showToast("Cotação em análise de alçada. Aguarde o retorno da gestão.", "info");
+        } else {
+            showToast("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + ".", "info");
+        }
+    }
+
     function renderView() {
         if (!quote) return;
 
@@ -927,9 +1396,21 @@
 
         // Bind header details
         document.getElementById("quote-number").innerText = quote.numero;
-        document.getElementById("quote-origin").innerText = quote.origem.toUpperCase();
-        document.getElementById("quote-emission").innerText = new Date(quote.data_emissao).toLocaleString('pt-BR');
-        document.getElementById("quote-validity").innerText = quote.data_validade ? new Date(quote.data_validade).toLocaleString('pt-BR') : 'Sem data';
+        document.getElementById("quote-origin").innerText = (quote.origem || 'WEB').toUpperCase();
+        document.getElementById("quote-emission").innerText = new Date(quote.data_emissao).toLocaleDateString('pt-BR');
+        
+        // Relative validity
+        const validityEl = document.getElementById("quote-validity");
+        if (validityEl) {
+            validityEl.innerText = quote.data_validade ? new Date(quote.data_validade).toLocaleString('pt-BR') : 'Sem data';
+        }
+        const relBadge = document.getElementById("validity-relative-badge");
+        if (relBadge) {
+            relBadge.innerText = getRelativeValidityText(quote.data_validade);
+        }
+
+        // Stepper
+        updateStepper(quote.status);
 
         // Check if locked from editing (only EM_CRIACAO and DEVOLVIDA allow modifications)
         const editableStatuses = ['EM_CRIACAO', 'DEVOLVIDA'];
@@ -946,9 +1427,9 @@
                 } else if (quote.status === 'COM_DIRETOR') {
                     bannerText.innerHTML = "<strong>Cotação em análise com a Diretoria:</strong> Aguardando decisão superior. Os campos estão em modo somente leitura.";
                 } else if (quote.status === 'APROVADA') {
-                    bannerText.innerHTML = "<strong>Cotação Aprovada:</strong> Proposta comercial aprovada! Clique em <strong>'📄 Gerar PDF'</strong> para emitir o documento e habilitar a liberação de faturamento.";
+                    bannerText.innerHTML = "<strong>Cotação Aprovada:</strong> Proposta comercial aprovada! Clique no botão <strong>'Gerar PDF'</strong> no rodapé para emitir o documento e habilitar a liberação de faturamento.";
                 } else if (quote.status === 'PDF_GERADO') {
-                    bannerText.innerHTML = "<strong>PDF Gerado:</strong> Proposta em PDF emitida com sucesso. Clique em <strong>'Liberar para Faturamento'</strong> para registrar o pedido.";
+                    bannerText.innerHTML = "<strong>PDF Emitido:</strong> Documento gerado com sucesso. Clique no botão <strong>'Liberar para Faturamento'</strong> no rodapé para registrar o pedido no Sankhya.";
                 } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
                     bannerText.innerHTML = "<strong>Cotação Finalizada:</strong> Pedido externo já registrado para conferência e faturamento.";
                 } else if (quote.status === 'FATURADA') {
@@ -965,18 +1446,18 @@
             }
         }
 
-        // Bind status badge
+        // Friendly Status badge
         const badge = document.getElementById("quote-status-badge");
-        badge.className = "badge-status " + quote.status.toLowerCase().replace(/_/g, '-');
-        if (quote.status === 'APROVADA') {
-            badge.innerText = 'Aprovada (Pendente PDF)';
-        } else if (quote.status === 'PDF_GERADO') {
-            badge.innerText = 'PDF Gerado';
-        } else {
-            badge.innerText = quote.status.replace(/_/g, ' ');
+        if (badge) {
+            const info = getFriendlyStatus(quote.status);
+            badge.innerText = info.label;
+            badge.style.backgroundColor = info.bg;
+            badge.style.color = info.color;
+            badge.style.borderColor = info.border;
+            badge.className = "badge-status " + quote.status.toLowerCase().replace(/_/g, '-');
         }
 
-        // Bind Client profile
+        // Bind Client profile (compact)
         const clientCity = (quote.parceiro && quote.parceiro.cidade && quote.parceiro.cidade !== 'null') ? quote.parceiro.cidade : '';
         const rawClientUf = (quote.parceiro && quote.parceiro.uf && quote.parceiro.uf !== 'null') ? quote.parceiro.uf : '';
         const resolvedUf = (rawClientUf === '2' || (clientCity && clientCity.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : rawClientUf;
@@ -984,14 +1465,9 @@
 
         document.getElementById("client-name").innerText = quote.parceiro.razao_social;
         document.getElementById("client-cnpj").innerText = "CNPJ/CPF: " + (quote.parceiro.cnpj || 'Não cadastrado');
-        document.getElementById("client-location").innerText = "Localidade: " + locationText;
-        document.getElementById("client-contact").innerText = "Contato: " + (quote.parceiro.telefone || quote.parceiro.email || 'N/A');
-
-        // Bind Rep profile
-        document.getElementById("rep-name").innerText = quote.representante.nome;
-        document.getElementById("rep-team").innerText = "Equipe: " + (quote.representante.equipe ? quote.representante.equipe.nome : 'Sem Equipe');
-        document.getElementById("rep-email").innerText = "E-mail: " + quote.representante.email;
-        document.getElementById("rep-phone").innerText = "Celular: " + (quote.representante.telefone || 'Não cadastrado');
+        document.getElementById("client-location").innerText = locationText;
+        document.getElementById("client-contact").innerText = (quote.parceiro.telefone || quote.parceiro.email || 'Não informado');
+        document.getElementById("rep-name").innerText = quote.representante.nome + (quote.representante.equipe ? ` (${quote.representante.equipe.nome})` : '');
 
         // Bind Commercial Conditions
         document.getElementById("forma-pagamento").value = quote.forma_pagamento || "";
@@ -1000,14 +1476,11 @@
         document.getElementById("transportadora").value = quote.transportadora || "";
         document.getElementById("obs-cliente").value = quote.observacao_cliente || "";
         document.getElementById("obs-interna").value = quote.observacao_interna || "";
+        updateConditionsSummaryText();
 
-        const btnPdf = document.getElementById("btn-pdf");
-        const btnRelease = document.getElementById("btn-release");
-        const btnSubmit = document.getElementById("btn-submit");
-        const btnDraft = document.getElementById("btn-draft");
-        const btnLost = document.getElementById("btn-lost");
         const addItemContainer = document.getElementById("add-item-form-container");
-        const mobileActionContainer = document.getElementById("mobile-action-container");
+        const menuDraft = document.getElementById("menu-save-draft");
+        const menuLost = document.getElementById("menu-mark-lost");
 
         if (isEditingLocked) {
             document.getElementById("forma-pagamento").disabled = true;
@@ -1018,10 +1491,8 @@
             document.getElementById("obs-interna").disabled = true;
             
             if (addItemContainer) addItemContainer.style.display = "none";
-            if (btnLost) btnLost.style.display = "none";
-            if (btnDraft) btnDraft.style.display = "none";
-            if (btnSubmit) btnSubmit.style.display = "none";
-            if (mobileActionContainer) mobileActionContainer.style.display = "none";
+            if (menuDraft) menuDraft.style.display = "none";
+            if (menuLost) menuLost.style.display = "none";
         } else {
             document.getElementById("forma-pagamento").disabled = false;
             document.getElementById("prazo-entrega").disabled = false;
@@ -1031,23 +1502,71 @@
             document.getElementById("obs-interna").disabled = false;
             
             if (addItemContainer) addItemContainer.style.display = "block";
-            if (btnLost) btnLost.style.display = "inline-block";
-            if (btnDraft) btnDraft.style.display = "inline-block";
-            if (btnSubmit) btnSubmit.style.display = "inline-block";
-            if (mobileActionContainer) mobileActionContainer.style.display = "block";
+            if (menuDraft) menuDraft.style.display = "flex";
+            if (menuLost) menuLost.style.display = "flex";
         }
 
-        // Action Sequence Rules:
-        // 1. PDF can ONLY be generated after approval (APROVADA, PDF_GERADO, and post-approval)
-        const allowPdfStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
-        if (btnPdf) {
-            btnPdf.style.display = allowPdfStatuses.includes(quote.status) ? "inline-block" : "none";
-            btnPdf.disabled = !allowPdfStatuses.includes(quote.status);
-        }
+        // Configure Single Dynamic Primary Button in Sticky Footer
+        const primaryBtn = document.getElementById("btn-sticky-primary");
+        const primaryLabel = document.getElementById("btn-sticky-primary-label");
 
-        // 2. "Liberar para Faturamento" can ONLY be executed after PDF has been generated (PDF_GERADO)
-        if (btnRelease) {
-            btnRelease.style.display = (quote.status === 'PDF_GERADO') ? "inline-block" : "none";
+        if (primaryBtn && primaryLabel) {
+            // Reset styles
+            primaryBtn.className = "btn-sticky-primary";
+            primaryBtn.disabled = false;
+            primaryBtn.style.opacity = "1";
+            primaryBtn.style.cursor = "pointer";
+
+            if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
+                primaryBtn.classList.add("btn-submit-action");
+                primaryLabel.innerText = "Enviar para Aprovação";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    <span>Enviar para Aprovação</span>
+                `;
+            } else if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote.status)) {
+                primaryBtn.style.background = "#e2e8f0";
+                primaryBtn.style.color = "#64748b";
+                primaryBtn.disabled = true;
+                primaryBtn.style.cursor = "default";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Em Análise de Alçada</span>
+                `;
+            } else if (quote.status === 'APROVADA') {
+                primaryBtn.classList.add("btn-pdf-action");
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span>Gerar PDF da Proposta</span>
+                `;
+            } else if (quote.status === 'PDF_GERADO') {
+                primaryBtn.classList.add("btn-release-action");
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <span>Liberar Faturamento</span>
+                `;
+            } else if (['FINALIZADA_COM_PEDIDO', 'FATURADA'].includes(quote.status)) {
+                primaryBtn.style.background = "#dcfce7";
+                primaryBtn.style.color = "#15803d";
+                primaryBtn.disabled = true;
+                primaryBtn.style.cursor = "default";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Faturamento Concluído</span>
+                `;
+            } else if (quote.status === 'PERDIDA') {
+                primaryBtn.style.background = "#fee2e2";
+                primaryBtn.style.color = "#b91c1c";
+                primaryBtn.disabled = true;
+                primaryBtn.style.cursor = "default";
+                primaryBtn.innerHTML = `<span>Proposta Perdida</span>`;
+            } else if (quote.status === 'EXPIRADA') {
+                primaryBtn.style.background = "#f1f5f9";
+                primaryBtn.style.color = "#64748b";
+                primaryBtn.disabled = true;
+                primaryBtn.style.cursor = "default";
+                primaryBtn.innerHTML = `<span>Proposta Expirada</span>`;
+            }
         }
 
         // Bind Items List
@@ -1105,9 +1624,11 @@
         return (sug > 0 && min > sug);
     }
 
+    // Render Compact 3-Line Cards (Point 1)
     function renderItems() {
-        const body = document.getElementById("items-table-body");
-        body.innerHTML = "";
+        const container = document.getElementById("items-cards-container");
+        if (!container) return;
+        container.innerHTML = "";
         
         let hasItemBelowMin = false;
         let countAll = quote.itens.length;
@@ -1127,9 +1648,11 @@
 
         // Update Tab Badges
         const elAll = document.getElementById("count-all");
+        const elAllBadge = document.getElementById("count-all-badge");
         const elAtt = document.getElementById("count-attention");
         const elApp = document.getElementById("count-approved");
         if (elAll) elAll.innerText = countAll;
+        if (elAllBadge) elAllBadge.innerText = `${countAll} itens`;
         if (elAtt) elAtt.innerText = countAttention;
         if (elApp) elApp.innerText = countApproved;
 
@@ -1154,86 +1677,97 @@
         });
 
         if (filtered.length === 0) {
-            body.innerHTML = `
-                <tr>
-                    <td colspan="9" style="text-align: center; color: var(--color-text-muted); padding: 30px 10px;">
-                        Nenhum item encontrado com os filtros aplicados.
-                    </td>
-                </tr>
+            container.innerHTML = `
+                <div style="text-align: center; color: var(--color-text-muted); padding: 35px 15px; background: white; border-radius: 12px; border: 1px dashed var(--color-border); font-size: 13.5px;">
+                    Nenhum item encontrado com os filtros aplicados.
+                </div>
             `;
         } else {
             filtered.forEach(item => {
                 const minEf = getItemEffectiveMin(item);
                 const isInconsistent = isItemInconsistent(item);
-                const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
-                const inputClass = isBelowMin ? "price-below-min" : "";
+                const propPrice = parseFloat(item.preco_unit_proposto || 0);
+                const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
+                const isBelowMin = propPrice < minEf;
                 const isItemLocked = isEditingLocked || item.status_item === 'recusado';
                 const rowClass = item.status_item === 'recusado' ? "recusado" : (item.status_item === 'aprovado' ? "aprovado" : "");
 
-                body.innerHTML += `
-                    <tr class="item-card-row ${rowClass} ${isBelowMin ? 'below-min-card' : ''}" id="row-${item.id}">
-                        <td class="col-code">
-                            <span class="mobile-label">Código:</span>
-                            <strong class="code-badge">${item.produto.codigo_sankhya}</strong>
-                        </td>
-                        <td class="col-desc">
-                            <div class="product-desc-title">
-                                ${item.produto.descricao}
-                                ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="display:inline-block; margin-left:8px;">Campanha</span>' : ''}
-                                ${isInconsistent ? '<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #fcd34d; margin-left:6px;" title="Preço mínimo cadastral maior que o sugerido. Venda pelo sugerido não exige justificativa.">⚠️ Mín > Sugerido</span>' : ''}
+                // Semantic Price Tag Badge for Line 3
+                let priceTagHtml = '';
+                if (isBelowMin) {
+                    priceTagHtml = `<span class="badge-price-tag tag-below-min">⚠️ Abaixo do mínimo</span>`;
+                } else if (Math.abs(propPrice - sugPrice) < 0.005) {
+                    priceTagHtml = `<span class="badge-price-tag tag-table">Preço de tabela</span>`;
+                } else if (propPrice < sugPrice) {
+                    const perc = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100).toFixed(1) : '0';
+                    priceTagHtml = `<span class="badge-price-tag tag-discount">−${perc}%</span>`;
+                } else {
+                    const perc = sugPrice > 0 ? (((propPrice - sugPrice) / sugPrice) * 100).toFixed(1) : '0';
+                    priceTagHtml = `<span class="badge-price-tag tag-above">+${perc}%</span>`;
+                }
+
+                container.innerHTML += `
+                    <div class="compact-item-card ${rowClass} ${isBelowMin ? 'below-min-card' : ''}" id="card-item-${item.id}">
+                        <!-- LINHA 1: descrição em destaque + código + unidade + lixeira -->
+                        <div class="item-line-1">
+                            <div class="item-desc-wrap">
+                                <span class="item-desc">${item.produto.descricao}</span>
+                                <span class="item-code-un">#${item.produto.codigo_sankhya} · ${item.produto.unidade}</span>
+                                ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
+                                ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d; margin-left:4px;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
                             </div>
-                            <div class="mobile-sub-info">
-                                Sug: R$ ${formatCurrency(item.preco_unit_sugerido)} | 
-                                Mín: R$ ${formatCurrency(item.preco_minimo)} ${isInconsistent ? '<span style="color:#b45309; font-weight:600;">(divergente)</span>' : ''}
+                            <div>
+                                ${!isItemLocked ? `
+                                    <button type="button" class="btn-remove-item" onclick="deleteItem(${item.id})" title="Remover item">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                    </button>
+                                ` : ''}
                             </div>
-                        </td>
-                        <td class="text-center col-un">
-                            <span class="mobile-label">Unidade:</span>
-                            <span class="un-badge">${item.produto.unidade}</span>
-                        </td>
-                        <td class="text-center col-qtd">
-                            <span class="mobile-label">Qtd:</span>
+                        </div>
+
+                        <!-- LINHA 2: quantidade (–/+) à esquerda e preço proposto com inputmode="decimal" à direita -->
+                        <div class="item-line-2">
                             <div class="qty-stepper">
                                 ${!isItemLocked ? `<button type="button" class="qty-btn" onclick="stepQty(${item.id}, -1)">–</button>` : ''}
-                                <input type="number" class="form-control text-center qty-input" value="${item.qtd}" min="1" 
+                                <input type="number" class="qty-input" value="${item.qtd}" min="1" inputmode="numeric"
                                     ${isItemLocked ? 'disabled' : ''} 
                                     oninput="updateItemCalculations(${item.id}, this.value, null)">
                                 ${!isItemLocked ? `<button type="button" class="qty-btn" onclick="stepQty(${item.id}, 1)">+</button>` : ''}
                             </div>
-                        </td>
-                        <td class="text-right col-sugerido desktop-only">R$ ${formatCurrency(item.preco_unit_sugerido)}</td>
-                        <td class="text-right col-minimo desktop-only" style="color: #64748b;">
-                            R$ ${formatCurrency(item.preco_minimo)}
-                            ${isInconsistent ? '<span title="Cadastro com mínimo maior que sugerido. Venda pelo sugerido liberada." style="color:#d97706; font-size:12px; margin-left:2px;">⚠️</span>' : ''}
-                        </td>
-                        <td class="text-right col-proposto">
-                            <span class="mobile-label">Preço Proposto:</span>
-                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
-                                <input type="number" class="form-control text-right ${inputClass}" 
-                                    value="${(parseFloat(item.preco_unit_proposto) || 0).toFixed(2)}" step="0.01" min="0.01"
-                                    style="width: 105px; padding: 5px 8px; font-size: 14px; font-weight: 600;" 
+
+                            <div class="item-price-proposto-wrap">
+                                <span class="price-currency">R$</span>
+                                <input type="number" class="price-input ${isBelowMin ? 'price-below-min' : ''}" 
+                                    value="${propPrice.toFixed(2)}" step="0.01" min="0.01" inputmode="decimal"
                                     ${isItemLocked ? 'disabled' : ''} 
                                     oninput="updateItemCalculations(${item.id}, null, this.value)">
-                                ${!isItemLocked && isBelowMin ? `<button type="button" class="btn btn-outline btn-min-fix" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>` : ''}
+                                ${!isItemLocked && isBelowMin ? `
+                                    <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; font-weight:700; color:#dc2626; border-color:#fca5a5; background:#fff1f2; border-radius:6px;" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>
+                                ` : ''}
                             </div>
-                        </td>
-                        <td class="text-center col-status">
-                            <span class="badge-status ${item.status_item}">${item.status_item}</span>
-                        </td>
-                        <td class="text-center col-actions">
-                            ${!isItemLocked ? `
-                                <button type="button" class="btn btn-outline" style="padding: 6px 10px; border-color: #fecaca; color: #ef4444;" onclick="deleteItem(${item.id})" title="Remover item">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                                </button>
-                            ` : '-'}
-                        </td>
-                    </tr>
+                        </div>
+
+                        <!-- LINHA 3: Sug. R$ X · Mín. R$ Y e selo à direita -->
+                        <div class="item-line-3">
+                            <div class="item-benchmarks">
+                                <span>Sug. R$ ${formatCurrency(item.preco_unit_sugerido)}</span>
+                                <span>·</span>
+                                <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
+                            </div>
+                            <div>
+                                ${priceTagHtml}
+                            </div>
+                        </div>
+                    </div>
                 `;
             });
         }
 
         // Show/hide justification box
-        document.getElementById("justification-panel").style.display = hasItemBelowMin && !isEditingLocked ? "block" : "none";
+        const justPanel = document.getElementById("justification-panel");
+        if (justPanel) {
+            justPanel.style.display = hasItemBelowMin && !isEditingLocked ? "block" : "none";
+        }
         
         recalculateTotalsFromState();
     }
@@ -1253,18 +1787,18 @@
         item.ajuste_percentual = sugerido > 0 ? ((item.preco_unit_proposto - sugerido) / sugerido) * 100 : 0;
 
         // Apply price-below-min warning class dynamically in DOM
-        const row = document.getElementById(`row-${itemId}`);
-        if (row) {
-            const inputPrice = row.querySelector("td:nth-child(7) input[type='number']");
+        const card = document.getElementById(`card-item-${itemId}`);
+        if (card) {
+            const inputPrice = card.querySelector(".price-input");
             const minEf = getItemEffectiveMin(item);
             const isBelowMin = parseFloat(item.preco_unit_proposto) < minEf;
             
             if (isBelowMin) {
-                inputPrice.classList.add("price-below-min");
-                row.classList.add("below-min-card");
+                if (inputPrice) inputPrice.classList.add("price-below-min");
+                card.classList.add("below-min-card");
             } else {
-                inputPrice.classList.remove("price-below-min");
-                row.classList.remove("below-min-card");
+                if (inputPrice) inputPrice.classList.remove("price-below-min");
+                card.classList.remove("below-min-card");
             }
         }
 
@@ -1276,21 +1810,24 @@
                 hasItemBelowMin = true;
             }
         });
-        document.getElementById("justification-panel").style.display = hasItemBelowMin && !isEditingLocked ? "block" : "none";
+        const justPanel = document.getElementById("justification-panel");
+        if (justPanel) {
+            justPanel.style.display = hasItemBelowMin && !isEditingLocked ? "block" : "none";
+        }
 
         recalculateTotalsFromState();
     }
 
     function resetToMin(itemId, minPrice) {
         if (isEditingLocked) return;
-        const row = document.getElementById(`row-${itemId}`);
-        if (row) {
-            const inputPrice = row.querySelector("td:nth-child(7) input[type='number']");
+        const card = document.getElementById(`card-item-${itemId}`);
+        if (card) {
+            const inputPrice = card.querySelector(".price-input");
             if (inputPrice) {
                 const roundedPrice = parseFloat(minPrice).toFixed(2);
                 inputPrice.value = roundedPrice;
                 updateItemCalculations(itemId, null, roundedPrice);
-                renderItems(); // re-render to update warning highlights
+                renderItems(); // re-render to update badges & highlights
             }
         }
     }
@@ -1308,14 +1845,23 @@
         });
 
         const desconto = subtotal - total;
+        const descontoPerc = subtotal > 0 && desconto > 0 ? ((desconto / subtotal) * 100).toFixed(1) : 0;
 
-        document.getElementById("total-sugerido").innerText = "R$ " + formatCurrency(subtotal);
-        document.getElementById("total-desconto").innerText = "- R$ " + formatCurrency(desconto > 0 ? desconto : 0);
-        document.getElementById("total-liquido").innerText = "R$ " + formatCurrency(total);
-
-        const mobileTotalEl = document.getElementById("mobile-sticky-total");
-        if (mobileTotalEl) {
-            mobileTotalEl.innerText = "R$ " + formatCurrency(total);
+        // Sticky Footer Totals
+        const stickyTotalEl = document.getElementById("sticky-total-proposto");
+        if (stickyTotalEl) {
+            stickyTotalEl.innerText = "R$ " + formatCurrency(total);
+        }
+        
+        const stickyDiscountEl = document.getElementById("sticky-total-discount");
+        if (stickyDiscountEl) {
+            if (desconto > 0.009) {
+                stickyDiscountEl.innerText = `Desconto: - R$ ${formatCurrency(desconto)} (-${descontoPerc}%)`;
+                stickyDiscountEl.style.color = "#dc2626";
+            } else {
+                stickyDiscountEl.innerText = "Sem desconto comercial aplicado";
+                stickyDiscountEl.style.color = "#64748b";
+            }
         }
     }
 
