@@ -273,7 +273,7 @@
             <td>
                 <span class="field-label">CIDADE / CEP</span>
                 <span class="field-value">
-                    {{ $quote->parceiro->cidade ?? '' }}{{ $quote->parceiro->uf ? ' - ' . $quote->parceiro->uf : '' }}{{ $quote->parceiro->cep ? ' · ' . $quote->parceiro->cep : '' }}
+                    {{ $quote->parceiro->cidade ?? '' }}{{ $quote->parceiro->uf ? '/' . $quote->parceiro->uf : '' }}{{ $quote->parceiro->cep ? ' · ' . $quote->parceiro->cep : '' }}
                 </span>
             </td>
         </tr>

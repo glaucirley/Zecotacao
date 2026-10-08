@@ -253,11 +253,12 @@ class SankhyaDatabaseService
             END.NOMEEND               AS LOGRADOURO,
             BAI.NOMEBAI               AS BAIRRO,
             CID.NOMECID               AS CIDADE,
-            CID.UF                    AS UF
+            COALESCE(UFS.UF, TO_CHAR(CID.UF)) AS UF
         FROM {$prefix}TGFPAR PAR
         LEFT JOIN {$prefix}TSIEND END ON PAR.CODEND = END.CODEND
         LEFT JOIN {$prefix}TSIBAI BAI ON PAR.CODBAI = BAI.CODBAI
-        LEFT JOIN {$prefix}TSICID CID ON PAR.CODCID = CID.CODCID";
+        LEFT JOIN {$prefix}TSICID CID ON PAR.CODCID = CID.CODCID
+        LEFT JOIN {$prefix}TSIUFS UFS ON CID.UF = UFS.CODUF";
     }
 
     /**
@@ -330,7 +331,7 @@ class SankhyaDatabaseService
         $numero = $row['NUMERO'] ?? $row['numero'] ?? null;
         $bairro = $row['BAIRRO'] ?? $row['bairro'] ?? null;
         $cidade = $row['CIDADE'] ?? $row['cidade'] ?? null;
-        $uf = $row['UF'] ?? $row['uf'] ?? null;
+        $uf = \App\Models\Parceiro::normalizeUf($row['UF'] ?? $row['uf'] ?? null, $cidade);
 
         $enderecoConcatenado = implode(' - ', array_filter([
             trim(($logradouro ?: '') . ($numero ? ', ' . $numero : '')),
@@ -365,6 +366,41 @@ class SankhyaDatabaseService
                 'ativo'               => true,
             ]
         );
+    }
+
+    /**
+     * Reprocess existing local partners to normalize numeric UFs and concatenated addresses.
+     */
+    public function reprocessExistingPartnersUf(): int
+    {
+        $updated = 0;
+        $partners = Parceiro::all();
+        foreach ($partners as $partner) {
+            $normalizedUf = Parceiro::normalizeUf($partner->uf, $partner->cidade);
+            $needsUpdate = false;
+
+            if ($partner->uf !== $normalizedUf) {
+                $partner->uf = $normalizedUf;
+                $needsUpdate = true;
+            }
+
+            if ($partner->cidade && strtoupper(trim($partner->cidade)) === 'UBERLANDIA' && $partner->uf !== 'MG') {
+                $partner->uf = 'MG';
+                $needsUpdate = true;
+            }
+
+            // Fix addresses with '/2' or '- 2'
+            if (!empty($partner->endereco) && (strpos($partner->endereco, '/2') !== false || strpos($partner->endereco, '- 2') !== false)) {
+                $partner->endereco = preg_replace('/(\b[A-Za-zÀ-ÿ\s]+)[\/\-]\s*2\b/i', '$1/MG', $partner->endereco);
+                $needsUpdate = true;
+            }
+
+            if ($needsUpdate) {
+                $partner->save();
+                $updated++;
+            }
+        }
+        return $updated;
     }
 
     /**

@@ -203,7 +203,8 @@
                 <span style="font-size:11px; color:var(--color-text-muted);">${p.email || '-'}</span>
             `;
 
-            const location = p.cidade ? `${p.cidade} / ${p.uf || ''}` : '-';
+            const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
+            const location = p.cidade ? `${p.cidade} / ${pUf}` : '-';
 
             body.innerHTML += `
                 <tr>

@@ -2493,7 +2493,8 @@
                 const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
                 const docVal = p.cnpj || p.cnpj_cpf;
                 const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
-                const cityStr = (p.cidade || p.uf) ? ` &bull; ${p.cidade || ''}${p.uf ? '/' + p.uf : ''}` : '';
+                const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
+                const cityStr = (p.cidade || pUf) ? ` &bull; ${p.cidade || ''}${pUf ? '/' + pUf : ''}` : '';
 
                 container.innerHTML += `
                     <div class="partner-item-card" onclick="selectPartnerById(${p.id})">
@@ -2524,7 +2525,8 @@
 
             const docStr = selectedPartner.cnpj || selectedPartner.cnpj_cpf || 'Não informado';
             const codeStr = selectedPartner.codigo_sankhya || 'N/A';
-            const cityStr = selectedPartner.cidade ? ` | ${selectedPartner.cidade}${selectedPartner.uf ? '/' + selectedPartner.uf : ''}` : '';
+            const spUf = (selectedPartner.uf === '2' || (selectedPartner.cidade && selectedPartner.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (selectedPartner.uf || '');
+            const cityStr = selectedPartner.cidade ? ` | ${selectedPartner.cidade}${spUf ? '/' + spUf : ''}` : '';
 
             document.getElementById("sp-name").innerText = displayName;
             document.getElementById("sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;

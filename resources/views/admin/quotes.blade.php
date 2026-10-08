@@ -1491,7 +1491,8 @@
             const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
             const docVal = p.cnpj || p.cnpj_cpf;
             const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
-            const cityStr = (p.cidade || p.uf) ? ` &bull; ${p.cidade || ''}${p.uf ? '/' + p.uf : ''}` : '';
+            const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
+            const cityStr = (p.cidade || pUf) ? ` &bull; ${p.cidade || ''}${pUf ? '/' + pUf : ''}` : '';
 
             const card = document.createElement("div");
             card.className = "partner-item-card";
@@ -1593,8 +1594,8 @@
         const searchBox = document.getElementById("admin-partner-search-box");
 
         const docStr = adminSelectedPartner.cnpj || adminSelectedPartner.cnpj_cpf || 'Não informado';
-        const codeStr = adminSelectedPartner.codigo_sankhya || 'N/A';
-        const cityStr = adminSelectedPartner.cidade ? ` | ${adminSelectedPartner.cidade}${adminSelectedPartner.uf ? '/' + adminSelectedPartner.uf : ''}` : '';
+        const spUf = (adminSelectedPartner.uf === '2' || (adminSelectedPartner.cidade && adminSelectedPartner.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (adminSelectedPartner.uf || '');
+        const cityStr = adminSelectedPartner.cidade ? ` | ${adminSelectedPartner.cidade}${spUf ? '/' + spUf : ''}` : '';
 
         document.getElementById("admin-sp-name").innerText = adminSelectedPartner.razao_social;
         document.getElementById("admin-sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;

@@ -246,9 +246,9 @@ class PartnerImportService
             $normalized['cep'] = $cleanCep !== '' ? $cleanCep : null;
         }
 
-        // Clean UF (max 2 characters uppercase)
+        // Clean UF (normalized 2-letter uppercase acronym)
         if (isset($normalized['uf'])) {
-            $normalized['uf'] = strtoupper(substr(trim($normalized['uf']), 0, 2));
+            $normalized['uf'] = Parceiro::normalizeUf($normalized['uf'], $normalized['cidade'] ?? null);
         }
 
         // Normalize ativo status

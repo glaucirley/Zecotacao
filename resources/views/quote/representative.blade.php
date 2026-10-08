@@ -978,8 +978,9 @@
 
         // Bind Client profile
         const clientCity = (quote.parceiro && quote.parceiro.cidade && quote.parceiro.cidade !== 'null') ? quote.parceiro.cidade : '';
-        const clientUf = (quote.parceiro && quote.parceiro.uf && quote.parceiro.uf !== 'null') ? quote.parceiro.uf : '';
-        const locationText = (clientCity || clientUf) ? `${clientCity}${clientCity && clientUf ? ' - ' : ''}${clientUf}` : 'Não informada';
+        const rawClientUf = (quote.parceiro && quote.parceiro.uf && quote.parceiro.uf !== 'null') ? quote.parceiro.uf : '';
+        const resolvedUf = (rawClientUf === '2' || (clientCity && clientCity.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : rawClientUf;
+        const locationText = (clientCity || resolvedUf) ? `${clientCity}${clientCity && resolvedUf ? '/' : ''}${resolvedUf}` : 'Não informada';
 
         document.getElementById("client-name").innerText = quote.parceiro.razao_social;
         document.getElementById("client-cnpj").innerText = "CNPJ/CPF: " + (quote.parceiro.cnpj || 'Não cadastrado');
