@@ -266,7 +266,7 @@ class ParameterController extends Controller
             }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("Sync Error (Produtos): " . $e->getMessage());
-            $warnings[] = "Produtos (Tabela TGFPRO do Sankhya não acessível: " . $e->getMessage() . ")";
+            $warnings[] = "Produtos (Tabela TGFPRO do Sankhya não acessível" . (config('app.debug') ? ": " . $e->getMessage() : "") . ")";
         }
 
         // 2. Sync Partners (Clients)
@@ -278,7 +278,7 @@ class ParameterController extends Controller
             }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("Sync Error (Clientes): " . $e->getMessage());
-            $warnings[] = "Clientes (Tabela TGFPAR do Sankhya não acessível: " . $e->getMessage() . ")";
+            $warnings[] = "Clientes (Tabela TGFPAR do Sankhya não acessível" . (config('app.debug') ? ": " . $e->getMessage() : "") . ")";
         }
 
         // 3. Sync Representatives (Sellers)
@@ -290,7 +290,7 @@ class ParameterController extends Controller
             }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error("Sync Error (Vendedores): " . $e->getMessage());
-            $warnings[] = "Vendedores (Tabela TGFVEN do Sankhya não acessível: " . $e->getMessage() . ")";
+            $warnings[] = "Vendedores (Tabela TGFVEN do Sankhya não acessível" . (config('app.debug') ? ": " . $e->getMessage() : "") . ")";
         }
 
         // 4. Sync Price Tables View
@@ -314,6 +314,8 @@ class ParameterController extends Controller
         if ($prodCount == 0 && $partnerCount == 0 && $repCount == 0 && $priceItemCount == 0 && $condCount == 0) {
             return response()->json([
                 'success' => false,
+                'error' => 'Erro na sincronização',
+                'code' => 'SANKHYA_SYNC_ERROR',
                 'message' => "Falha na sincronização. Detalhes: " . implode(" | ", $warnings)
             ], 500);
         }

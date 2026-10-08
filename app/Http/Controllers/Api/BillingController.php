@@ -225,6 +225,7 @@ class BillingController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao registrar divergência da cotação ID {$cotacao_id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'BILLING_DIVERGENCE_ERROR',
                 'message' => 'Não foi possível registrar a divergência. Por favor, tente novamente.'
             ], 500);
         }
@@ -277,6 +278,7 @@ class BillingController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao faturar cotação ID {$cotacao_id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'BILLING_FINALIZE_ERROR',
                 'message' => 'Não foi possível faturar a cotação. Por favor, tente novamente.'
             ], 500);
         }

@@ -93,10 +93,12 @@ class UserController extends Controller
                 'data' => $user
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao criar usuário: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao criar usuário: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'USER_CREATE_ERROR',
+                'message' => config('app.debug') ? ('Falha ao criar usuário: ' . $e->getMessage()) : 'Ocorreu um erro ao criar o usuário. Os detalhes foram registrados nos logs do servidor.'
             ], 500);
         }
     }
@@ -167,10 +169,12 @@ class UserController extends Controller
                 'data' => $user
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao atualizar usuário ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao atualizar usuário: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'USER_UPDATE_ERROR',
+                'message' => config('app.debug') ? ('Falha ao atualizar usuário: ' . $e->getMessage()) : 'Ocorreu um erro ao atualizar o usuário. Os detalhes foram registrados nos logs do servidor.'
             ], 500);
         }
     }
@@ -198,9 +202,11 @@ class UserController extends Controller
                 'success' => true,
                 'message' => 'Usuário excluído com sucesso.'
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao excluir usuário ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
+                'error' => 'Erro interno do servidor',
+                'code' => 'USER_DELETE_ERROR',
                 'message' => 'Falha ao excluir usuário. Pode haver cotações vinculadas. Tente desativá-lo.'
             ], 500);
         }

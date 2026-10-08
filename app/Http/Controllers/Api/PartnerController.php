@@ -98,10 +98,12 @@ class PartnerController extends Controller
                 'data' => $partner
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao criar cliente: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao criar cliente: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'PARTNER_CREATE_ERROR',
+                'message' => config('app.debug') ? ('Falha ao criar cliente: ' . $e->getMessage()) : 'Ocorreu um erro ao criar o cliente. Os detalhes foram registrados nos logs do servidor.'
             ], 500);
         }
     }
@@ -145,10 +147,12 @@ class PartnerController extends Controller
                 'data' => $partner
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao atualizar cliente ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao atualizar cliente: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'PARTNER_UPDATE_ERROR',
+                'message' => config('app.debug') ? ('Falha ao atualizar cliente: ' . $e->getMessage()) : 'Ocorreu um erro ao atualizar o cliente. Os detalhes foram registrados nos logs do servidor.'
             ], 500);
         }
     }
@@ -171,9 +175,11 @@ class PartnerController extends Controller
                 'success' => true,
                 'message' => 'Cliente excluído com sucesso.'
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao excluir cliente ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
+                'error' => 'Erro interno do servidor',
+                'code' => 'PARTNER_DELETE_ERROR',
                 'message' => 'Falha ao excluir cliente. Pode haver cotações vinculadas. Tente desativá-lo.'
             ], 500);
         }
@@ -216,9 +222,12 @@ class PartnerController extends Controller
                 'erros'       => $result['erros'],
             ]);
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro ao importar CSV de clientes: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'success' => false,
-                'message' => 'Erro ao processar o arquivo: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'PARTNER_IMPORT_ERROR',
+                'message' => config('app.debug') ? ('Erro ao processar o arquivo: ' . $e->getMessage()) : 'Erro ao processar o arquivo de clientes. Os detalhes foram registrados nos logs do servidor.'
             ], 500);
         }
     }

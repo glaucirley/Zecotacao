@@ -76,11 +76,13 @@ class ChatLogController extends Controller
                 'data' => $log
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao registrar logs de chat: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'success' => false,
-                'error' => 'Database error',
-                'message' => $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'CHAT_LOG_ERROR',
+                'message' => config('app.debug') ? ('Falha ao registrar logs de chat: ' . $e->getMessage()) : 'Ocorreu um erro interno ao processar os registros de conversa.'
             ], 500);
         }
     }

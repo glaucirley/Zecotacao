@@ -311,6 +311,7 @@ class QuoteController extends Controller
             ]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_CREATE_ERROR',
                 'message' => 'Ocorreu um erro interno ao processar a cotação. Por favor, tente novamente ou contate o suporte.'
             ], 500);
         }
@@ -356,6 +357,7 @@ class QuoteController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao excluir cotação ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_DELETE_ERROR',
                 'message' => 'Não foi possível excluir a cotação. Por favor, tente novamente.'
             ], 500);
         }
@@ -482,6 +484,7 @@ class QuoteController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao atualizar cotação ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_UPDATE_ERROR',
                 'message' => 'Não foi possível atualizar a cotação. Por favor, tente novamente.'
             ], 500);
         }
@@ -573,6 +576,7 @@ class QuoteController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao adicionar item na cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_ITEM_ADD_ERROR',
                 'message' => 'Não foi possível adicionar o item à cotação. Por favor, tente novamente.'
             ], 500);
         }
@@ -622,6 +626,7 @@ class QuoteController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao remover item {$item_id} da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_ITEM_REMOVE_ERROR',
                 'message' => 'Não foi possível remover o item da cotação. Por favor, tente novamente.'
             ], 500);
         }
@@ -818,6 +823,7 @@ class QuoteController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao salvar justificativa da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_JUSTIFICATION_ERROR',
                 'message' => 'Não foi possível salvar a justificativa. Por favor, tente novamente.'
             ], 500);
         }
@@ -871,6 +877,7 @@ class QuoteController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao marcar cotação ID {$quote->id} como perdida: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_MARK_LOST_ERROR',
                 'message' => 'Não foi possível marcar a cotação como perdida. Por favor, tente novamente.'
             ], 500);
         }
@@ -958,10 +965,12 @@ class QuoteController extends Controller
             }
 
             return $pdf->stream("cotacao_{$quote->numero}.pdf");
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro na geração do PDF da cotação ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro na geração do PDF',
-                'message' => $e->getMessage()
+                'code' => 'PDF_GENERATION_ERROR',
+                'message' => config('app.debug') ? ('Erro na geração do PDF: ' . $e->getMessage()) : 'Não foi possível gerar o PDF da cotação. O erro foi registrado nos logs.'
             ], 422);
         }
     }
@@ -1075,6 +1084,7 @@ class QuoteController extends Controller
             \Illuminate\Support\Facades\Log::error("Erro ao liberar cotação ID {$quote->id} para faturamento: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
+                'code' => 'QUOTE_BILLING_RELEASE_ERROR',
                 'message' => 'Não foi possível liberar a cotação para faturamento. Por favor, tente novamente.'
             ], 500);
         }

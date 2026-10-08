@@ -353,11 +353,24 @@ class IntegrationController extends Controller
                 ]
             ], 201);
 
-        } catch (\Exception $e) {
-            $code = (strpos($e->getMessage(), 'não encontrado') !== false) ? 422 : 500;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao importar cotação via API/Webhook: " . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all()
+            ]);
+
+            $isNotFound = strpos($e->getMessage(), 'não encontrado') !== false;
+            $code = $isNotFound ? 422 : 500;
+            $errorCode = $isNotFound ? 'IMPORT_VALIDATION_ERROR' : 'IMPORT_DATABASE_ERROR';
+
+            $message = ($code === 422 || config('app.debug'))
+                ? 'Falha ao importar cotação: ' . $e->getMessage()
+                : 'Ocorreu um erro interno ao processar a cotação. Os detalhes foram registrados nos logs do servidor.';
+
             return response()->json([
-                'error' => 'Import error',
-                'message' => 'Falha ao importar cotação: ' . $e->getMessage()
+                'error' => $code === 422 ? 'Erro de validação' : 'Erro interno do servidor',
+                'code' => $errorCode,
+                'message' => $message
             ], $code);
         }
     }

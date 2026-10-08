@@ -90,10 +90,12 @@ class ProductController extends Controller
                 'data' => $product
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao criar produto: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao criar produto: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'PRODUCT_CREATE_ERROR',
+                'message' => config('app.debug') ? ('Falha ao criar produto: ' . $e->getMessage()) : 'Ocorreu um erro ao criar o produto. Os detalhes foram registrados nos logs do servidor.'
             ], 500);
         }
     }
@@ -130,10 +132,12 @@ class ProductController extends Controller
                 'data' => $product
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao atualizar produto ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
-                'message' => 'Falha ao atualizar produto: ' . $e->getMessage()
+                'error' => 'Erro interno do servidor',
+                'code' => 'PRODUCT_UPDATE_ERROR',
+                'message' => config('app.debug') ? ('Falha ao atualizar produto: ' . $e->getMessage()) : 'Ocorreu um erro ao atualizar o produto. Os detalhes foram registrados nos logs do servidor.'
             ], 500);
         }
     }
@@ -156,9 +160,11 @@ class ProductController extends Controller
                 'success' => true,
                 'message' => 'Produto excluído com sucesso.'
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Falha ao excluir produto ID {$id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'error' => 'Database error',
+                'error' => 'Erro interno do servidor',
+                'code' => 'PRODUCT_DELETE_ERROR',
                 'message' => 'Falha ao excluir produto. Ele pode estar em uso em cotações. Tente desativá-lo.'
             ], 500);
         }
