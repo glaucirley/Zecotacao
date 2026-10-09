@@ -45,6 +45,29 @@ class Parceiro extends Model
     ];
 
     /**
+     * Check if a partner name has valid letters and is not garbage, symbols, or purely numeric.
+     */
+    public static function isValidPartnerName(?string $name): bool
+    {
+        if (!$name) return false;
+        $trimmed = trim($name);
+        if (mb_strlen($trimmed) < 2) return false;
+
+        // Reject strings that are only question marks, punctuation, or symbols
+        if (preg_match('/^[\?\.\-\_\,\;\:\!\@\#\$\%\&\*\(\)\[\]\{\}\\\/\+\=\~\`\^\'\"\s]+$/', $trimmed)) {
+            return false;
+        }
+
+        // Must contain at least two letters (a-zA-Z or unicode letters)
+        $cleanLetters = preg_replace('/[^\p{L}]/u', '', $trimmed);
+        if (mb_strlen($cleanLetters) < 2) {
+            return false; // Rejects names consisting purely of digits (e.g. "123456789") or symbols
+        }
+
+        return true;
+    }
+
+    /**
      * Normalize state to standard 2-letter uppercase UF acronym.
      */
     public static function normalizeUf(?string $uf, ?string $cidade = null): ?string

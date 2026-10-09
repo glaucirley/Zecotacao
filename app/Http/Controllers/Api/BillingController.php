@@ -88,13 +88,25 @@ class BillingController extends Controller
             'valor_pedido' => 'required|numeric|min:0.01'
         ]);
 
+        $numeroPedido = trim($request->input('numero_pedido_externo'));
+        $outroPedido = PedidoExterno::where('numero_pedido_externo', $numeroPedido)
+            ->where('cotacao_id', '!=', $quote->id)
+            ->first();
+        if ($outroPedido) {
+            $numCotacao = $outroPedido->cotacao ? ($outroPedido->cotacao->numero ?? 'ID ' . $outroPedido->cotacao_id) : 'ID ' . $outroPedido->cotacao_id;
+            return response()->json([
+                'error' => 'Conflict',
+                'message' => "O número de pedido externo '{$numeroPedido}' já está vinculado a outra cotação ({$numCotacao})."
+            ], 422);
+        }
+
         try {
-            DB::transaction(function () use ($request, $quote, $user) {
+            DB::transaction(function () use ($request, $quote, $user, $numeroPedido) {
                 // Upsert PedidoExterno
                 $pedido = PedidoExterno::updateOrCreate(
                     ['cotacao_id' => $quote->id],
                     [
-                        'numero_pedido_externo' => $request->input('numero_pedido_externo'),
+                        'numero_pedido_externo' => $numeroPedido,
                         'valor_pedido' => $request->input('valor_pedido'),
                         'status_conferencia' => 'pendente'
                     ]
@@ -249,22 +261,31 @@ class BillingController extends Controller
             return response()->json(['error' => 'Conflict', 'message' => 'Esta cotação já está marcada como FATURADA.'], 422);
         }
 
+        if (!$pedido) {
+            return response()->json([
+                'error' => 'Precondition Failed',
+                'message' => 'É necessário registrar um pedido externo antes de confirmar o faturamento.'
+            ], 422);
+        }
+
+        if (strtolower((string)$pedido->status_conferencia) !== 'conforme') {
+            return response()->json([
+                'error' => 'Precondition Failed',
+                'message' => 'A conferência do pedido externo deve estar marcada como "Conforme" antes de confirmar o faturamento.'
+            ], 422);
+        }
+
         try {
             DB::transaction(function () use ($quote, $pedido, $user) {
                 // Release billing
                 $quote->update(['status' => 'FATURADA']);
-
-                // If order exists, force it to conforme since it's billed
-                if ($pedido) {
-                    $pedido->update(['status_conferencia' => 'conforme']);
-                }
 
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
                     'evento' => 'FATURADA',
                     'usuario_id' => $user->id,
                     'papel' => $user->papel,
-                    'condicao' => 'Faturamento liberado pelo faturamento. Processo finalizado.'
+                    'condicao' => 'Faturamento confirmado pelo setor de faturamento. Processo finalizado com conferência conforme.'
                 ]);
             });
 

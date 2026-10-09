@@ -74,6 +74,29 @@ class PartnerImportService
     ];
 
     /**
+     * Check if a partner name has valid letters and is not garbage, symbols, or purely numeric.
+     */
+    public static function isValidPartnerName(?string $name): bool
+    {
+        if (!$name) return false;
+        $trimmed = trim($name);
+        if (mb_strlen($trimmed) < 2) return false;
+
+        // Reject strings that are only question marks, punctuation, or symbols
+        if (preg_match('/^[\?\.\-\_\,\;\:\!\@\#\$\%\&\*\(\)\[\]\{\}\\\/\+\=\~\`\^\'\"\s]+$/', $trimmed)) {
+            return false;
+        }
+
+        // Must contain at least two letters (a-zA-Z or unicode letters)
+        $cleanLetters = preg_replace('/[^\p{L}]/u', '', $trimmed);
+        if (mb_strlen($cleanLetters) < 2) {
+            return false; // Rejects names consisting purely of digits (e.g. "123456789") or symbols
+        }
+
+        return true;
+    }
+
+    /**
      * Import partners from an array of associative items (used by N8N or JSON payloads).
      */
     public function importFromRows(array $rows): array
@@ -93,8 +116,17 @@ class PartnerImportService
                         continue;
                     }
 
-                    if (empty($normalized['razao_social'])) {
-                        $normalized['razao_social'] = $normalized['nome_fantasia'] ?? ('Cliente ' . $normalized['codigo_sankhya']);
+                    // Check for valid partner name (reject "?", pure numbers, "-~C'P.;][", etc.)
+                    $razao = $normalized['razao_social'] ?? null;
+                    $fantasia = $normalized['nome_fantasia'] ?? null;
+
+                    if (!static::isValidPartnerName($razao)) {
+                        if (static::isValidPartnerName($fantasia)) {
+                            $normalized['razao_social'] = $fantasia;
+                        } else {
+                            $errors[] = "Linha " . ($index + 1) . " ignorada: Nome do cliente inválido ('" . ($razao ?: $fantasia ?: 'vazio') . "').";
+                            continue;
+                        }
                     }
 
                     $exists = Parceiro::where('codigo_sankhya', $normalized['codigo_sankhya'])->first();
@@ -137,11 +169,23 @@ class PartnerImportService
             throw new \Exception("Não foi possível abrir o arquivo {$filePath}");
         }
 
+        // Detect file encoding
+        $sample = file_get_contents($filePath, false, null, 0, 4096);
+        $fileEncoding = 'UTF-8';
+        if ($sample !== false && !mb_check_encoding($sample, 'UTF-8')) {
+            $detected = mb_detect_encoding($sample, ['Windows-1252', 'ISO-8859-1'], true);
+            $fileEncoding = $detected ?: 'Windows-1252';
+        }
+
         // Read first line to detect delimiter and encoding
         $firstLine = fgets($handle);
         if ($firstLine === false) {
             fclose($handle);
             throw new \Exception("O arquivo enviado está vazio.");
+        }
+
+        if ($fileEncoding !== 'UTF-8') {
+            $firstLine = mb_convert_encoding($firstLine, 'UTF-8', $fileEncoding);
         }
 
         // Remove UTF-8 BOM if present
@@ -173,6 +217,12 @@ class PartnerImportService
         while (($data = fgetcsv($handle, 4096, $delimiter)) !== false) {
             if (empty(array_filter($data))) {
                 continue; // Skip empty rows
+            }
+
+            if ($fileEncoding !== 'UTF-8') {
+                $data = array_map(function ($item) use ($fileEncoding) {
+                    return is_string($item) ? mb_convert_encoding($item, 'UTF-8', $fileEncoding) : $item;
+                }, $data);
             }
 
             $row = [];
@@ -230,7 +280,14 @@ class PartnerImportService
             $field = $this->fieldMap[$cleanKey] ?? null;
 
             if ($field && $val !== null && $val !== '') {
-                $normalized[$field] = is_string($val) ? trim($val) : $val;
+                if (is_string($val)) {
+                    if (!mb_check_encoding($val, 'UTF-8')) {
+                        $val = mb_convert_encoding($val, 'UTF-8', ['Windows-1252', 'ISO-8859-1']);
+                    }
+                    $normalized[$field] = trim($val);
+                } else {
+                    $normalized[$field] = $val;
+                }
             }
         }
 

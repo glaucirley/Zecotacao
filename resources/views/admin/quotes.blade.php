@@ -691,7 +691,7 @@
         <div class="grid-2" style="gap: 20px; margin-bottom: 20px; font-size: 13px;">
             <div>
                 <p><strong>Cliente:</strong> <span id="modal-client">...</span></p>
-                <p><strong>CNPJ:</strong> <span id="modal-cnpj">...</span></p>
+                <p><strong id="modal-doc-label">CNPJ:</strong> <span id="modal-cnpj">...</span></p>
                 <p><strong>Vendedor:</strong> <span id="modal-rep">...</span></p>
                 <p><strong>Emissão:</strong> <span id="modal-date">...</span></p>
             </div>
@@ -993,12 +993,12 @@
                 populateDynamicFilterSelects(rawQuotes);
                 renderQuotes(rawQuotes);
             } else {
-                alert("Erro ao buscar cotações: " + data.error);
+                showToast("Erro ao buscar cotações: " + data.error, "error");
             }
         } catch (e) {
             console.error(e);
             document.getElementById("loading-spinner").style.display = "none";
-            alert("Erro ao conectar no servidor.");
+            showToast("Erro ao conectar no servidor.", "error");
         }
     }
 
@@ -1267,12 +1267,16 @@
         if (!quote) return;
 
         const clientName = quote.parceiro ? (quote.parceiro.razao_social || quote.parceiro.nome_fantasia || 'Cliente Sem Nome') : 'Cliente Não Identificado';
-        const clientCnpj = (quote.parceiro && quote.parceiro.cnpj) ? quote.parceiro.cnpj : 'N/A';
+        const docVal = (quote.parceiro && (quote.parceiro.cnpj || quote.parceiro.cnpj_cpf)) ? (quote.parceiro.cnpj || quote.parceiro.cnpj_cpf) : 'N/A';
+        const cleanDoc = docVal.replace(/\D/g, '');
+        const docLabel = cleanDoc.length === 11 ? 'CPF:' : 'CNPJ:';
+        const docLabelEl = document.getElementById("modal-doc-label");
+        if (docLabelEl) docLabelEl.innerText = docLabel;
         const repName = quote.representante ? quote.representante.nome : 'Sem Vendedor';
 
         document.getElementById("modal-quote-num").innerText = quote.numero || ('#' + quote.id);
         document.getElementById("modal-client").innerText = clientName;
-        document.getElementById("modal-cnpj").innerText = clientCnpj;
+        document.getElementById("modal-cnpj").innerText = docVal;
         document.getElementById("modal-rep").innerText = repName;
         document.getElementById("modal-date").innerText = quote.created_at ? new Date(quote.created_at).toLocaleDateString('pt-BR') : 'N/A';
 
@@ -1304,7 +1308,7 @@
             }
 
             let adjColor = diffPct < 0 ? '#ef4444' : '#10b981';
-            let adjText = diffPct.toFixed(1) + '%';
+            let adjText = diffPct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
 
             itemsBody.innerHTML += `
                 <tr>
@@ -1349,14 +1353,14 @@
 
             const data = await res.json();
             if (data.success) {
-                alert("Cotação excluída com sucesso!");
+                showToast("Cotação excluída com sucesso!", "success");
                 loadQuotes();
             } else {
-                alert("Erro ao excluir: " + (data.error || data.message));
+                showToast("Erro ao excluir: " + (data.error || data.message), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao excluir a cotação.");
+            showToast("Erro de conexão ao excluir a cotação.", "error");
         }
     }
 
@@ -1435,11 +1439,10 @@
             }
 
             if (rSelect) {
-                rSelect.innerHTML = '<option value="">Selecione um representante...</option>';
-                const reps = users.filter(u => u.papel === 'representante' || u.papel === 'gerente' || u.papel === 'administrador');
+                rSelect.innerHTML = '<option value="" selected>Selecione um representante...</option>';
+                const reps = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
                 reps.forEach(r => {
-                    const selected = (CURRENT_USER && CURRENT_USER.id == r.id) ? 'selected' : '';
-                    rSelect.innerHTML += `<option value="${r.id}" ${selected}>${r.nome} (${r.email || r.papel})</option>`;
+                    rSelect.innerHTML += `<option value="${r.id}">${r.nome} (${r.email || r.papel})</option>`;
                 });
             }
 
@@ -1594,6 +1597,7 @@
         const searchBox = document.getElementById("admin-partner-search-box");
 
         const docStr = adminSelectedPartner.cnpj || adminSelectedPartner.cnpj_cpf || 'Não informado';
+        const codeStr = adminSelectedPartner.codigo_sankhya || adminSelectedPartner.codparc || adminSelectedPartner.id || 'N/A';
         const spUf = (adminSelectedPartner.uf === '2' || (adminSelectedPartner.cidade && adminSelectedPartner.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (adminSelectedPartner.uf || '');
         const cityStr = adminSelectedPartner.cidade ? ` | ${adminSelectedPartner.cidade}${spUf ? '/' + spUf : ''}` : '';
 
@@ -1750,21 +1754,26 @@
         container.innerHTML = "";
         products.forEach(p => {
             const price = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
-            const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'R$ 0,00';
+            const isQuotable = (p.cotavel !== false) && price > 0;
+            const priceStr = isQuotable ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'Sem preço na tabela';
             const codeStr = p.codigo_sankhya || p.codprod || p.id;
             const brandStr = p.marca ? ` | ${p.marca}` : '';
 
             const itemDiv = document.createElement("div");
-            itemDiv.style.cssText = "padding:6px 10px; border-bottom:1px solid #f1f5f9; cursor:pointer; font-size:12px; hover:background:#f8fafc;";
+            itemDiv.style.cssText = `padding:6px 10px; border-bottom:1px solid #f1f5f9; cursor:${isQuotable ? 'pointer' : 'not-allowed'}; font-size:12px; ${isQuotable ? '' : 'opacity:0.6; background:#f8fafc;'}`;
             itemDiv.onclick = (e) => {
                 e.stopPropagation();
+                if (!isQuotable) {
+                    showToast(`O produto "${p.descricao}" não possui preço cadastrado na tabela de preços e não pode ser cotado.`, 'warning');
+                    return;
+                }
                 selectAdminRowProduct(rowId, p.id);
             };
             itemDiv.innerHTML = `
                 <div style="font-weight:700; color:#1e293b;">${p.descricao}</div>
                 <div style="font-size:10.5px; color:#64748b; display:flex; justify-content:space-between; margin-top:2px;">
                     <span>Cód: ${codeStr}${brandStr}</span>
-                    <span style="color:var(--color-primary); font-weight:700;">${priceStr}</span>
+                    <span style="color:${isQuotable ? 'var(--color-primary)' : '#ef4444'}; font-weight:700;">${priceStr}</span>
                 </div>
             `;
             container.appendChild(itemDiv);
@@ -1775,17 +1784,22 @@
         const prod = adminProductsList.find(p => p.id == prodId);
         if (!prod) return;
 
+        const price = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
+        if ((prod.cotavel === false || price <= 0) && !['PROD001', 'PROD002', 'PROD003'].includes(prod.codigo_sankhya)) {
+            showToast(`O produto "${prod.descricao}" não possui preço cadastrado na tabela de preços e não pode ser cotado.`, 'warning');
+            return;
+        }
+
         document.getElementById(`admin-item-prod-id-${rowId}`).value = prod.id;
 
         const badge = document.getElementById(`admin-prod-selected-badge-${rowId}`);
         const searchBox = document.getElementById(`admin-prod-search-box-${rowId}`);
         const resultsBox = document.getElementById(`admin-prod-results-${rowId}`);
 
-        const price = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 100);
         const codeStr = prod.codigo_sankhya || prod.codprod || prod.id;
 
         document.getElementById(`admin-prod-selected-title-${rowId}`).innerText = prod.descricao;
-        document.getElementById(`admin-prod-selected-meta-${rowId}`).innerText = `Cód: ${codeStr} ${prod.marca ? '| ' + prod.marca : ''} | Sugerido: R$ ${price.toFixed(2)}`;
+        document.getElementById(`admin-prod-selected-meta-${rowId}`).innerText = `Cód: ${codeStr} ${prod.marca ? '| ' + prod.marca : ''} | Sugerido: R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 
         const priceInput = document.querySelector(`#admin-prod-row-${rowId} .admin-item-price`);
         if (priceInput && (!priceInput.value || parseFloat(priceInput.value) <= 0)) {
@@ -1851,13 +1865,13 @@
         e.preventDefault();
 
         if (!adminSelectedPartner) {
-            alert("Por favor, pesquise e selecione um Cliente (Parceiro).");
+            showToast("Por favor, pesquise e selecione um Cliente (Parceiro).", "warning");
             return;
         }
 
         const representante_id = document.getElementById("create-representante").value;
         if (!representante_id) {
-            alert("Por favor, selecione um Representante Comercial.");
+            showToast("Por favor, selecione um Representante Comercial.", "warning");
             return;
         }
 
@@ -1886,12 +1900,12 @@
         });
 
         if (itens.length === 0) {
-            alert("Adicione e selecione pelo menos 1 produto válido com quantidade e preço maior que zero.");
+            showToast("Adicione e selecione pelo menos 1 produto válido com quantidade e preço maior que zero.", "warning");
             return;
         }
 
         if (hasInvalidItem) {
-            alert("Existem produtos na lista com quantidade ou preço inválidos. Por favor, verifique.");
+            showToast("Existem produtos na lista com quantidade ou preço inválidos. Por favor, verifique.", "warning");
             return;
         }
 
@@ -1931,7 +1945,7 @@
             }
 
             if (res.ok && (data?.success || data?.cotacao || data?.id)) {
-                alert("✅ Cotação criada com sucesso!");
+                showToast("Cotação criada com sucesso!", "success");
                 closeCreateModal();
                 loadQuotes();
             } else {
@@ -1944,14 +1958,14 @@
                     errMsg = `Erro no servidor (código ${res.status}). Por favor, tente novamente.`;
                 }
                 if (data?.messages && typeof data.messages === 'object') {
-                    const details = Object.values(data.messages).flat().join("\n• ");
-                    errMsg += "\n\n• " + details;
+                    const details = Object.values(data.messages).flat().join("<br>• ");
+                    errMsg += "<br><br>• " + details;
                 }
-                alert("⚠️ " + errMsg);
+                showToast(errMsg, "error");
             }
         } catch (err) {
             console.error(err);
-            alert("Erro de comunicação com o servidor ao salvar cotação. Verifique sua conexão e tente novamente.");
+            showToast("Erro de comunicação com o servidor ao salvar cotação. Verifique sua conexão e tente novamente.", "error");
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;

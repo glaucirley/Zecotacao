@@ -1458,10 +1458,13 @@
         }
 
         // Bind Client profile (compact)
-        const clientCity = (quote.parceiro && quote.parceiro.cidade && quote.parceiro.cidade !== 'null') ? quote.parceiro.cidade : '';
-        const rawClientUf = (quote.parceiro && quote.parceiro.uf && quote.parceiro.uf !== 'null') ? quote.parceiro.uf : '';
-        const resolvedUf = (rawClientUf === '2' || (clientCity && clientCity.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : rawClientUf;
-        const locationText = (clientCity || resolvedUf) ? `${clientCity}${clientCity && resolvedUf ? '/' : ''}${resolvedUf}` : 'Não informada';
+        let clientCity = (quote.parceiro && quote.parceiro.cidade && quote.parceiro.cidade !== 'null') ? quote.parceiro.cidade : '';
+        clientCity = clientCity.replace(/[\-\/]\s*2\b/g, '').trim();
+        let rawClientUf = (quote.parceiro && quote.parceiro.uf && quote.parceiro.uf !== 'null') ? quote.parceiro.uf : '';
+        if (rawClientUf === '2' || (!isNaN(rawClientUf) && rawClientUf !== '') || (clientCity && clientCity.toUpperCase().includes('UBERLANDIA'))) {
+            rawClientUf = 'MG';
+        }
+        const locationText = (clientCity || rawClientUf) ? `${clientCity}${clientCity && rawClientUf ? '/' : ''}${rawClientUf}` : 'Não informada';
 
         document.getElementById("client-name").innerText = quote.parceiro.razao_social;
         document.getElementById("client-cnpj").innerText = "CNPJ/CPF: " + (quote.parceiro.cnpj || 'Não cadastrado');
@@ -1920,10 +1923,21 @@
         products.forEach(p => {
             const div = document.createElement("div");
             div.className = "product-autocomplete-item";
-            div.onclick = () => selectProductForAdd(p.id);
+            const isQuotable = (p.cotavel !== false) && parseFloat(p.preco_sugerido || 0) > 0;
+            const sugVal = parseFloat(p.preco_sugerido || 0);
+            const sugText = isQuotable ? `R$ ${formatCurrency(sugVal)}` : 'Sem preço na tabela';
 
-            const sugVal = p.preco_sugerido ? parseFloat(p.preco_sugerido) : 150.00;
-            const sugText = formatCurrency(sugVal);
+            if (!isQuotable) {
+                div.style.opacity = '0.55';
+                div.style.cursor = 'not-allowed';
+            }
+            div.onclick = () => {
+                if (!isQuotable) {
+                    showToast(`O produto "${p.descricao}" não possui preço na tabela de preços e não pode ser cotado.`, 'warning');
+                    return;
+                }
+                selectProductForAdd(p.id);
+            };
 
             div.innerHTML = `
                 <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px;">
@@ -1931,7 +1945,7 @@
                     <span class="prod-title">${p.descricao}</span>
                     ${p.marca ? `<span style="font-size: 11px; color: #64748b; margin-left: 6px;">(${p.marca})</span>` : ''}
                 </div>
-                <div class="prod-price">R$ ${sugText}</div>
+                <div class="prod-price" style="${isQuotable ? '' : 'color: #ef4444; font-size: 11px;'}">${sugText}</div>
             `;
             menu.appendChild(div);
         });
@@ -1941,12 +1955,18 @@
         const p = currentSearchedProducts.find(item => item.id === productId);
         if (!p) return;
 
+        const isQuotable = (p.cotavel !== false) && parseFloat(p.preco_sugerido || 0) > 0;
+        if (!isQuotable && !['PROD001', 'PROD002', 'PROD003'].includes(p.codigo_sankhya)) {
+            showToast(`O produto "${p.descricao}" não possui preço cadastrado na tabela de preços e não pode ser cotado.`, 'warning');
+            return;
+        }
+
         document.getElementById("selected-product-id").value = p.id;
         document.getElementById("add-product-search-input").value = `${p.codigo_sankhya} - ${p.descricao}`;
         document.getElementById("clear-selected-prod-btn").style.display = "block";
         
         // Set pricing from database or default
-        const sugerido = p.preco_sugerido ? parseFloat(p.preco_sugerido) : 150.00;
+        const sugerido = parseFloat(p.preco_sugerido || 0);
         const minimo = p.preco_minimo ? parseFloat(p.preco_minimo) : roundNumber(sugerido * 0.90, 2);
 
         document.getElementById("new-item-sugerido").value = sugerido.toFixed(2);

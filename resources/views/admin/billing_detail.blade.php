@@ -234,11 +234,11 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
                 quote = data.data;
                 renderDetails();
             } else {
-                alert("Erro ao carregar detalhes: " + data.error);
+                showToast("Erro ao carregar detalhes: " + data.error, "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro ao conectar com o servidor.");
+            showToast("Erro ao conectar com o servidor.", "error");
         }
     }
 
@@ -354,26 +354,29 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
         const val = parseFloat(document.getElementById("valor-pedido").value);
 
         if (!num || !val || val <= 0) {
-            alert("Número de pedido e valor são obrigatórios.");
+            showToast("Número de pedido e valor são obrigatórios.", "warning");
             return;
         }
 
         try {
             const res = await fetch(`${API_URL}/faturamento/${QUOTE_ID}/pedido`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
                 body: JSON.stringify({ numero_pedido_externo: num, valor_pedido: val })
             });
 
             const data = await res.json();
             if (data.success) {
-                alert("Pedido externo registrado!");
+                showToast("Pedido externo registrado com sucesso!", "success");
                 loadDetails();
             } else {
-                alert("Erro ao registrar pedido: " + data.message);
+                showToast("Erro ao registrar pedido: " + (data.message || data.error), "error");
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao salvar pedido externo.", "error");
         }
     }
 
@@ -386,19 +389,22 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
         try {
             const res = await fetch(`${API_URL}/faturamento/${QUOTE_ID}/conferencia`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
                 body: JSON.stringify({ status_conferencia: status })
             });
 
             const data = await res.json();
             if (data.success) {
-                alert("Conferência atualizada com sucesso.");
+                showToast("Conferência atualizada com sucesso.", "success");
                 loadDetails();
             } else {
-                alert("Erro: " + data.message);
+                showToast("Erro: " + (data.message || data.error), "error");
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao atualizar conferência.", "error");
         }
     }
 
@@ -417,47 +423,69 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
     async function confirmConflict() {
         const motivo = document.getElementById("conflict-motive").value;
         if (!motivo || motivo.length < 5) {
-            alert("Forneça um motivo descritivo.");
+            showToast("Forneça um motivo descritivo com pelo menos 5 caracteres.", "warning");
             return;
         }
 
         try {
             const res = await fetch(`${API_URL}/faturamento/${QUOTE_ID}/divergencia`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
                 body: JSON.stringify({ motivo: motivo })
             });
 
             const data = await res.json();
             if (data.success) {
-                alert("Conflito apontado com sucesso.");
+                showToast("Conflito apontado com sucesso.", "warning");
                 closeConflictModal();
                 loadDetails();
             } else {
-                alert("Erro: " + data.message);
+                showToast("Erro: " + (data.message || data.error), "error");
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao registrar conflito.", "error");
         }
     }
 
     // Bill Release Action
     async function releaseBilling() {
+        if (!quote) return;
+
+        if (!quote.pedido_externo) {
+            showToast("É necessário registrar o pedido externo antes de confirmar o faturamento.", "warning");
+            return;
+        }
+
+        const statusConf = (quote.pedido_externo.status_conferencia || '').toLowerCase();
+        if (statusConf !== 'conforme') {
+            showToast("A conferência do pedido externo deve estar marcada como 'Conforme' antes de confirmar o faturamento.", "warning");
+            return;
+        }
+
         if (!confirm("Confirmar faturamento comercial definitivo? A cotação será encerrada.")) return;
 
         try {
             const res = await fetch(`${API_URL}/faturamento/${QUOTE_ID}/faturar`, {
-                method: "POST"
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
             });
             const data = await res.json();
             if (data.success) {
-                alert("Cotação faturada com sucesso! Processo encerrado.");
-                window.location.href = "{{ url('/faturamento') }}";
+                showToast("Cotação faturada com sucesso! Processo encerrado.", "success");
+                setTimeout(() => {
+                    window.location.href = "{{ url('/faturamento') }}";
+                }, 1000);
             } else {
-                alert("Erro: " + data.message);
+                showToast("Erro: " + (data.message || data.error), "error");
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao faturar cotação.", "error");
         }
     }
 </script>

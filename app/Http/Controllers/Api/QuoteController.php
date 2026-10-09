@@ -227,13 +227,15 @@ class QuoteController extends Controller
                     $qtd = (int)$itemData['qtd'];
                     $precoProposto = (float)$itemData['preco_unit_proposto'];
 
-                    // Pricing rules lookup (based on seeded product codes)
-                    $sugerido = $precoProposto;
-                    $minimo = $precoProposto * 0.90;
-                    $custo = $precoProposto * 0.60;
-                    $imposto = 18.00;
+                    $priceItem = \App\Models\TabelaPrecoItem::where('produto_id', $prod->id)->first()
+                              ?? \App\Models\TabelaPrecoItem::where('codigo_sankhya_produto', $prod->codigo_sankhya)->first();
 
-                    if ($prod->codigo_sankhya === 'PROD001') {
+                    if ($priceItem && (float)$priceItem->preco_venda > 0) {
+                        $sugerido = round((float)$priceItem->preco_venda, 2);
+                        $minimo = (float)$priceItem->preco_minimo > 0 ? round((float)$priceItem->preco_minimo, 2) : round((float)$priceItem->preco_venda * 0.90, 2);
+                        $custo = round((float)$priceItem->custo_variavel, 2);
+                        $imposto = 18.00;
+                    } elseif ($prod->codigo_sankhya === 'PROD001') {
                         $sugerido = 85.00;
                         $minimo = 75.00;
                         $custo = 45.00;
@@ -248,6 +250,8 @@ class QuoteController extends Controller
                         $minimo = 40.00;
                         $custo = 22.00;
                         $imposto = 18.00;
+                    } else {
+                        throw new \InvalidArgumentException("O produto '{$prod->descricao}' não possui preço cadastrado na tabela de preços e não pode ser cotado.");
                     }
 
                     $ajuste = $sugerido > 0 ? (($precoProposto - $sugerido) / $sugerido) * 100 : 0;
@@ -302,7 +306,11 @@ class QuoteController extends Controller
                     'data' => $quote->fresh(['itens.produto', 'parceiro', 'representante'])
                 ], 201);
             });
-
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'error' => 'Produto não cotável',
+                'message' => $e->getMessage()
+            ], 422);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error("Erro ao criar cotação manual: " . $e->getMessage(), [
                 'exception' => $e,
@@ -518,6 +526,16 @@ class QuoteController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
+        }
+
+        $produto = \App\Models\Produto::find($request->input('produto_id'));
+        $priceItem = \App\Models\TabelaPrecoItem::where('produto_id', $produto->id)->first()
+                  ?? \App\Models\TabelaPrecoItem::where('codigo_sankhya_produto', $produto->codigo_sankhya)->first();
+        if ((!$priceItem || (float)$priceItem->preco_venda <= 0) && !in_array($produto->codigo_sankhya, ['PROD001', 'PROD002', 'PROD003'])) {
+            return response()->json([
+                'error' => 'Produto não cotável',
+                'message' => "O produto '{$produto->descricao}' não possui preço cadastrado na tabela de preços e não pode ser cotado."
+            ], 422);
         }
 
         try {
@@ -1044,13 +1062,25 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
         }
 
+        $numeroPedido = trim($request->input('numero_pedido_externo'));
+        $outroPedido = \App\Models\PedidoExterno::where('numero_pedido_externo', $numeroPedido)
+            ->where('cotacao_id', '!=', $quote->id)
+            ->first();
+        if ($outroPedido) {
+            $numCotacao = $outroPedido->cotacao ? ($outroPedido->cotacao->numero ?? 'ID ' . $outroPedido->cotacao_id) : 'ID ' . $outroPedido->cotacao_id;
+            return response()->json([
+                'error' => 'Conflito',
+                'message' => "O número de pedido externo '{$numeroPedido}' já está vinculado a outra cotação ({$numCotacao})."
+            ], 422);
+        }
+
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($request, $quote) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($request, $quote, $numeroPedido) {
                 // Register PedidoExterno
                 $pedido = \App\Models\PedidoExterno::updateOrCreate(
                     ['cotacao_id' => $quote->id],
                     [
-                        'numero_pedido_externo' => $request->input('numero_pedido_externo'),
+                        'numero_pedido_externo' => $numeroPedido,
                         'valor_pedido' => $request->input('valor_pedido'),
                         'status_conferencia' => 'pendente'
                     ]
@@ -1130,12 +1160,29 @@ class QuoteController extends Controller
                 $p->preco_sugerido = round((float)$priceItem->preco_venda, 2);
                 $p->preco_minimo = (float)$priceItem->preco_minimo > 0 ? round((float)$priceItem->preco_minimo, 2) : round((float)$priceItem->preco_venda * 0.90, 2);
                 $p->custo = round((float)$priceItem->custo_variavel, 2);
+                $p->cotavel = true;
+            } elseif ($p->codigo_sankhya === 'PROD001') {
+                $p->preco_sugerido = 85.00;
+                $p->preco_minimo = 75.00;
+                $p->custo = 45.00;
+                $p->cotavel = true;
+            } elseif ($p->codigo_sankhya === 'PROD002') {
+                $p->preco_sugerido = 280.00;
+                $p->preco_minimo = 250.00;
+                $p->custo = 160.00;
+                $p->cotavel = true;
+            } elseif ($p->codigo_sankhya === 'PROD003') {
+                $p->preco_sugerido = 45.00;
+                $p->preco_minimo = 40.00;
+                $p->custo = 22.00;
+                $p->cotavel = true;
             } else {
-                $p->preco_sugerido = 100.00;
-                $p->preco_minimo = 90.00;
-                $p->custo = 60.00;
+                $p->preco_sugerido = 0.00;
+                $p->preco_minimo = 0.00;
+                $p->custo = 0.00;
+                $p->cotavel = false;
             }
-            $p->inconsistente = ($p->preco_sugerido > 0 && $p->preco_minimo > $p->preco_sugerido);
+            $p->inconsistente = ($p->cotavel && $p->preco_sugerido > 0 && $p->preco_minimo > $p->preco_sugerido);
             $p->preco_minimo_efetivo = $p->inconsistente ? $p->preco_sugerido : $p->preco_minimo;
         }
 

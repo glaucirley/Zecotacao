@@ -72,7 +72,7 @@ class DashboardController extends Controller
             $totalQuotes = (clone $baseQuery)->count();
             
             $totalBilled = (clone $baseQuery)
-                ->whereIn('status', ['FINALIZADA_COM_PEDIDO', 'FATURADA'])
+                ->where('status', 'FATURADA')
                 ->sum('total');
 
             $sumSubtotal = (clone $baseQuery)->sum('subtotal');
@@ -80,12 +80,12 @@ class DashboardController extends Controller
 
             $descontoMedio = 0.0;
             if ($sumSubtotal > 0 && $sumDesconto > 0) {
-                $descontoMedio = ($sumDesconto / $sumSubtotal) * 100;
+                $descontoMedio = round(($sumDesconto / $sumSubtotal) * 100, 2);
             } else {
                 $totalPrecoSugerido = (clone $baseQuery)->sum('subtotal');
                 $totalPrecoProposto = (clone $baseQuery)->sum('total');
                 if ($totalPrecoSugerido > 0 && $totalPrecoSugerido > $totalPrecoProposto) {
-                    $descontoMedio = (($totalPrecoSugerido - $totalPrecoProposto) / $totalPrecoSugerido) * 100;
+                    $descontoMedio = round((($totalPrecoSugerido - $totalPrecoProposto) / $totalPrecoSugerido) * 100, 2);
                 }
             }
 

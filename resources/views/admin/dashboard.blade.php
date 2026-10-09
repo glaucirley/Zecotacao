@@ -387,12 +387,12 @@
             if (json.success) {
                 renderDashboard(json.data);
             } else {
-                alert("Erro ao buscar dados do dashboard: " + json.error);
+                showToast("Erro ao buscar dados do dashboard: " + json.error, "error");
             }
         } catch(e) {
             console.error(e);
             document.getElementById("dashboard-loading").style.display = "none";
-            alert("Erro de conexão ao buscar dashboard.");
+            showToast("Erro de conexão ao buscar dashboard.", "error");
         }
     }
 
@@ -462,8 +462,11 @@
             const sum = data.summary;
             document.getElementById("kpi-total-quotes").innerText = sum.total_quotes;
             document.getElementById("kpi-total-billed").innerText = 'R$ ' + parseFloat(sum.total_billed).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-            document.getElementById("kpi-conversion").innerText = parseFloat(sum.conversao_rate).toFixed(1) + '%';
-            document.getElementById("kpi-discount").innerText = parseFloat(sum.desconto_medio).toFixed(1) + '%';
+            document.getElementById("kpi-conversion").innerText = parseFloat(sum.conversao_rate).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+            
+            let descMed = parseFloat(sum.desconto_medio || 0);
+            if (descMed > 0 && descMed < 1) descMed = descMed * 100;
+            document.getElementById("kpi-discount").innerText = descMed.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
         }
 
         // 3. Render Timeline Chart
@@ -618,7 +621,7 @@
                             <td><strong>${s.name}</strong></td>
                             <td>${s.team}</td>
                             <td style="text-align: right; font-weight: 600; color: var(--color-primary);">R$ ${s.value_billed.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
-                            <td style="text-align: center; font-weight: 600;">${s.conversao.toFixed(0)}%</td>
+                            <td style="text-align: center; font-weight: 600;">${s.conversao.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}%</td>
                         </tr>
                     `;
                 });

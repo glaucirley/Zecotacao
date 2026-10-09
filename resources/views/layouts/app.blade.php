@@ -6,6 +6,52 @@
     <title>Zé Cotação — Painel</title>
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 999999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+            max-width: 400px;
+            width: calc(100% - 40px);
+        }
+        .app-toast {
+            pointer-events: auto;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 13.5px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .app-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .app-toast.hide {
+            transform: translateY(-15px);
+            opacity: 0;
+        }
+        .app-toast-success { background: #059669; border: 1px solid #10b981; }
+        .app-toast-error   { background: #dc2626; border: 1px solid #ef4444; }
+        .app-toast-warning { background: #d97706; border: 1px solid #f59e0b; }
+        .app-toast-info    { background: #2563eb; border: 1px solid #3b82f6; }
+        .app-toast-icon    { font-size: 18px; line-height: 1; margin-top: 1px; }
+        .app-toast-body    { flex-grow: 1; }
+        .app-toast-title   { font-weight: 700; font-size: 13.5px; margin-bottom: 2px; }
+        .app-toast-msg     { font-size: 12.5px; word-break: break-word; opacity: 0.95; }
+        .app-toast-close   { background: transparent; border: none; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; opacity: 0.8; }
+        .app-toast-close:hover { opacity: 1; }
+    </style>
     @yield('styles')
 </head>
 <body>
@@ -149,6 +195,62 @@
         </div>
     </div>
 
+    <script>
+        let lastToastMessage = null;
+        let lastToastTime = 0;
+        function showToast(message, type = 'info', title = null) {
+            const now = Date.now();
+            const strMsg = String(message || '').trim();
+            if (strMsg === lastToastMessage && (now - lastToastTime) < 2000) return;
+            lastToastMessage = strMsg;
+            lastToastTime = now;
+
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `app-toast app-toast-${type}`;
+
+            let icon = 'ℹ️';
+            let defaultTitle = 'Aviso';
+            if (type === 'success') { icon = '✓'; defaultTitle = 'Sucesso'; }
+            else if (type === 'error') { icon = '✕'; defaultTitle = 'Erro'; }
+            else if (type === 'warning') { icon = '⚠️'; defaultTitle = 'Atenção'; }
+
+            const toastTitle = title || defaultTitle;
+            const formattedMsg = strMsg.replace(/\n/g, '<br>');
+
+            toast.innerHTML = `
+                <span class="app-toast-icon">${icon}</span>
+                <div class="app-toast-body">
+                    <div class="app-toast-title">${toastTitle}</div>
+                    <div class="app-toast-msg">${formattedMsg}</div>
+                </div>
+                <button type="button" class="app-toast-close" title="Fechar">&times;</button>
+            `;
+
+            const closeBtn = toast.querySelector('.app-toast-close');
+            const dismiss = () => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => { if (toast.parentElement) toast.remove(); }, 250);
+            };
+
+            if (closeBtn) {
+                closeBtn.onclick = (e) => { e.stopPropagation(); dismiss(); };
+            }
+            toast.onclick = dismiss;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(dismiss, 5000);
+        }
+    </script>
     @yield('scripts')
     <script>
         function appGoBack() {

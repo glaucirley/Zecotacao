@@ -167,29 +167,42 @@ class SankhyaDatabaseService
     /**
      * Save/update a local Produto model record from an Oracle result row.
      */
+    /**
+     * Clean and ensure UTF-8 encoding for database string fields.
+     */
+    protected function cleanStr($val): ?string
+    {
+        if ($val === null) return null;
+        $str = (string)$val;
+        if (!mb_check_encoding($str, 'UTF-8')) {
+            $str = mb_convert_encoding($str, 'UTF-8', ['Windows-1252', 'ISO-8859-1']);
+        }
+        return trim($str);
+    }
+
     public function saveProductFromRow(array $row): Produto
     {
-        $descricao = $row['DESCRPROD'] ?? $row['descrprod'] ?? $row['DESC_INTERNA'] ?? $row['desc_interna'] ?? '';
+        $descricao = $this->cleanStr($row['DESCRPROD'] ?? $row['descrprod'] ?? $row['DESC_INTERNA'] ?? $row['desc_interna'] ?? '');
 
         return Produto::updateOrCreate(
             ['codigo_sankhya' => (string)($row['CODPROD'] ?? $row['codprod'])],
             [
                 'descricao'         => $descricao,
-                'marca'             => $row['MARCA'] ?? $row['marca'] ?? null,
-                'base'              => $row['BASE'] ?? $row['base'] ?? null,
-                'base_loja_virtual' => $row['BASE_LOJAVIRTUAL'] ?? $row['base_lojavirtual'] ?? null,
-                'descricao_longa'   => $row['DESC_LONGA'] ?? $row['desc_longa'] ?? null,
-                'descricao_tecnica' => $row['DESC_TECNICA'] ?? $row['desc_tecnica'] ?? null,
-                'descricao_interna' => $row['DESC_INTERNA'] ?? $row['desc_interna'] ?? null,
-                'nome_loja_virtual' => $row['DES_LOJAVIRTUAL'] ?? $row['des_lojavirtual'] ?? null,
-                'indicacao'         => $row['INDICADO'] ?? $row['indicado'] ?? null,
-                'principio_ativo'   => $row['PRICP_ATIVO'] ?? $row['pricp_ativo'] ?? null,
-                'aplicacao'         => $row['APLICACAO'] ?? $row['aplicacao'] ?? null,
+                'marca'             => $this->cleanStr($row['MARCA'] ?? $row['marca'] ?? null),
+                'base'              => $this->cleanStr($row['BASE'] ?? $row['base'] ?? null),
+                'base_loja_virtual' => $this->cleanStr($row['BASE_LOJAVIRTUAL'] ?? $row['base_lojavirtual'] ?? null),
+                'descricao_longa'   => $this->cleanStr($row['DESC_LONGA'] ?? $row['desc_longa'] ?? null),
+                'descricao_tecnica' => $this->cleanStr($row['DESC_TECNICA'] ?? $row['desc_tecnica'] ?? null),
+                'descricao_interna' => $this->cleanStr($row['DESC_INTERNA'] ?? $row['desc_interna'] ?? null),
+                'nome_loja_virtual' => $this->cleanStr($row['DES_LOJAVIRTUAL'] ?? $row['des_lojavirtual'] ?? null),
+                'indicacao'         => $this->cleanStr($row['INDICADO'] ?? $row['indicado'] ?? null),
+                'principio_ativo'   => $this->cleanStr($row['PRICP_ATIVO'] ?? $row['pricp_ativo'] ?? null),
+                'aplicacao'         => $this->cleanStr($row['APLICACAO'] ?? $row['aplicacao'] ?? null),
                 'peso_bruto'        => isset($row['PESOBRUTO']) ? (float)$row['PESOBRUTO'] : null,
                 'peso_liquido'      => isset($row['PESOLIQ']) ? (float)$row['PESOLIQ'] : null,
                 'margem_lucro'      => isset($row['MARGLUCRO']) ? (float)$row['MARGLUCRO'] : null,
                 'custo_variavel'    => isset($row['CUSTO_VARIAVEL']) ? (float)$row['CUSTO_VARIAVEL'] : null,
-                'ncm'               => $row['NCM'] ?? $row['ncm'] ?? null,
+                'ncm'               => $this->cleanStr($row['NCM'] ?? $row['ncm'] ?? null),
                 'unidade'           => 'UN',
                 'ativo'             => ($row['ATIVO'] ?? 'S') === 'S',
             ]
@@ -327,11 +340,22 @@ class SankhyaDatabaseService
         $cleanCnpj = preg_replace('/[^0-9]/', '', $row['CGC_CPF'] ?? $row['cgc_cpf'] ?? '');
         $cleanCep = preg_replace('/[^0-9]/', '', $row['CEP'] ?? $row['cep'] ?? '');
 
-        $logradouro = $row['LOGRADOURO'] ?? $row['logradouro'] ?? null;
-        $numero = $row['NUMERO'] ?? $row['numero'] ?? null;
-        $bairro = $row['BAIRRO'] ?? $row['bairro'] ?? null;
-        $cidade = $row['CIDADE'] ?? $row['cidade'] ?? null;
+        $logradouro = $this->cleanStr($row['LOGRADOURO'] ?? $row['logradouro'] ?? null);
+        $numero = $this->cleanStr($row['NUMERO'] ?? $row['numero'] ?? null);
+        $bairro = $this->cleanStr($row['BAIRRO'] ?? $row['bairro'] ?? null);
+        $cidade = $this->cleanStr($row['CIDADE'] ?? $row['cidade'] ?? null);
         $uf = \App\Models\Parceiro::normalizeUf($row['UF'] ?? $row['uf'] ?? null, $cidade);
+
+        $razaoSocial = $this->cleanStr($row['RAZAOSOCIAL'] ?? $row['razaosocial'] ?? $row['NOME_FANTASIA'] ?? $row['NOMEPARC'] ?? '');
+        $nomeFantasia = $this->cleanStr($row['NOME_FANTASIA'] ?? $row['nome_fantasia'] ?? $row['NOMEPARC'] ?? '');
+
+        if (!\App\Services\PartnerImportService::isValidPartnerName($razaoSocial)) {
+            if (\App\Services\PartnerImportService::isValidPartnerName($nomeFantasia)) {
+                $razaoSocial = $nomeFantasia;
+            } else {
+                throw new \InvalidArgumentException("Partner name is invalid: '{$razaoSocial}'");
+            }
+        }
 
         $enderecoConcatenado = implode(' - ', array_filter([
             trim(($logradouro ?: '') . ($numero ? ', ' . $numero : '')),
@@ -342,19 +366,19 @@ class SankhyaDatabaseService
         return Parceiro::updateOrCreate(
             ['codigo_sankhya' => (string)($row['CODPARC'] ?? $row['codparc'])],
             [
-                'razao_social'        => $row['RAZAOSOCIAL'] ?? $row['razaosocial'] ?? $row['NOME_FANTASIA'] ?? $row['NOMEPARC'] ?? '',
-                'nome_fantasia'       => $row['NOME_FANTASIA'] ?? $row['nome_fantasia'] ?? $row['NOMEPARC'] ?? '',
+                'razao_social'        => $razaoSocial,
+                'nome_fantasia'       => $nomeFantasia ?: $razaoSocial,
                 'cnpj'                => $cleanCnpj ?: null,
-                'inscricao_estadual'  => $row['INSCRICAO_ESTADUAL'] ?? $row['inscricao_estadual'] ?? null,
-                'tipo_pessoa'         => $row['TIPPESSOA'] ?? $row['tippessoa'] ?? null,
+                'inscricao_estadual'  => $this->cleanStr($row['INSCRICAO_ESTADUAL'] ?? $row['inscricao_estadual'] ?? null),
+                'tipo_pessoa'         => $this->cleanStr($row['TIPPESSOA'] ?? $row['tippessoa'] ?? null),
                 'codigo_regiao'       => isset($row['REGIAO_ID']) ? (string)$row['REGIAO_ID'] : (isset($row['regiao_id']) ? (string)$row['regiao_id'] : null),
                 'vendedor_1_codigo'   => isset($row['VENDEDOR_1']) ? (string)$row['VENDEDOR_1'] : (isset($row['vendedor_1']) ? (string)$row['vendedor_1'] : null),
                 'vendedor_2_codigo'   => isset($row['VENDEDOR_2']) ? (string)$row['VENDEDOR_2'] : (isset($row['vendedor_2']) ? (string)$row['vendedor_2'] : null),
                 'vendedor_3_codigo'   => isset($row['VENDEDOR_3']) ? (string)$row['VENDEDOR_3'] : (isset($row['vendedor_3']) ? (string)$row['vendedor_3'] : null),
                 'vendedor_4_codigo'   => isset($row['VENDEDOR_4']) ? (string)$row['VENDEDOR_4'] : (isset($row['vendedor_4']) ? (string)$row['vendedor_4'] : null),
                 'vendedor_5_codigo'   => isset($row['VENDEDOR_5']) ? (string)$row['VENDEDOR_5'] : (isset($row['vendedor_5']) ? (string)$row['vendedor_5'] : null),
-                'telefone'            => $row['TELEFONE'] ?? $row['telefone'] ?? null,
-                'email'               => $row['EMAIL'] ?? $row['email'] ?? null,
+                'telefone'            => $this->cleanStr($row['TELEFONE'] ?? $row['telefone'] ?? null),
+                'email'               => $this->cleanStr($row['EMAIL'] ?? $row['email'] ?? null),
                 'endereco'            => $enderecoConcatenado ?: null,
                 'logradouro'          => $logradouro,
                 'numero'              => $numero,
@@ -362,7 +386,7 @@ class SankhyaDatabaseService
                 'cidade'              => $cidade,
                 'uf'                  => $uf,
                 'cep'                 => $cleanCep ?: null,
-                'observacoes'         => $row['OBSERVACOES'] ?? $row['observacoes'] ?? null,
+                'observacoes'         => $this->cleanStr($row['OBSERVACOES'] ?? $row['observacoes'] ?? null),
                 'ativo'               => true,
             ]
         );
