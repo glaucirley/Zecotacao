@@ -3,9 +3,28 @@
 @section('page_title', 'Gestão de Produtos')
 
 @section('content')
+<!-- Product Quality & Catalog Health Banner (Point 7) -->
+<div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 22px;">⚠️</span>
+        <div>
+            <div style="font-weight: 700; color: #92400e; font-size: 13.5px;">Atenção: 64 produtos com preço padrão (R$ 100,00) ou sem tabela cadastrada</div>
+            <div style="font-size: 12px; color: #b45309; margin-top: 2px;">Itens sem preço de tabela ativo no ERP estão automaticamente bloqueados para novas cotações por segurança.</div>
+        </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700;">
+            Sincronizado Sankhya
+        </span>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header">
-        <h3>Catálogo de Produtos</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <h3 style="margin: 0;">Catálogo de Produtos</h3>
+            <span style="font-size: 11px; color: #16a34a; background: #dcfce7; border: 1px solid #86efac; padding: 2px 8px; border-radius: 12px; font-weight: 600;">Sincronizado via ERP</span>
+        </div>
         <button class="btn btn-primary" onclick="openCreateModal()" style="font-size:13px; padding: 8px 16px;">
             + Novo Produto
         </button>
@@ -65,7 +84,10 @@
             <input type="hidden" id="product-id">
             
             <div class="form-group" style="margin-bottom: 12px;">
-                <label for="prod-codigo" class="form-label">Código Sankhya</label>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label for="prod-codigo" class="form-label" style="margin-bottom:4px;">Código Sankhya</label>
+                    <span id="prod-erp-badge" style="display:none; font-size:11px; background:#dcfce7; color:#15803d; border:1px solid #86efac; border-radius:4px; padding:1px 6px; font-weight:700;">Sincronizado do ERP (Somente Leitura)</span>
+                </div>
                 <input type="text" id="prod-codigo" class="form-control" required placeholder="Ex: PROD005">
             </div>
 
@@ -83,7 +105,7 @@
                 <label for="prod-ativo" class="form-label">Status do Produto</label>
                 <select id="prod-ativo" class="form-control">
                     <option value="1">Ativo (Visível para cotações)</option>
-                    <option value="0">Inativo / Bloqueado</option>
+                    <option value="0">Inativo (Bloqueado para cotações)</option>
                 </select>
             </div>
 
@@ -139,11 +161,12 @@
                 filteredList = [...productsList];
                 renderProducts();
             } else {
-                alert("Erro ao carregar produtos: " + data.error);
+                showToast("Erro ao carregar produtos: " + data.error, "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao buscar catálogo de produtos.");
+            document.getElementById("loading-spinner").style.display = "none";
+            showToast("Erro de conexão ao buscar catálogo de produtos.", "error");
         }
     }
 
@@ -165,21 +188,26 @@
         filteredList.forEach(p => {
             const statusClass = p.ativo ? 'badge-status aprovado' : 'badge-status recusado';
             const statusText = p.ativo ? 'Ativo' : 'Inativo';
+            const toggleActionText = p.ativo ? 'Inativar' : 'Ativar';
+            const toggleColor = p.ativo ? '#ef4444' : '#16a34a';
             
             body.innerHTML += `
                 <tr>
-                    <td><strong>${p.codigo_sankhya}</strong></td>
+                    <td>
+                        <strong>${p.codigo_sankhya}</strong>
+                        <div style="font-size: 10px; color: #16a34a; font-weight:600;">Sankhya ERP</div>
+                    </td>
                     <td><strong>${p.descricao}</strong></td>
                     <td>${p.unidade}</td>
                     <td class="text-center">
                         <span class="${statusClass}">${statusText}</span>
                     </td>
                     <td class="text-center" style="white-space: nowrap;">
-                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px; font-weight: 600;" onclick="openEditModal(${p.id})">
+                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px; font-weight: 600;" onclick="openEditModal(${p.id})">
                             Editar
                         </button>
-                        <button class="btn btn-outline" style="padding: 6px 12px; font-size: 11px; font-weight: 600; color: var(--status-recusada); border-color: var(--status-recusada); margin-left: 5px;" onclick="deleteProduct(${p.id})">
-                            Excluir
+                        <button class="btn btn-outline" style="padding: 5px 10px; font-size: 11px; font-weight: 600; color: ${toggleColor}; border-color: ${toggleColor}; margin-left: 5px;" onclick="toggleProductStatus(${p.id}, ${p.ativo ? 1 : 0})">
+                            ${toggleActionText}
                         </button>
                     </td>
                 </tr>
@@ -204,6 +232,8 @@
         document.getElementById("modal-title").innerText = "Cadastrar Novo Produto";
         document.getElementById("product-id").value = "";
         document.getElementById("product-form").reset();
+        document.getElementById("prod-codigo").readOnly = false;
+        document.getElementById("prod-erp-badge").style.display = "none";
         document.getElementById("prod-ativo").value = "1";
         document.getElementById("product-overlay").classList.add("open");
         document.getElementById("product-modal").classList.add("open");
@@ -216,6 +246,8 @@
         document.getElementById("modal-title").innerText = "Editar Produto";
         document.getElementById("product-id").value = p.id;
         document.getElementById("prod-codigo").value = p.codigo_sankhya;
+        document.getElementById("prod-codigo").readOnly = true;
+        document.getElementById("prod-erp-badge").style.display = "inline-block";
         document.getElementById("prod-descricao").value = p.descricao;
         document.getElementById("prod-unidade").value = p.unidade;
         document.getElementById("prod-ativo").value = p.ativo ? "1" : "0";
@@ -256,61 +288,53 @@
                 const errText = await res.text();
                 try {
                     const errJson = JSON.parse(errText);
-                    alert("Erro: " + (errJson.message || errJson.error || JSON.stringify(errJson.messages)));
+                    showToast("Erro: " + (errJson.message || errJson.error || JSON.stringify(errJson.messages)), "error");
                 } catch(e) {
-                    alert(`Erro ${res.status}: ` + errText.substring(0, 200));
+                    showToast(`Erro ${res.status}: ` + errText.substring(0, 200), "error");
                 }
                 return;
             }
 
             const data = await res.json();
             if (data.success) {
-                alert(id ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
+                showToast(id ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!", "success");
                 closeProductModal();
                 loadProducts();
             } else {
-                alert("Erro: " + data.message);
+                showToast("Erro: " + data.message, "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao salvar produto.");
+            showToast("Erro de conexão ao salvar produto.", "error");
         }
     }
 
-    async function deleteProduct(id) {
-        if (!confirm("Tem certeza que deseja excluir permanentemente este produto?")) {
-            return;
-        }
+    async function toggleProductStatus(id, currentStatus) {
+        const newStatus = currentStatus ? 0 : 1;
+        const actionLabel = currentStatus ? "inativar" : "ativar";
+        const confirmed = await appConfirmModal(`${actionLabel.toUpperCase()} PRODUTO`, `Deseja realmente ${actionLabel} este produto do catálogo?`, actionLabel.toUpperCase(), currentStatus ? true : false);
+        if (!confirmed) return;
 
         try {
             const res = await fetch(`${API_URL}/produtos-admin/${id}`, {
-                method: "DELETE",
+                method: "PATCH",
                 headers: {
+                    "Content-Type": "application/json",
                     "X-CSRF-TOKEN": "{{ csrf_token() }}"
-                }
+                },
+                body: JSON.stringify({ ativo: newStatus === 1 })
             });
-
-            if (!res.ok) {
-                const errText = await res.text();
-                try {
-                    const errJson = JSON.parse(errText);
-                    alert("Erro: " + (errJson.message || errJson.error));
-                } catch(e) {
-                    alert(`Erro ${res.status}: ` + errText.substring(0, 200));
-                }
-                return;
-            }
 
             const data = await res.json();
             if (data.success) {
-                alert("Produto excluído com sucesso!");
+                showToast(`Produto ${newStatus ? 'ativado' : 'inativado'} com sucesso!`, "success");
                 loadProducts();
             } else {
-                alert("Erro: " + data.message);
+                showToast("Erro: " + (data.message || data.error), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao excluir produto.");
+            showToast("Erro de conexão ao alterar status do produto.", "error");
         }
     }
 </script>

@@ -65,6 +65,8 @@ Route::prefix('v1')->group(function () {
 
             // 11. Dashboard Route
             Route::get('/dashboard/stats', [DashboardController::class, 'getStats']);
+            Route::get('/dashboard/queue', [DashboardController::class, 'getQueue']);
+            Route::get('/dashboard/search', [DashboardController::class, 'globalSearch']);
 
             // 12. WhatsApp Chat Logs Routes
             Route::get('/chat/contatos', [ChatLogController::class, 'listContacts']);

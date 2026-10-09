@@ -227,11 +227,11 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 quote = data.data;
                 renderCockpit();
             } else {
-                alert("Erro ao carregar cotação: " + data.error);
+                showToast("Erro ao carregar cotação: " + (data.error || 'Erro desconhecido'), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao buscar dados.");
+            showToast("Erro de conexão ao buscar dados.", "error");
         }
     }
 
@@ -532,7 +532,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
     async function applyBind() {
         const groupName = document.getElementById("bind-group-name").value;
         if (!groupName) {
-            alert("Insira um nome/código para o grupo de vínculo.");
+            showToast("Insira um nome/código para o grupo de vínculo.", "warning");
             return;
         }
 
@@ -540,7 +540,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         const itemIds = Array.from(checkedBoxes).map(c => parseInt(c.value));
 
         if (itemIds.length < 2) {
-            alert("Selecione pelo menos 2 produtos para vincular.");
+            showToast("Selecione pelo menos 2 produtos para vincular.", "warning");
             return;
         }
 
@@ -553,14 +553,14 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
 
             const data = await res.json();
             if (data.success) {
-                alert("Itens vinculados comercialmente com sucesso!");
+                showToast("Itens vinculados comercialmente com sucesso!", "success");
                 closeBindDrawer();
                 loadQuoteDetails();
             } else {
-                alert("Erro ao vincular itens: " + data.message);
+                showToast("Erro ao vincular itens: " + (data.message || data.error), "error");
             }
         } catch(e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao vincular itens.", "error");
         }
     }
 
@@ -612,7 +612,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
     async function confirmSimulation() {
         const newPrice = parseFloat(document.getElementById("sim-price-input").value);
         if (!newPrice || newPrice <= 0) {
-            alert("Preço inválido.");
+            showToast("Preço inválido.", "warning");
             return;
         }
 
@@ -628,10 +628,10 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 closeSimModal();
                 loadQuoteDetails();
             } else {
-                alert("Erro na simulação: " + data.message);
+                showToast("Erro na simulação: " + (data.message || data.error), "error");
             }
         } catch(e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao simular preço.", "error");
         }
     }
 
@@ -646,7 +646,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
     async function confirmDevolver() {
         const reason = document.getElementById("devolver-reason").value;
         if (!reason) {
-            alert("Justificativa obrigatória.");
+            showToast("Justificativa obrigatória.", "warning");
             return;
         }
 
@@ -664,24 +664,26 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 const errText = await res.text();
                 try {
                     const errJson = JSON.parse(errText);
-                    const details = errJson.messages ? Object.entries(errJson.messages).map(([key, val]) => `${val.join(', ')}`).join('\n') : null;
-                    alert("Erro de Validação:\n" + (details || errJson.message || errJson.error));
+                    const details = errJson.messages ? Object.entries(errJson.messages).map(([key, val]) => `${val.join(', ')}`).join('. ') : null;
+                    showToast("Erro de Validação: " + (details || errJson.message || errJson.error), "error");
                 } catch(e) {
-                    alert(`Erro ${res.status}: ` + errText.substring(0, 200));
+                    showToast(`Erro ${res.status}: ` + errText.substring(0, 100), "error");
                 }
                 return;
             }
 
             const data = await res.json();
             if (data.success) {
-                alert("Cotação devolvida com sucesso!");
-                window.location.href = "{{ url('/aprovacoes') }}";
+                showToast("Cotação devolvida com sucesso!", "success");
+                setTimeout(() => {
+                    window.location.href = "{{ url('/aprovacoes') }}";
+                }, 800);
             } else {
-                alert("Erro: " + (data.message || data.error));
+                showToast("Erro: " + (data.message || data.error), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao devolver cotação.", "error");
         }
     }
 
@@ -695,7 +697,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
     async function confirmEscalar() {
         const reason = document.getElementById("escalar-reason").value;
         if (!reason) {
-            alert("Justificativa obrigatória.");
+            showToast("Justificativa obrigatória.", "warning");
             return;
         }
 
@@ -713,24 +715,26 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 const errText = await res.text();
                 try {
                     const errJson = JSON.parse(errText);
-                    const details = errJson.messages ? Object.entries(errJson.messages).map(([key, val]) => `${val.join(', ')}`).join('\n') : null;
-                    alert("Erro de Validação:\n" + (details || errJson.message || errJson.error));
+                    const details = errJson.messages ? Object.entries(errJson.messages).map(([key, val]) => `${val.join(', ')}`).join('. ') : null;
+                    showToast("Erro de Validação: " + (details || errJson.message || errJson.error), "error");
                 } catch(e) {
-                    alert(`Erro ${res.status}: ` + errText.substring(0, 200));
+                    showToast(`Erro ${res.status}: ` + errText.substring(0, 100), "error");
                 }
                 return;
             }
 
             const data = await res.json();
             if (data.success) {
-                alert("Cotação escalada com sucesso!");
-                window.location.href = "{{ url('/aprovacoes') }}";
+                showToast("Cotação escalada com sucesso!", "success");
+                setTimeout(() => {
+                    window.location.href = "{{ url('/aprovacoes') }}";
+                }, 800);
             } else {
-                alert("Erro: " + (data.message || data.error));
+                showToast("Erro: " + (data.message || data.error), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao escalar cotação.", "error");
         }
     }
 
@@ -758,7 +762,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         });
 
         if (hasRejectedWithoutReason) {
-            alert("Por favor, preencha o motivo da recusa em todos os itens rejeitados.");
+            showToast("Por favor, preencha o motivo da recusa em todos os itens rejeitados.", "warning");
             return;
         }
 
@@ -776,24 +780,26 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 const errText = await res.text();
                 try {
                     const errJson = JSON.parse(errText);
-                    const details = errJson.messages ? Object.entries(errJson.messages).map(([key, val]) => `${val.join(', ')}`).join('\n') : null;
-                    alert("Erro de Validação:\n" + (details || errJson.message || errJson.error));
+                    const details = errJson.messages ? Object.entries(errJson.messages).map(([key, val]) => `${val.join(', ')}`).join('. ') : null;
+                    showToast("Erro de Validação: " + (details || errJson.message || errJson.error), "error");
                 } catch(e) {
-                    alert(`Erro ${res.status}: ` + errText.substring(0, 200));
+                    showToast(`Erro ${res.status}: ` + errText.substring(0, 100), "error");
                 }
                 return;
             }
 
             const data = await res.json();
             if (data.success) {
-                alert("Decisões aplicadas com sucesso!");
-                window.location.href = "{{ url('/aprovacoes') }}";
+                showToast("Decisões aplicadas com sucesso!", "success");
+                setTimeout(() => {
+                    window.location.href = "{{ url('/aprovacoes') }}";
+                }, 800);
             } else {
-                alert("Erro: " + (data.message || data.error));
+                showToast("Erro: " + (data.message || data.error), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao enviar decisão.", "error");
         }
     }
 </script>

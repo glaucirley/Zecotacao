@@ -94,11 +94,40 @@ class DashboardController extends Controller
                 ->count();
             $conversaoRate = $totalQuotes > 0 ? ($convertedCount / $totalQuotes) * 100 : 0;
 
+            // Previous period comparison
+            $daysDiff = max(1, $parsedStart->diffInDays($parsedEnd));
+            $prevStart = (clone $parsedStart)->subDays($daysDiff);
+            $prevEnd = (clone $parsedStart)->subSecond();
+
+            $prevQuery = Cotacao::whereBetween('created_at', [$prevStart, $prevEnd]);
+            if ($user->isRepresentante()) {
+                $prevQuery->where('representante_id', $user->id);
+            } elseif ($user->isGestor()) {
+                $teamIds = $user->equipesGerenciadas->pluck('id');
+                $prevQuery->whereHas('representante', function ($q) use ($teamIds) {
+                    $q->whereIn('equipe_id', $teamIds);
+                });
+            }
+
+            $prevTotalQuotes = (clone $prevQuery)->count();
+            $prevTotalBilled = (clone $prevQuery)->where('status', 'FATURADA')->sum('total');
+            $prevConverted = (clone $prevQuery)->whereIn('status', ['FINALIZADA_COM_PEDIDO', 'FATURADA'])->count();
+            $prevConversaoRate = $prevTotalQuotes > 0 ? ($prevConverted / $prevTotalQuotes) * 100 : 0;
+
+            $diffQuotes = $prevTotalQuotes > 0 ? round((($totalQuotes - $prevTotalQuotes) / $prevTotalQuotes) * 100, 1) : 0;
+            $diffBilled = $prevTotalBilled > 0 ? round((($totalBilled - $prevTotalBilled) / $prevTotalBilled) * 100, 1) : 0;
+            $diffConv = round($conversaoRate - $prevConversaoRate, 1);
+
             $data['summary'] = [
                 'total_quotes' => $totalQuotes,
                 'total_billed' => (float)$totalBilled,
                 'conversao_rate' => (float)$conversaoRate,
                 'desconto_medio' => (float)$descontoMedio,
+                'comparisons' => [
+                    'quotes_diff' => $diffQuotes,
+                    'billed_diff' => $diffBilled,
+                    'conversao_diff' => $diffConv,
+                ]
             ];
         }
 
@@ -338,5 +367,125 @@ class DashboardController extends Controller
             'success' => true,
             'data' => $data
         ]);
+    }
+
+    /**
+     * Get queue statistics and action items for the "Minha Fila" view.
+     */
+    public function getQueue(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        // 1. Approvals waiting for user
+        $approvalQuery = Cotacao::whereIn('status', ['AGUARDANDO_GESTOR', 'COM_DIRETOR']);
+        if ($user->isGestor()) {
+            $teamIds = $user->equipesGerenciadas->pluck('id');
+            $approvalQuery->where('status', 'AGUARDANDO_GESTOR')
+                ->whereHas('representante', fn($q) => $q->whereIn('equipe_id', $teamIds));
+        } elseif ($user->isDiretor()) {
+            $approvalQuery->whereIn('status', ['AGUARDANDO_GESTOR', 'COM_DIRETOR']);
+        } elseif (!$user->isAdministrador()) {
+            $approvalQuery->whereRaw('1 = 0');
+        }
+        $pendingApprovals = $approvalQuery->count();
+
+        // 2. Billing orders to check
+        $billingQuery = Cotacao::where(function($q) {
+            $q->where('status', 'FINALIZADA_COM_PEDIDO')
+              ->orWhere(function($sub) {
+                  $sub->whereNotNull('numero_pedido_externo')
+                      ->where('status', '!=', 'FATURADA');
+              });
+        });
+        if ($user->isRepresentante()) {
+            $billingQuery->where('representante_id', $user->id);
+        }
+        $pendingBilling = $billingQuery->count();
+
+        // 3. Quotes expiring today or in < 24h
+        $expiringQuery = Cotacao::whereIn('status', ['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO'])
+            ->where(function($q) {
+                $q->whereDate('data_validade', '<=', now()->toDateString())
+                  ->orWhere('created_at', '<=', now()->subHours(24));
+            });
+        if ($user->isRepresentante()) {
+            $expiringQuery->where('representante_id', $user->id);
+        } elseif ($user->isGestor()) {
+            $teamIds = $user->equipesGerenciadas->pluck('id');
+            $expiringQuery->whereHas('representante', fn($q) => $q->whereIn('equipe_id', $teamIds));
+        }
+        $expiringToday = $expiringQuery->count();
+
+        // 4. Catalog & user health
+        $productsWithoutPrice = \App\Models\Produto::whereDoesntHave('tabelasPreco')->count();
+        $usersWithoutTeam = User::where('ativo', true)->where('papel', 'REPRESENTANTE')->whereNull('equipe_id')->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'approvals' => $pendingApprovals,
+                'billing' => $pendingBilling,
+                'expiring_today' => $expiringToday,
+                'catalog_health' => [
+                    'products_without_price' => $productsWithoutPrice,
+                    'users_without_team' => $usersWithoutTeam,
+                ]
+            ]
+        ]);
+    }
+
+    /**
+     * Fast global search across quotations and partners for Ctrl+K modal.
+     */
+    public function globalSearch(Request $request)
+    {
+        $q = trim($request->input('q', ''));
+        if (strlen($q) < 2) {
+            return response()->json(['success' => true, 'results' => []]);
+        }
+
+        $results = [];
+
+        // Search quotes
+        $quotes = Cotacao::where('numero', 'like', "%{$q}%")
+            ->orWhere('numero_pedido_externo', 'like', "%{$q}%")
+            ->orWhereHas('parceiro', function($p) use ($q) {
+                $p->where('razao_social', 'like', "%{$q}%")
+                  ->orWhere('cnpj_cpf', 'like', "%{$q}%");
+            })
+            ->with('parceiro')
+            ->limit(5)
+            ->get();
+
+        foreach ($quotes as $quote) {
+            $results[] = [
+                'type' => 'cotacao',
+                'title' => $quote->numero . ' — ' . ($quote->parceiro->razao_social ?? 'Cliente não identificado'),
+                'subtitle' => 'Status: ' . $quote->status . ' · Total: R$ ' . number_format($quote->total, 2, ',', '.') . ($quote->numero_pedido_externo ? ' · Pedido: ' . $quote->numero_pedido_externo : ''),
+                'url' => url('/cotacoes/id/' . $quote->id)
+            ];
+        }
+
+        // Search partners
+        $partners = \App\Models\Parceiro::where('razao_social', 'like', "%{$q}%")
+            ->orWhere('nome_fantasia', 'like', "%{$q}%")
+            ->orWhere('cnpj_cpf', 'like', "%{$q}%")
+            ->orWhere('codigo_sankhya', 'like', "%{$q}%")
+            ->limit(5)
+            ->get();
+
+        foreach ($partners as $partner) {
+            $results[] = [
+                'type' => 'cliente',
+                'title' => $partner->razao_social,
+                'subtitle' => 'Doc: ' . ($partner->cnpj_cpf ?: 'S/N') . ' · Cód: ' . ($partner->codigo_sankhya ?: '-') . ' · ' . ($partner->cidade ?: '') . '/' . ($partner->uf ?: ''),
+                'url' => url('/cotacoes?q=' . urlencode($partner->razao_social))
+            ];
+        }
+
+        return response()->json(['success' => true, 'results' => $results]);
     }
 }

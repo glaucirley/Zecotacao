@@ -22,8 +22,62 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
         </div>
     </div>
 
+    <!-- 3-Step Guided Checklist (Point 6) -->
+    <div style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm);">
+        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+            Etapas de Conferência &amp; Faturamento
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <!-- Step 1 -->
+            <div id="check-step-1" style="display: flex; align-items: center; gap: 10px; min-width: 180px;">
+                <div id="check-step-icon-1" style="width: 30px; height: 30px; border-radius: 50%; background: #e2e8f0; color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; transition: all 0.2s;">1</div>
+                <div>
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b;">1. Pedido Registrado</div>
+                    <div id="check-step-sub-1" style="font-size: 11px; color: #64748b;">Pendente inclusão</div>
+                </div>
+            </div>
+            <div style="flex-grow: 1; height: 2px; background: #e2e8f0; min-width: 20px;" id="check-line-1"></div>
+            <!-- Step 2 -->
+            <div id="check-step-2" style="display: flex; align-items: center; gap: 10px; min-width: 180px;">
+                <div id="check-step-icon-2" style="width: 30px; height: 30px; border-radius: 50%; background: #e2e8f0; color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; transition: all 0.2s;">2</div>
+                <div>
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b;">2. Valores Conferidos</div>
+                    <div id="check-step-sub-2" style="font-size: 11px; color: #64748b;">Pendente conferência</div>
+                </div>
+            </div>
+            <div style="flex-grow: 1; height: 2px; background: #e2e8f0; min-width: 20px;" id="check-line-2"></div>
+            <!-- Step 3 -->
+            <div id="check-step-3" style="display: flex; align-items: center; gap: 10px; min-width: 180px;">
+                <div id="check-step-icon-3" style="width: 30px; height: 30px; border-radius: 50%; background: #e2e8f0; color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; transition: all 0.2s;">3</div>
+                <div>
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b;">3. Faturado</div>
+                    <div id="check-step-sub-3" style="font-size: 11px; color: #64748b;">Aguardando liberação</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Side-by-Side Comparison Cards (Point 6) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 20px;">
+        <div style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow-sm);">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Valor Cotação Aprovada</div>
+            <div id="side-quote-val" style="font-size: 20px; font-weight: 800; color: #2563eb; margin-top: 4px;">R$ 0,00</div>
+            <div style="font-size: 11.5px; color: #64748b; margin-top: 4px;">Total aprovado no Zé Cotação</div>
+        </div>
+        <div style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow-sm);">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Pedido Externo (Sankhya)</div>
+            <div id="side-order-val" style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 4px;">R$ 0,00</div>
+            <div id="side-order-num" style="font-size: 11.5px; color: #64748b; margin-top: 4px;">Nenhum pedido vinculado</div>
+        </div>
+        <div id="side-diff-card" style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow-sm);">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Diferença / Confronto</div>
+            <div id="side-diff-val" style="font-size: 20px; font-weight: 800; color: #64748b; margin-top: 4px;">R$ 0,00</div>
+            <div id="side-diff-status" style="font-size: 11.5px; color: #64748b; margin-top: 4px;">Aguardando dados</div>
+        </div>
+    </div>
+
     <!-- Comparison Warning Banner -->
-    <div id="comparison-banner" style="display: none; padding: 16px; border-radius: var(--radius-md); margin-bottom: 24px; font-weight: 500;">
+    <div id="comparison-banner" style="display: none; padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; font-weight: 500; font-size: 13px;">
         <!-- Dynamic content -->
     </div>
 
@@ -293,6 +347,152 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
 
         // Run match checks
         checkValueMatch();
+
+        // Run Checklist & Side-by-Side Comparison
+        updateChecklistAndComparison();
+    }
+
+    function updateChecklistAndComparison() {
+        if (!quote) return;
+        const quoteVal = parseFloat(quote.total || 0);
+        const sideQuoteVal = document.getElementById("side-quote-val");
+        if (sideQuoteVal) sideQuoteVal.innerText = "R$ " + quoteVal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+
+        const hasOrder = !!(quote.pedido_externo && quote.pedido_externo.numero_pedido_externo);
+        const orderVal = hasOrder ? parseFloat(quote.pedido_externo.valor_pedido || 0) : 0;
+        const sideOrderVal = document.getElementById("side-order-val");
+        const sideOrderNum = document.getElementById("side-order-num");
+
+        if (sideOrderVal) sideOrderVal.innerText = hasOrder ? ("R$ " + orderVal.toLocaleString('pt-BR', {minimumFractionDigits: 2})) : "R$ 0,00";
+        if (sideOrderNum) sideOrderNum.innerText = hasOrder ? (`Pedido ERP nº ${quote.pedido_externo.numero_pedido_externo}`) : "Nenhum pedido vinculado";
+
+        const sideDiffVal = document.getElementById("side-diff-val");
+        const sideDiffStatus = document.getElementById("side-diff-status");
+        const sideDiffCard = document.getElementById("side-diff-card");
+
+        if (hasOrder) {
+            const diff = orderVal - quoteVal;
+            const diffAbs = Math.abs(diff);
+            if (sideDiffVal) {
+                const signal = diff > 0.001 ? "+ " : (diff < -0.001 ? "- " : "");
+                sideDiffVal.innerText = signal + "R$ " + diffAbs.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+            }
+            if (diffAbs < 0.01) {
+                if (sideDiffVal) sideDiffVal.style.color = "#16a34a";
+                if (sideDiffStatus) {
+                    sideDiffStatus.innerHTML = '<span style="color:#16a34a; font-weight:700;">✓ Valores 100% Idênticos</span>';
+                }
+                if (sideDiffCard) sideDiffCard.style.borderColor = "#86efac";
+            } else {
+                if (sideDiffVal) sideDiffVal.style.color = "#dc2626";
+                if (sideDiffStatus) {
+                    sideDiffStatus.innerHTML = `<span style="color:#dc2626; font-weight:700;">⚠️ Divergência de R$ ${diffAbs.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>`;
+                }
+                if (sideDiffCard) sideDiffCard.style.borderColor = "#fca5a5";
+            }
+        } else {
+            if (sideDiffVal) {
+                sideDiffVal.innerText = "R$ 0,00";
+                sideDiffVal.style.color = "#64748b";
+            }
+            if (sideDiffStatus) sideDiffStatus.innerText = "Aguardando registro do pedido";
+            if (sideDiffCard) sideDiffCard.style.borderColor = "var(--color-border)";
+        }
+
+        // Checklist Steps 1, 2, 3
+        const step1Icon = document.getElementById("check-step-icon-1");
+        const step1Sub = document.getElementById("check-step-sub-1");
+        const line1 = document.getElementById("check-line-1");
+
+        const step2Icon = document.getElementById("check-step-icon-2");
+        const step2Sub = document.getElementById("check-step-sub-2");
+        const line2 = document.getElementById("check-line-2");
+
+        const step3Icon = document.getElementById("check-step-icon-3");
+        const step3Sub = document.getElementById("check-step-sub-3");
+
+        const confStatus = (quote.pedido_externo?.status_conferencia || '').toLowerCase();
+        const isBilled = quote.status === 'FATURADA';
+
+        // Step 1: Pedido Registrado
+        if (hasOrder) {
+            step1Icon.style.background = "#dcfce7";
+            step1Icon.style.color = "#16a34a";
+            step1Icon.innerText = "✓";
+            step1Sub.innerText = `Nº ${quote.pedido_externo.numero_pedido_externo}`;
+            step1Sub.style.color = "#16a34a";
+            if (line1) line1.style.background = "#16a34a";
+        } else {
+            step1Icon.style.background = "#fef3c7";
+            step1Icon.style.color = "#d97706";
+            step1Icon.innerText = "1";
+            step1Sub.innerText = "Pendente inclusão";
+            step1Sub.style.color = "#d97706";
+            if (line1) line1.style.background = "#e2e8f0";
+        }
+
+        // Step 2: Valores Conferidos
+        if (confStatus === 'conforme') {
+            step2Icon.style.background = "#dcfce7";
+            step2Icon.style.color = "#16a34a";
+            step2Icon.innerText = "✓";
+            step2Sub.innerText = "Conforme (Aprovado)";
+            step2Sub.style.color = "#16a34a";
+            if (line2) line2.style.background = isBilled ? "#16a34a" : "#e2e8f0";
+        } else if (confStatus === 'divergente') {
+            step2Icon.style.background = "#fee2e2";
+            step2Icon.style.color = "#dc2626";
+            step2Icon.innerText = "⚠️";
+            step2Sub.innerText = "Divergente (Conflito)";
+            step2Sub.style.color = "#dc2626";
+            if (line2) line2.style.background = "#e2e8f0";
+        } else {
+            step2Icon.style.background = "#e2e8f0";
+            step2Icon.style.color = "#64748b";
+            step2Icon.innerText = "2";
+            step2Sub.innerText = "Pendente conferência";
+            step2Sub.style.color = "#64748b";
+            if (line2) line2.style.background = "#e2e8f0";
+        }
+
+        // Step 3: Faturado
+        if (isBilled) {
+            step3Icon.style.background = "#dcfce7";
+            step3Icon.style.color = "#16a34a";
+            step3Icon.innerText = "✓";
+            step3Sub.innerText = "Faturado com Sucesso";
+            step3Sub.style.color = "#16a34a";
+        } else {
+            step3Icon.style.background = "#e2e8f0";
+            step3Icon.style.color = "#64748b";
+            step3Icon.innerText = "3";
+            step3Sub.innerText = "Aguardando liberação";
+            step3Sub.style.color = "#64748b";
+        }
+
+        // Button "Confirmar Faturamento" gating
+        const btnBill = document.getElementById("btn-bill");
+        if (btnBill) {
+            if (isBilled) {
+                btnBill.disabled = true;
+                btnBill.style.opacity = "0.6";
+                btnBill.style.cursor = "default";
+                btnBill.innerText = "✓ Faturamento Concluído";
+                btnBill.title = "Cotação já faturada.";
+            } else if (hasOrder && confStatus === 'conforme') {
+                btnBill.disabled = false;
+                btnBill.style.opacity = "1";
+                btnBill.style.cursor = "pointer";
+                btnBill.innerText = "Confirmar Faturamento (Marcar FATURADA)";
+                btnBill.title = "Clique para confirmar o faturamento definitivo.";
+            } else {
+                btnBill.disabled = true;
+                btnBill.style.opacity = "0.5";
+                btnBill.style.cursor = "not-allowed";
+                btnBill.innerText = "Confirmar Faturamento (Bloqueado)";
+                btnBill.title = "Exige pedido externo registrado e conferência com status 'Conforme'.";
+            }
+        }
     }
 
 
@@ -465,7 +665,8 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
             return;
         }
 
-        if (!confirm("Confirmar faturamento comercial definitivo? A cotação será encerrada.")) return;
+        const confirmed = await appConfirmModal('Confirmar Faturamento', 'Deseja confirmar o faturamento definitivo desta cotação? O processo comercial será encerrado com sucesso.', 'Confirmar Faturamento', false);
+        if (!confirmed) return;
 
         try {
             const res = await fetch(`${API_URL}/faturamento/${QUOTE_ID}/faturar`, {

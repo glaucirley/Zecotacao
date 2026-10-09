@@ -84,11 +84,17 @@
 
             <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
                 <div class="form-group" style="margin-bottom:0;">
-                    <label for="part-cnpj" class="form-label">CNPJ (Apenas números)</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label for="part-cnpj" class="form-label" style="margin-bottom:4px;">CNPJ / CPF</label>
+                        <span id="part-cnpj-erp-badge" style="display:none; font-size:10px; color:#15803d; background:#dcfce7; padding:1px 6px; border-radius:4px; font-weight:700;">ERP</span>
+                    </div>
                     <input type="text" id="part-cnpj" class="form-control" placeholder="Ex: 12345678000190">
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                    <label for="part-sankhya" class="form-label">Código Sankhya</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label for="part-sankhya" class="form-label" style="margin-bottom:4px;">Código Sankhya</label>
+                        <span id="part-erp-badge" style="display:none; font-size:10px; color:#15803d; background:#dcfce7; padding:1px 6px; border-radius:4px; font-weight:700;">ERP Sankhya</span>
+                    </div>
                     <input type="text" id="part-sankhya" class="form-control" required placeholder="Ex: PAR001">
                 </div>
             </div>
@@ -182,11 +188,11 @@
                 partnersList = data.data;
                 renderPartners();
             } else {
-                alert("Erro ao carregar clientes: " + data.error);
+                showToast("Erro ao carregar clientes: " + (data.error || 'Erro desconhecido'), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao buscar clientes.");
+            showToast("Erro de conexão ao buscar clientes.", "error");
         }
     }
 
@@ -213,7 +219,10 @@
                         <span style="font-size:12px; color:var(--color-text-muted);">${p.nome_fantasia || '-'}</span>
                     </td>
                     <td><strong>${p.cnpj || '-'}</strong></td>
-                    <td><strong>${p.codigo_sankhya}</strong></td>
+                    <td>
+                        <strong>${p.codigo_sankhya}</strong>
+                        <div style="font-size: 10px; color: #16a34a; font-weight:600;">Sankhya ERP</div>
+                    </td>
                     <td>${contactInfo}</td>
                     <td>${location}</td>
                     <td class="text-center">
@@ -222,11 +231,11 @@
                         </span>
                     </td>
                     <td class="text-center" style="white-space: nowrap;">
-                        <button class="btn btn-outline" style="padding: 6px 12px; font-size:11px;" onclick="openEditModal(${p.id})">
+                        <button class="btn btn-outline" style="padding: 5px 10px; font-size:11px; font-weight:600;" onclick="openEditModal(${p.id})">
                             Editar
                         </button>
-                        <button class="btn btn-outline" style="padding: 6px 12px; font-size:11px; color:var(--status-recusada); border-color:var(--status-recusada); margin-left:4px;" onclick="deletePartner(${p.id})">
-                            Excluir
+                        <button class="btn btn-outline" style="padding: 5px 10px; font-size:11px; font-weight:600; color:${p.ativo ? '#ef4444' : '#16a34a'}; border-color:${p.ativo ? '#ef4444' : '#16a34a'}; margin-left:4px;" onclick="togglePartnerStatus(${p.id}, ${p.ativo ? 1 : 0})">
+                            ${p.ativo ? 'Inativar' : 'Ativar'}
                         </button>
                     </td>
                 </tr>
@@ -238,6 +247,10 @@
         document.getElementById("partner-id").value = "";
         document.getElementById("modal-title").innerText = "Cadastrar Novo Cliente";
         document.getElementById("partner-form").reset();
+        document.getElementById("part-sankhya").readOnly = false;
+        document.getElementById("part-cnpj").readOnly = false;
+        document.getElementById("part-erp-badge").style.display = "none";
+        document.getElementById("part-cnpj-erp-badge").style.display = "none";
         document.getElementById("partner-overlay").classList.add("open");
         document.getElementById("partner-modal").classList.add("open");
     }
@@ -252,7 +265,11 @@
         document.getElementById("part-razao").value = partner.razao_social;
         document.getElementById("part-fantasia").value = partner.nome_fantasia || "";
         document.getElementById("part-cnpj").value = partner.cnpj || "";
+        document.getElementById("part-cnpj").readOnly = true;
+        document.getElementById("part-cnpj-erp-badge").style.display = "inline-block";
         document.getElementById("part-sankhya").value = partner.codigo_sankhya;
+        document.getElementById("part-sankhya").readOnly = true;
+        document.getElementById("part-erp-badge").style.display = "inline-block";
         document.getElementById("part-telefone").value = partner.telefone || "";
         document.getElementById("part-email").value = partner.email || "";
         document.getElementById("part-endereco").value = partner.endereco || "";
@@ -305,37 +322,44 @@
 
             const data = await res.json();
             if (data.success) {
-                alert(isEdit ? "Dados do cliente atualizados!" : "Novo cliente cadastrado!");
+                showToast(isEdit ? "Dados do cliente atualizados com sucesso!" : "Novo cliente cadastrado com sucesso!", "success");
                 closePartnerModal();
                 loadPartners();
             } else {
-                alert("Erro ao salvar: " + (data.message || JSON.stringify(data.messages)));
+                showToast("Erro ao salvar: " + (data.message || JSON.stringify(data.messages)), "error");
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            console.error(e);
+            showToast("Erro de conexão ao salvar cliente.", "error");
         }
     }
 
-    async function deletePartner(id) {
-        if (!confirm("Deseja realmente excluir este cliente permanentemente?")) return;
+    async function togglePartnerStatus(id, currentStatus) {
+        const newStatus = currentStatus ? 0 : 1;
+        const actionLabel = currentStatus ? "inativar" : "ativar";
+        const confirmed = await appConfirmModal(`${actionLabel.toUpperCase()} CLIENTE`, `Deseja realmente ${actionLabel} este cliente no sistema?`, actionLabel.toUpperCase(), currentStatus ? true : false);
+        if (!confirmed) return;
 
         try {
             const res = await fetch(`${API_URL}/clientes/${id}`, {
-                method: "DELETE",
+                method: "PATCH",
                 headers: {
+                    "Content-Type": "application/json",
                     "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
+                },
+                body: JSON.stringify({ ativo: newStatus === 1 })
             });
 
             const data = await res.json();
             if (data.success) {
-                alert("Cliente excluído com sucesso!");
+                showToast(`Cliente ${newStatus ? 'ativado' : 'inativado'} com sucesso!`, "success");
                 loadPartners();
             } else {
-                alert("Erro ao excluir: " + data.message);
+                showToast("Erro ao atualizar status: " + data.message, "error");
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            console.error(e);
+            showToast("Erro de conexão ao alterar status do cliente.", "error");
         }
     }
 
@@ -358,7 +382,7 @@
         e.preventDefault();
         const fileInput = document.getElementById("import-file-input");
         if (!fileInput.files || fileInput.files.length === 0) {
-            alert("Por favor, selecione um arquivo CSV ou TXT.");
+            showToast("Por favor, selecione um arquivo CSV ou TXT.", "warning");
             return;
         }
 

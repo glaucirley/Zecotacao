@@ -712,7 +712,7 @@
             </div>
         </div>
 
-        <!-- Visual 5-Step Progress Timeline -->
+        <!-- Visual 6-Step Progress Timeline -->
         <div class="quote-stepper-wrapper" style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
             <div class="quote-stepper">
                 <div class="step-item" id="step-node-1">
@@ -722,7 +722,7 @@
                 <div class="step-line" id="step-line-1"></div>
                 <div class="step-item" id="step-node-2">
                     <div class="step-circle">2</div>
-                    <span class="step-label">Em Análise</span>
+                    <span class="step-label">Enviada</span>
                 </div>
                 <div class="step-line" id="step-line-2"></div>
                 <div class="step-item" id="step-node-3">
@@ -737,6 +737,11 @@
                 <div class="step-line" id="step-line-4"></div>
                 <div class="step-item" id="step-node-5">
                     <div class="step-circle">5</div>
+                    <span class="step-label">Pedido</span>
+                </div>
+                <div class="step-line" id="step-line-5"></div>
+                <div class="step-item" id="step-node-6">
+                    <div class="step-circle">6</div>
                     <span class="step-label">Faturada</span>
                 </div>
             </div>
@@ -966,6 +971,19 @@
                 </small>
                 <div id="just-audio-preview" style="margin-top: 6px; font-size: 12px; display: none;"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Live Audit Trail & History Card -->
+    <div class="card" style="margin-bottom: 24px; padding: 18px; border: 1px solid var(--color-border); border-radius: 12px; background: #ffffff; box-shadow: var(--shadow-sm);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
+            <h3 style="font-size: 15px; margin: 0; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                <span>📜</span> Trilha de Auditoria &amp; Histórico
+            </h3>
+            <span style="font-size: 11.5px; color: #64748b;">Registro de eventos e aprovações</span>
+        </div>
+        <div id="quote-audit-trail" style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 12.5px; color: #64748b; text-align: center; padding: 12px;">Carregando histórico da cotação...</div>
         </div>
     </div>
 </div>
@@ -1258,7 +1276,7 @@
     }
 
     function updateStepper(status) {
-        // 5 stages: 1=Criada, 2=Em Análise, 3=Aprovada, 4=PDF, 5=Faturada
+        // 6 stages: 1=Criada, 2=Enviada, 3=Aprovada, 4=PDF, 5=Pedido, 6=Faturada
         let activeStep = 1;
         let isCompletedUpto = 1;
 
@@ -1271,18 +1289,21 @@
         } else if (status === 'APROVADA') {
             activeStep = 3;
             isCompletedUpto = 3;
-        } else if (['PDF_GERADO', 'AGUARDANDO_PEDIDO'].includes(status)) {
+        } else if (status === 'PDF_GERADO') {
             activeStep = 4;
             isCompletedUpto = 4;
-        } else if (['FINALIZADA_COM_PEDIDO', 'FATURADA'].includes(status)) {
+        } else if (['FINALIZADA_COM_PEDIDO', 'AGUARDANDO_PEDIDO'].includes(status)) {
             activeStep = 5;
             isCompletedUpto = 5;
+        } else if (status === 'FATURADA') {
+            activeStep = 6;
+            isCompletedUpto = 6;
         } else {
             activeStep = 1;
             isCompletedUpto = 1;
         }
 
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= 6; i++) {
             const node = document.getElementById(`step-node-${i}`);
             if (!node) continue;
             node.classList.remove('completed', 'active');
@@ -1301,6 +1322,46 @@
                 }
             }
         }
+    }
+
+    function renderAuditTrail() {
+        const container = document.getElementById("quote-audit-trail");
+        if (!container) return;
+        const history = quote.historico || [];
+        if (history.length === 0) {
+            container.innerHTML = `
+                <div style="font-size: 12.5px; color: #94a3b8; text-align: center; padding: 14px; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0;">
+                    Nenhum evento registrado no histórico até o momento.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = "";
+        history.forEach(item => {
+            const date = item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '';
+            const user = item.usuario ? (item.usuario.nome || item.usuario.name) : (item.papel || 'Sistema');
+            const role = item.papel ? `(${item.papel})` : '';
+            const action = (item.evento || item.descricao || item.mensagem || 'Evento de Workflow').replace(/_/g, ' ');
+            const details = item.justificativa || item.observacao || item.condicao || '';
+
+            const row = document.createElement("div");
+            row.style.cssText = "display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12.5px;";
+            row.innerHTML = `
+                <div style="width: 28px; height: 28px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;">
+                    ${user.charAt(0).toUpperCase()}
+                </div>
+                <div style="flex-grow: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+                        <span style="font-weight: 700; color: #0f172a;">${user} <span style="font-weight: 500; color: #64748b; font-size: 11.5px;">${role}</span></span>
+                        <span style="color: #94a3b8; font-size: 11px;">📅 ${date}</span>
+                    </div>
+                    <div style="color: #2563eb; font-weight: 600; margin-top: 2px;">${action}</div>
+                    ${details ? `<div style="color: #475569; margin-top: 4px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px;">${details}</div>` : ''}
+                </div>
+            `;
+            container.appendChild(row);
+        });
     }
 
     function toggleClientDetails() {
@@ -1574,6 +1635,9 @@
 
         // Bind Items List
         renderItems();
+
+        // Bind Live Audit Trail
+        renderAuditTrail();
     }
 
     let currentFilterTab = 'all'; // 'all', 'attention', 'approved'

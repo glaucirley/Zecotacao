@@ -209,32 +209,69 @@
         user-select: none;
     }
 
-    /* Robust Minimum Column Widths */
-    .col-numero   { min-width: 140px; }
-    .col-parceiro { min-width: 250px; }
-    .col-vendedor { min-width: 170px; }
-    .col-emissao  { min-width: 110px; }
-    .col-total    { min-width: 130px; }
-    .col-status   { min-width: 140px; }
+    /* Consolidated Column Widths fitting 1280px without scroll */
+    .table-mockup {
+        width: 100%;
+        min-width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+    .col-cotacao-cliente { width: 32%; min-width: 240px; }
+    .col-vendedor        { width: 24%; min-width: 180px; }
+    .col-total           { width: 18%; min-width: 130px; }
+    .col-status          { width: 14%; min-width: 120px; text-align: center; }
+    .col-acoes           { width: 12%; min-width: 100px; text-align: center; }
 
-    /* Sticky Action Column (Pinned to Right Edge with clean border & crisp padding) */
-    th.col-acoes, td.col-acoes {
-        position: sticky;
-        right: 0;
-        background: #ffffff !important;
-        z-index: 15;
-        border-left: 1px solid #e2e8f0 !important;
-        box-shadow: -6px 0 12px -2px rgba(0, 0, 0, 0.08);
-        min-width: 135px !important;
-        width: 135px !important;
-        padding: 10px 10px !important;
+    /* Quotes Status Tabs */
+    .quotes-tabs-wrapper {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        overflow-x: auto;
+        padding-bottom: 2px;
     }
-    th.col-acoes {
-        background: #f8fafc !important;
-        z-index: 16;
+    .quotes-tab-btn {
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #475569;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
     }
-    td.col-acoes.active-dropdown-cell {
-        z-index: 100 !important;
+    .quotes-tab-btn:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+    .quotes-tab-btn.active {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #2563eb;
+    }
+    .quotes-tab-count {
+        background: rgba(0,0,0,0.06);
+        color: inherit;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .quotes-tab-btn.active .quotes-tab-count {
+        background: rgba(255,255,255,0.25);
+        color: #ffffff;
+    }
+    .quote-row-clickable {
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .quote-row-clickable:hover td {
+        background-color: #f8fafc !important;
     }
 
     /* Resizable Handle for Column Headers */
@@ -560,24 +597,35 @@
     </div>
 </div>
 
+<!-- Status Tabs with Counts -->
+<div class="quotes-tabs-wrapper">
+    <button type="button" class="quotes-tab-btn active" id="tab-btn-todas" onclick="setQuoteTab('todas')">
+        Todas <span id="tab-cnt-todas" class="quotes-tab-count">0</span>
+    </button>
+    <button type="button" class="quotes-tab-btn" id="tab-btn-ativas" onclick="setQuoteTab('ativas')">
+        Ativas <span id="tab-cnt-ativas" class="quotes-tab-count">0</span>
+    </button>
+    <button type="button" class="quotes-tab-btn" id="tab-btn-aguardando" onclick="setQuoteTab('aguardando')">
+        Aguardando <span id="tab-cnt-aguardando" class="quotes-tab-count">0</span>
+    </button>
+    <button type="button" class="quotes-tab-btn" id="tab-btn-faturamento" onclick="setQuoteTab('faturamento')">
+        Faturamento <span id="tab-cnt-faturamento" class="quotes-tab-count">0</span>
+    </button>
+    <button type="button" class="quotes-tab-btn" id="tab-btn-encerradas" onclick="setQuoteTab('encerradas')">
+        Encerradas <span id="tab-cnt-encerradas" class="quotes-tab-count">0</span>
+    </button>
+</div>
+
 <!-- Filters Bar -->
 <div class="filters-bar-card">
     <div class="filters-grid">
         <div class="filter-input-search">
             <span class="search-icon">🔍</span>
-            <input type="text" id="search-input" placeholder="Buscar por Nº ou Cliente..." oninput="filterQuotes()">
+            <input type="text" id="search-input" placeholder="Buscar por Nº, Cliente ou CNPJ..." oninput="filterQuotes()">
         </div>
 
-        <select id="status-filter" class="filter-select" onchange="filterQuotes()">
+        <select id="status-filter" class="filter-select" onchange="filterQuotes()" style="display:none;">
             <option value="">Todos os Status</option>
-            <option value="EM_CRIACAO">Rascunho (Em criação)</option>
-            <option value="AGUARDANDO_GESTOR">Pendente (Gestor)</option>
-            <option value="COM_DIRETOR">Pendente (Diretor)</option>
-            <option value="APROVADA">Aprovada (Pendente PDF)</option>
-            <option value="PDF_GERADO">PDF Gerado</option>
-            <option value="AGUARDANDO_PEDIDO">Em Faturamento</option>
-            <option value="FATURADA">Faturada</option>
-            <option value="PERDIDA">Perdida</option>
         </select>
 
         <select id="rep-filter" class="filter-select" onchange="filterQuotes()">
@@ -598,41 +646,8 @@
             <!-- Dynamic options -->
         </select>
 
-        <div style="position: relative; display: inline-block;">
-            <button class="btn-action-outline" style="padding: 8px 14px; font-size: 12px;" onclick="toggleColumnCustomizer(event)">
-                ⚙️ Colunas / Filtros
-            </button>
-            <div id="column-customizer-panel" class="column-customizer-modal" onclick="event.stopPropagation()">
-                <h4>Personalizar Colunas</h4>
-                <div class="col-toggle-item">
-                    <label><input type="checkbox" checked data-col="col-numero" onchange="toggleColumnVisibility('col-numero', this.checked)"> Cotação Nº</label>
-                </div>
-                <div class="col-toggle-item">
-                    <label><input type="checkbox" checked data-col="col-parceiro" onchange="toggleColumnVisibility('col-parceiro', this.checked)"> Cliente / Parceiro</label>
-                </div>
-                <div class="col-toggle-item">
-                    <label><input type="checkbox" checked data-col="col-vendedor" onchange="toggleColumnVisibility('col-vendedor', this.checked)"> Vendedor / Equipe</label>
-                </div>
-                <div class="col-toggle-item">
-                    <label><input type="checkbox" checked data-col="col-emissao" onchange="toggleColumnVisibility('col-emissao', this.checked)"> Emissão</label>
-                </div>
-                <div class="col-toggle-item">
-                    <label><input type="checkbox" checked data-col="col-total" onchange="toggleColumnVisibility('col-total', this.checked)"> Total Proposto</label>
-                </div>
-                <div class="col-toggle-item">
-                    <label><input type="checkbox" checked data-col="col-status" onchange="toggleColumnVisibility('col-status', this.checked)"> Status</label>
-                </div>
-                <div class="col-toggle-item">
-                    <label><input type="checkbox" checked data-col="col-acoes" onchange="toggleColumnVisibility('col-acoes', this.checked)"> Ações</label>
-                </div>
-                <div style="margin-top: 12px; pt: 8px; border-top: 1px solid #f1f5f9; text-align: right;">
-                    <button type="button" class="btn-clear-filter" onclick="resetColumnPreferences()" style="font-size: 11px;">Restaurar Padrão</button>
-                </div>
-            </div>
-        </div>
-
         <button type="button" class="btn-clear-filter" onclick="clearAllFilters()">
-            Limpar
+            Limpar Filtros
         </button>
     </div>
 </div>
@@ -643,12 +658,10 @@
         <table class="table-mockup" id="main-quotes-table">
             <thead>
                 <tr>
-                    <th class="col-numero">COTAÇÃO ⇅ <div class="resizer"></div></th>
-                    <th class="col-parceiro">CLIENTE / PARCEIRO <div class="resizer"></div></th>
-                    <th class="col-vendedor">VENDEDOR / EQUIPE <div class="resizer"></div></th>
-                    <th class="col-emissao">EMISSÃO ⇅ <div class="resizer"></div></th>
-                    <th class="col-total">TOTAL PROPOSTO ⇅ <div class="resizer"></div></th>
-                    <th class="col-status" style="text-align: center;">STATUS ⇅ <div class="resizer"></div></th>
+                    <th class="col-cotacao-cliente">COTAÇÃO &amp; CLIENTE</th>
+                    <th class="col-vendedor">VENDEDOR &amp; EQUIPE</th>
+                    <th class="col-total">VALOR &amp; EMISSÃO</th>
+                    <th class="col-status" style="text-align: center;">STATUS</th>
                     <th class="col-acoes" style="text-align: center;">AÇÕES</th>
                 </tr>
             </thead>
@@ -772,6 +785,7 @@
             <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
                 <div class="form-group" style="margin-bottom:0;" id="rep-group-container">
                     <label for="create-representante" class="form-label" style="font-weight: 600;">Representante Comercial <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="admin-rep-search-input" class="form-control" placeholder="🔍 Filtrar vendedor por nome ou e-mail..." oninput="filterAdminRepSelect()" style="font-size: 12px; margin-bottom: 6px; padding: 6px 10px;">
                     <select id="create-representante" class="form-control" required style="font-size: 13px;">
                         <option value="">🔄 Carregando vendedores...</option>
                     </select>
@@ -991,7 +1005,8 @@
             if (data.success) {
                 rawQuotes = data.data;
                 populateDynamicFilterSelects(rawQuotes);
-                renderQuotes(rawQuotes);
+                updateTabCounts(rawQuotes);
+                filterQuotes();
             } else {
                 showToast("Erro ao buscar cotações: " + data.error, "error");
             }
@@ -1000,6 +1015,44 @@
             document.getElementById("loading-spinner").style.display = "none";
             showToast("Erro ao conectar no servidor.", "error");
         }
+    }
+
+    let currentQuoteTab = 'todas';
+
+    function setQuoteTab(tab) {
+        currentQuoteTab = tab;
+        document.querySelectorAll('.quotes-tab-btn').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = document.getElementById(`tab-btn-${tab}`);
+        if (activeBtn) activeBtn.classList.add('active');
+        filterQuotes();
+    }
+
+    function updateTabCounts(list) {
+        let cntTodas = list.length;
+        let cntAtivas = 0;
+        let cntAguardando = 0;
+        let cntFaturamento = 0;
+        let cntEncerradas = 0;
+
+        list.forEach(q => {
+            const s = q.status;
+            if (['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO'].includes(s)) cntAtivas++;
+            if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(s)) cntAguardando++;
+            if (['PDF_GERADO', 'FATURADA'].includes(s)) cntFaturamento++;
+            if (['FATURADA', 'PERDIDA', 'RECUSADA', 'EXPIRADA', 'CANCELADA'].includes(s)) cntEncerradas++;
+        });
+
+        const elTodas = document.getElementById('tab-cnt-todas');
+        const elAtivas = document.getElementById('tab-cnt-ativas');
+        const elAguardando = document.getElementById('tab-cnt-aguardando');
+        const elFaturamento = document.getElementById('tab-cnt-faturamento');
+        const elEncerradas = document.getElementById('tab-cnt-encerradas');
+
+        if (elTodas) elTodas.innerText = cntTodas;
+        if (elAtivas) elAtivas.innerText = cntAtivas;
+        if (elAguardando) elAguardando.innerText = cntAguardando;
+        if (elFaturamento) elFaturamento.innerText = cntFaturamento;
+        if (elEncerradas) elEncerradas.innerText = cntEncerradas;
     }
 
     function populateDynamicFilterSelects(list) {
@@ -1048,32 +1101,32 @@
         list.forEach(q => {
             const date = new Date(q.created_at).toLocaleDateString('pt-BR');
             const statusClass = q.status.toLowerCase().replace(/_/g, '-');
-            let statusText = 'EM CRIACAO';
+            let statusText = 'Em criação';
             let subText = '';
 
             switch (q.status) {
                 case 'EM_CRIACAO':
-                    statusText = 'EM CRIACAO';
+                    statusText = 'Em criação';
                     break;
                 case 'APROVADA':
-                    statusText = 'APROVADA';
-                    subText = 'Pendente PDF';
+                    statusText = 'Aprovada';
+                    subText = 'Pronta p/ PDF';
                     break;
                 case 'PDF_GERADO':
-                    statusText = 'PDF GERADO';
-                    subText = 'Apto Faturamento';
+                    statusText = 'PDF gerado';
+                    subText = 'Apto faturamento';
                     break;
                 case 'AGUARDANDO_GESTOR':
-                    statusText = 'PENDENTE GESTOR';
+                    statusText = 'Aguardando gestor';
                     break;
                 case 'COM_DIRETOR':
-                    statusText = 'PENDENTE DIRETOR';
+                    statusText = 'Aguardando diretor';
                     break;
                 case 'FATURADA':
-                    statusText = 'FATURADA';
+                    statusText = 'Pedido faturado';
                     break;
                 case 'PERDIDA':
-                    statusText = 'PERDIDA';
+                    statusText = 'Perdida';
                     break;
                 default:
                     statusText = q.status.replace(/_/g, ' ');
@@ -1098,35 +1151,44 @@
                 )
             );
 
+            const p = q.parceiro || {};
+            const clientName = p.razao_social || p.nome_fantasia || 'Cliente Sem Razão';
+            const clientDoc = p.cnpj || p.cnpj_cpf || '';
+            const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
+            const clientCity = (p.cidade || pUf) ? `${p.cidade || ''}${pUf ? '/' + pUf : ''}` : '';
+            const clientSub = [clientDoc, clientCity].filter(Boolean).join(' • ');
+
             body.innerHTML += `
-                <tr>
-                    <td class="col-numero">
-                        <div class="quote-pill-badge">
-                            <span class="doc-icon">📄</span>
-                            <span class="quote-num">${q.numero}</span>
+                <tr class="quote-row-clickable" onclick="window.location.href='{{ url('/cotacoes/id') }}/${q.id}'" title="Clique para abrir a cotação">
+                    <td class="col-cotacao-cliente">
+                        <div style="display:flex; align-items:flex-start; gap:10px;">
+                            <div class="quote-pill-badge" style="margin-top:2px;">
+                                <span class="doc-icon">📄</span>
+                                <span class="quote-num">${q.numero}</span>
+                            </div>
+                            <div style="min-width:0;">
+                                <div style="font-weight:700; color:#0f172a; font-size:13px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${clientName}">${clientName}</div>
+                                <div style="font-size:11px; color:#64748b; margin-top:2px;">${clientSub || ('Cód: ' + (p.codigo_sankhya || 'N/A'))}</div>
+                            </div>
                         </div>
-                    </td>
-                    <td class="col-parceiro">
-                        <strong style="font-weight: 700; color: #0f172a;">${q.parceiro.razao_social}</strong><br>
-                        <span style="font-size: 11px; color: #64748b;">Cód. Sankhya: ${q.parceiro.codigo_sankhya}</span>
                     </td>
                     <td class="col-vendedor">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <div class="user-avatar-circle">${initial}</div>
-                            <div>
-                                <strong style="font-weight: 700; color: #0f172a;">${repName}</strong><br>
-                                <span style="font-size: 11px; color: #64748b;">${teamName}</span>
+                            <div style="min-width:0;">
+                                <div style="font-weight: 700; color: #0f172a; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${repName}</div>
+                                <div style="font-size: 11px; color: #64748b; margin-top:2px;">${teamName}</div>
                             </div>
                         </div>
                     </td>
-                    <td class="col-emissao">
-                        <div class="date-text-container">
-                            <span class="cal-icon">📅</span>
-                            <span>${date}</span>
-                        </div>
-                    </td>
                     <td class="col-total">
-                        <span class="price-text-primary">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                        <div>
+                            <span class="price-text-primary">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                            <div class="date-text-container" style="font-size:11px; margin-top:3px;">
+                                <span class="cal-icon">📅</span>
+                                <span>${date}</span>
+                            </div>
+                        </div>
                     </td>
                     <td class="col-status text-center">
                         <div class="badge-status-mockup ${statusClass}">
@@ -1134,14 +1196,15 @@
                             ${subText ? `<span class="badge-subtext">${subText}</span>` : ''}
                         </div>
                     </td>
-                    <td class="col-acoes text-center">
-                        <div style="display: flex; align-items: center; justify-content: center;">
+                    <td class="col-acoes text-center" onclick="event.stopPropagation()">
+                        <div style="display: flex; align-items: center; justify-content: center; gap:6px;">
+                            <a href="{{ url('/cotacoes/id') }}/${q.id}" class="btn-abrir-row" style="text-decoration:none;" title="Abrir Cotação">Abrir</a>
                             <div class="dropdown-dots-wrapper">
-                                <button class="btn-dots-row" onclick="toggleDotsMenu(event, ${q.id})" title="Ações">⋮</button>
+                                <button class="btn-dots-row" onclick="toggleDotsMenu(event, ${q.id})" title="Mais Ações">⋮</button>
                                 <div class="dropdown-dots-menu" id="dots-menu-${q.id}">
-                                    ${canEdit ? `<a href="{{ url('/cotacoes/id') }}/${q.id}" class="dropdown-dots-item">✏️ Editar Cotação</a>` : ''}
-                                    <button class="dropdown-dots-item" onclick="handleDetailClick(${q.id}, '${q.status}')">👁️ Ver Detalhes</button>
-                                    ${canDelete ? `<button class="dropdown-dots-item danger" onclick="deleteQuote(${q.id})">🗑️ Excluir</button>` : ''}
+                                    <a href="{{ url('/cotacoes/id') }}/${q.id}" class="dropdown-dots-item">✏️ Ver / Editar</a>
+                                    <button type="button" class="dropdown-dots-item" onclick="handleDetailClick(${q.id}, '${q.status}')">👁️ Resumo Rápido</button>
+                                    ${canDelete ? `<button type="button" class="dropdown-dots-item danger" onclick="deleteQuote(${q.id})">🗑️ Excluir</button>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -1205,7 +1268,6 @@
 
     function filterQuotes() {
         const search = document.getElementById("search-input").value.toLowerCase();
-        const status = document.getElementById("status-filter").value;
         const repId = document.getElementById("rep-filter").value;
         const period = document.getElementById("period-filter").value;
         const teamId = document.getElementById("team-filter").value;
@@ -1213,8 +1275,17 @@
         const now = new Date();
 
         const filtered = rawQuotes.filter(q => {
-            // Status match
-            const matchesStatus = status === "" || q.status === status;
+            // Tab filter
+            let matchesTab = true;
+            if (currentQuoteTab === 'ativas') {
+                matchesTab = ['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO'].includes(q.status);
+            } else if (currentQuoteTab === 'aguardando') {
+                matchesTab = ['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(q.status);
+            } else if (currentQuoteTab === 'faturamento') {
+                matchesTab = ['PDF_GERADO', 'FATURADA'].includes(q.status);
+            } else if (currentQuoteTab === 'encerradas') {
+                matchesTab = ['FATURADA', 'PERDIDA', 'RECUSADA', 'EXPIRADA', 'CANCELADA'].includes(q.status);
+            }
 
             // Representative match
             const matchesRep = repId === "" || q.representante_id == repId;
@@ -1246,7 +1317,7 @@
                 }
             }
 
-            return matchesStatus && matchesRep && matchesTeam && matchesSearch && matchesPeriod;
+            return matchesTab && matchesRep && matchesTeam && matchesSearch && matchesPeriod;
         });
 
         renderQuotes(filtered);
@@ -1258,7 +1329,7 @@
         document.getElementById("rep-filter").value = "";
         document.getElementById("period-filter").value = "";
         document.getElementById("team-filter").value = "";
-        renderQuotes(rawQuotes);
+        setQuoteTab('todas');
     }
 
     // Modal and Actions handlers
@@ -1337,7 +1408,8 @@
     }
 
     async function deleteQuote(id) {
-        if (!confirm("Tem certeza que deseja excluir esta cotação? Esta ação é irreversível.")) {
+        const confirmed = await appConfirmModal('Excluir Cotação', 'Tem certeza que deseja excluir esta cotação? Esta ação é irreversível.', 'Excluir Cotação', true);
+        if (!confirmed) {
             return;
         }
 
@@ -1368,17 +1440,45 @@
     let adminSelectedPartner = null;
     let adminPartnerSearchTimer = null;
     let adminProductsList = [];
+    let adminRepsList = [];
     let adminRowCounter = 0;
     let adminProdRowTimers = {};
+
+    function filterAdminRepSelect() {
+        const query = (document.getElementById("admin-rep-search-input")?.value || "").toLowerCase().trim();
+        const rSelect = document.getElementById("create-representante");
+        if (!rSelect) return;
+
+        const currentVal = rSelect.value;
+        rSelect.innerHTML = '<option value="">Selecione um representante...</option>';
+
+        const filtered = adminRepsList.filter(r => {
+            const name = (r.nome || "").toLowerCase();
+            const email = (r.email || "").toLowerCase();
+            const papel = (r.papel || "").toLowerCase();
+            return !query || name.includes(query) || email.includes(query) || papel.includes(query);
+        });
+
+        filtered.forEach(r => {
+            const opt = document.createElement("option");
+            opt.value = r.id;
+            opt.textContent = `${r.nome} (${r.email || r.papel})`;
+            if (r.id == currentVal) opt.selected = true;
+            rSelect.appendChild(opt);
+        });
+    }
 
     function openCreateModal() {
         adminSelectedPartner = null;
         adminPartnersList = [];
         adminProductsList = [];
+        adminRepsList = [];
         adminRowCounter = 0;
 
         const form = document.getElementById("create-quote-form");
         if (form) form.reset();
+        const repSearch = document.getElementById("admin-rep-search-input");
+        if (repSearch) repSearch.value = "";
         clearAdminSelectedPartner();
 
         const container = document.getElementById("manual-items-container");
@@ -1438,10 +1538,10 @@
                 users = rData;
             }
 
+            adminRepsList = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
             if (rSelect) {
                 rSelect.innerHTML = '<option value="" selected>Selecione um representante...</option>';
-                const reps = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
-                reps.forEach(r => {
+                adminRepsList.forEach(r => {
                     rSelect.innerHTML += `<option value="${r.id}">${r.nome} (${r.email || r.papel})</option>`;
                 });
             }
@@ -1651,7 +1751,7 @@
             </div>
 
             <!-- Quantity, Price & Subtotal Row -->
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:flex-start;">
                 <div style="width:90px;">
                     <label style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">Qtd</label>
                     <input type="number" min="1" value="1" class="form-control admin-item-qtd" onchange="calcAdminQuoteTotal()" oninput="calcAdminQuoteTotal()" style="font-size:12px; text-align:center;">
@@ -1659,6 +1759,7 @@
                 <div style="flex-grow:1;">
                     <label style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">Preço Unitário (R$)</label>
                     <input type="number" step="0.01" min="0.01" class="form-control admin-item-price" placeholder="0.00" onchange="calcAdminQuoteTotal()" oninput="calcAdminQuoteTotal()" style="font-size:12px;">
+                    <div id="admin-item-min-warning-${rowId}" class="admin-item-min-warning" style="display:none; color:#dc2626; font-size:11px; font-weight:600; margin-top:3px;"></div>
                 </div>
                 <div style="width:110px; text-align:right;">
                     <label style="font-size:10px; color:#64748b; font-weight:700; display:block; margin-bottom:2px;">Subtotal</label>
@@ -1798,12 +1899,20 @@
 
         const codeStr = prod.codigo_sankhya || prod.codprod || prod.id;
 
+        const rowEl = document.getElementById(`admin-prod-row-${rowId}`);
+        const sugPrice = price;
+        const minPrice = parseFloat(prod.preco_minimo || (sugPrice * 0.9));
+        if (rowEl) {
+            rowEl.dataset.sugPrice = sugPrice;
+            rowEl.dataset.minPrice = minPrice;
+        }
+
         document.getElementById(`admin-prod-selected-title-${rowId}`).innerText = prod.descricao;
-        document.getElementById(`admin-prod-selected-meta-${rowId}`).innerText = `Cód: ${codeStr} ${prod.marca ? '| ' + prod.marca : ''} | Sugerido: R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById(`admin-prod-selected-meta-${rowId}`).innerText = `Cód: ${codeStr} ${prod.marca ? '| ' + prod.marca : ''} | Sugerido: R$ ${sugPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})} · Mínimo: R$ ${minPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 
         const priceInput = document.querySelector(`#admin-prod-row-${rowId} .admin-item-price`);
         if (priceInput && (!priceInput.value || parseFloat(priceInput.value) <= 0)) {
-            priceInput.value = price.toFixed(2);
+            priceInput.value = sugPrice.toFixed(2);
         }
 
         if (badge) badge.style.display = "flex";
@@ -1815,6 +1924,11 @@
 
     function clearAdminRowProduct(rowId) {
         document.getElementById(`admin-item-prod-id-${rowId}`).value = "";
+        const rowEl = document.getElementById(`admin-prod-row-${rowId}`);
+        if (rowEl) {
+            delete rowEl.dataset.sugPrice;
+            delete rowEl.dataset.minPrice;
+        }
         const badge = document.getElementById(`admin-prod-selected-badge-${rowId}`);
         const searchBox = document.getElementById(`admin-prod-search-box-${rowId}`);
         const input = document.getElementById(`admin-prod-search-input-${rowId}`);
@@ -1843,13 +1957,25 @@
             const qtdEl = r.querySelector(".admin-item-qtd");
             const priceEl = r.querySelector(".admin-item-price");
             const subtotalEl = r.querySelector(".admin-item-subtotal");
+            const warningEl = r.querySelector(".admin-item-min-warning");
 
             const qtd = qtdEl ? (parseFloat(qtdEl.value) || 0) : 0;
             const price = priceEl ? (parseFloat(priceEl.value) || 0) : 0;
+            const minPrice = parseFloat(r.dataset.minPrice || 0);
             const subtotal = qtd * price;
 
             if (subtotalEl) {
                 subtotalEl.innerText = "R$ " + subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+
+            if (warningEl) {
+                if (minPrice > 0 && price > 0 && price < minPrice) {
+                    const diffPct = (((price - minPrice) / minPrice) * 100).toFixed(1);
+                    warningEl.innerText = `⚠️ Abaixo do preço mínimo (R$ ${minPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})}) • ${diffPct}%`;
+                    warningEl.style.display = 'block';
+                } else {
+                    warningEl.style.display = 'none';
+                }
             }
 
             total += subtotal;

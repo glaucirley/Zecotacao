@@ -97,12 +97,12 @@
             if (json.success) {
                 renderAudit(json.data);
             } else {
-                alert("Erro ao buscar histórico: " + json.error);
+                showToast("Erro ao buscar histórico: " + (json.error || 'Erro desconhecido'), "error");
             }
         } catch(e) {
             console.error(e);
             document.getElementById("loading-spinner").style.display = "none";
-            alert("Erro de conexão ao buscar histórico de auditoria.");
+            showToast("Erro de conexão ao buscar histórico de auditoria.", "error");
         }
     }
 

@@ -1,100 +1,336 @@
 @extends('layouts.app')
 
-@section('page_title', 'Painel de Indicadores (BI)')
+@section('page_title', 'Visão Geral & Fila de Trabalho')
 
 @section('content')
-<!-- Date Filters Row -->
-<div class="card" style="margin-bottom: 20px; padding: 15px 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn btn-secondary active-filter" id="btn-period-7" onclick="setPeriod(7)" style="font-size:12px; padding: 8px 14px;">7 Dias</button>
-            <button class="btn btn-secondary" id="btn-period-30" onclick="setPeriod(30)" style="font-size:12px; padding: 8px 14px;">30 Dias</button>
-            <button class="btn btn-secondary" id="btn-period-month" onclick="setPeriod('month')" style="font-size:12px; padding: 8px 14px;">Este Mês</button>
-            <button class="btn btn-secondary" id="btn-period-custom" onclick="setPeriod('custom')" style="font-size:12px; padding: 8px 14px;">Personalizado</button>
-        </div>
-        
-        <div id="custom-date-inputs" style="display: none; align-items: center; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <label for="filter-start-date" style="font-size: 12px; font-weight: 600; color: var(--color-text-muted);">De:</label>
-                <input type="date" id="filter-start-date" class="form-control" style="padding: 6px 10px; font-size:12px; width:auto; margin:0;">
-            </div>
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <label for="filter-end-date" style="font-size: 12px; font-weight: 600; color: var(--color-text-muted);">Até:</label>
-                <input type="date" id="filter-end-date" class="form-control" style="padding: 6px 10px; font-size:12px; width:auto; margin:0;">
-            </div>
-            <button class="btn btn-primary" onclick="loadDashboardData()" style="font-size:12px; padding: 8px 16px; background-color: var(--color-accent); border-color: var(--color-accent);">Filtrar</button>
-        </div>
-    </div>
-</div>
-
-<!-- Loading indicator -->
-<div id="dashboard-loading" style="text-align: center; padding: 60px 20px;">
-    <div style="border: 4px solid rgba(15,81,50,0.1); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px auto;"></div>
-    <span style="font-weight: 500; color: var(--color-text-muted);">Carregando métricas consolidadas...</span>
-</div>
-
-<!-- Main Dashboard Container -->
-<div id="dashboard-content" style="display: none; flex-direction: column; gap: 24px;">
+<style>
+    .dash-nav-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .dash-nav-tab {
+        background: transparent;
+        border: none;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #64748b;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 8px 8px 0 0;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s ease;
+    }
+    .dash-nav-tab:hover {
+        color: #1e293b;
+    }
+    .dash-nav-tab.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+        background: rgba(37, 99, 235, 0.05);
+    }
+    .dash-tab-badge {
+        background: #ef4444;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 999px;
+        line-height: 1.2;
+    }
     
-    <!-- SLA Alerts Banner -->
-    <div id="sla-alerts-container" style="display: none; width: 100%;">
-        <div style="background-color: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-left: 5px solid #ef4444; border-radius: 12px; padding: 16px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #dc2626;">
-                    <span>⚠️ ALERTA DE SLA DE APROVAÇÃO</span>
-                    <span id="sla-count-badge" class="badge-status" style="background-color: #fee2e2; color: #dc2626;">0 Cotações Paradas</span>
+    /* Minha Fila Cards Grid */
+    .queue-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .queue-card {
+        background: #ffffff;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 16px;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .queue-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(0,0,0,0.08);
+        border-color: #cbd5e1;
+    }
+    .queue-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+    }
+    .queue-icon-box {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .queue-number {
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1;
+        color: #0f172a;
+    }
+    .queue-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 6px 0;
+    }
+    .queue-desc {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.45;
+        margin: 0;
+    }
+    .queue-action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-radius: 9px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #1e293b;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .queue-action-btn:hover {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #2563eb;
+    }
+
+    /* Drill-down KPI Cards */
+    .kpi-block {
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border-radius: 10px;
+        padding: 8px 12px;
+    }
+    .kpi-block:hover {
+        background: #f8fafc;
+        transform: translateY(-1px);
+    }
+    .kpi-diff {
+        font-size: 11.5px;
+        font-weight: 600;
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .kpi-diff.up { color: #10b981; }
+    .kpi-diff.down { color: #ef4444; }
+    .kpi-diff.neutral { color: #64748b; }
+</style>
+
+<!-- Top Dashboard Tabs Switcher -->
+<div class="dash-nav-tabs">
+    <button type="button" class="dash-nav-tab active" id="tab-btn-queue" onclick="switchMainTab('queue')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Minha Fila</span>
+        <span id="tab-badge-queue" class="dash-tab-badge" style="display:none;">0</span>
+    </button>
+    <button type="button" class="dash-nav-tab" id="tab-btn-bi" onclick="switchMainTab('bi')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        <span>Indicadores & BI</span>
+    </button>
+</div>
+
+<!-- ================= TAB 1: MINHA FILA ================= -->
+<div id="tab-content-queue">
+    <div class="queue-grid">
+        <!-- 1. Aprovações -->
+        <div class="queue-card">
+            <div class="queue-card-top">
+                <div class="queue-icon-box" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 </div>
+                <div id="queue-approvals-num" class="queue-number" style="color: #8b5cf6;">0</div>
             </div>
-            <div id="sla-list" style="font-size: 13px; color: #475569; display: flex; flex-direction: column; gap: 8px;">
+            <div>
+                <h3 class="queue-title">Aprovações esperando você</h3>
+                <p class="queue-desc">Cotações com desconto acima da alçada comercial que necessitam de aprovação.</p>
+            </div>
+            <a href="{{ url('/aprovacoes') }}" class="queue-action-btn">
+                <span>Analisar Aprovações</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+        </div>
+
+        <!-- 2. Pedidos Faturamento -->
+        <div class="queue-card">
+            <div class="queue-card-top">
+                <div class="queue-icon-box" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 4v16"/><path d="M2 12h20"/></svg>
+                </div>
+                <div id="queue-billing-num" class="queue-number" style="color: #10b981;">0</div>
+            </div>
+            <div>
+                <h3 class="queue-title">Pedidos para conferir no faturamento</h3>
+                <p class="queue-desc">Pedidos com número do ERP prontos para conferência de itens e liberação.</p>
+            </div>
+            <a href="{{ url('/faturamento') }}" class="queue-action-btn">
+                <span>Conferir Faturamento</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+        </div>
+
+        <!-- 3. Cotações Vencem Hoje -->
+        <div class="queue-card">
+            <div class="queue-card-top">
+                <div class="queue-icon-box" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div id="queue-expiring-num" class="queue-number" style="color: #f59e0b;">0</div>
+            </div>
+            <div>
+                <h3 class="queue-title">Cotações que vencem hoje</h3>
+                <p class="queue-desc">Cotações ativas que expiram em menos de 24 horas e demandam fechamento.</p>
+            </div>
+            <a href="{{ url('/cotacoes') }}" class="queue-action-btn">
+                <span>Ver Cotações Ativas</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+        </div>
+
+        <!-- 4. Saúde do Cadastro ERP -->
+        <div class="queue-card">
+            <div class="queue-card-top">
+                <div class="queue-icon-box" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                </div>
+                <div id="queue-health-num" class="queue-number" style="color: #ef4444;">0</div>
+            </div>
+            <div>
+                <h3 class="queue-title">Saúde do cadastro (Sankhya)</h3>
+                <p class="queue-desc" id="queue-health-desc">Inconsistências cadastrais (produtos sem preço na tabela ou dados incompletos).</p>
+            </div>
+            <a href="{{ url('/produtos') }}" class="queue-action-btn">
+                <span>Revisar Catálogo de Produtos</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ================= TAB 2: INDICADORES & BI ================= -->
+<div id="tab-content-bi" style="display: none;">
+    <!-- Date Filters Row -->
+    <div class="card" style="margin-bottom: 20px; padding: 15px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-secondary active-filter" id="btn-period-7" onclick="setPeriod(7)" style="font-size:12px; padding: 8px 14px;">7 Dias</button>
+                <button class="btn btn-secondary" id="btn-period-30" onclick="setPeriod(30)" style="font-size:12px; padding: 8px 14px;">30 Dias</button>
+                <button class="btn btn-secondary" id="btn-period-month" onclick="setPeriod('month')" style="font-size:12px; padding: 8px 14px;">Este Mês</button>
+                <button class="btn btn-secondary" id="btn-period-custom" onclick="setPeriod('custom')" style="font-size:12px; padding: 8px 14px;">Personalizado</button>
+            </div>
+            
+            <div id="custom-date-inputs" style="display: none; align-items: center; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label for="filter-start-date" style="font-size: 12px; font-weight: 600; color: var(--color-text-muted);">De:</label>
+                    <input type="date" id="filter-start-date" class="form-control" style="padding: 6px 10px; font-size:12px; width:auto; margin:0;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label for="filter-end-date" style="font-size: 12px; font-weight: 600; color: var(--color-text-muted);">Até:</label>
+                    <input type="date" id="filter-end-date" class="form-control" style="padding: 6px 10px; font-size:12px; width:auto; margin:0;">
+                </div>
+                <button class="btn btn-primary" onclick="loadDashboardData()" style="font-size:12px; padding: 8px 16px; background-color: var(--color-accent); border-color: var(--color-accent);">Filtrar</button>
             </div>
         </div>
     </div>
 
-    <!-- Module 1: Grouped KPIs (Always visible at the top) -->
-    <div class="card" id="widget-kpi-container" style="padding: 20px; width: 100%;">
-        <div class="kpi-grid">
-            <!-- KPI 1 -->
-            <div style="display: flex; align-items: center; gap: 15px; border-right: 1px solid var(--color-border); padding-right: 15px;" class="kpi-block">
-                <div style="background-color: var(--color-secondary); padding: 12px; border-radius: 12px; color: var(--color-primary); display: flex;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <!-- Loading indicator -->
+    <div id="dashboard-loading" style="text-align: center; padding: 60px 20px;">
+        <div style="border: 4px solid rgba(15,81,50,0.1); border-top: 4px solid var(--color-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px auto;"></div>
+        <span style="font-weight: 500; color: var(--color-text-muted);">Carregando métricas consolidadas...</span>
+    </div>
+
+    <!-- Main Dashboard Container -->
+    <div id="dashboard-content" style="display: none; flex-direction: column; gap: 24px;">
+        
+        <!-- SLA Alerts Banner -->
+        <div id="sla-alerts-container" style="display: none; width: 100%;">
+            <div style="background-color: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-left: 5px solid #ef4444; border-radius: 12px; padding: 16px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #dc2626;">
+                        <span>ALERTA DE SLA DE APROVAÇÃO</span>
+                        <span id="sla-count-badge" class="badge-status" style="background-color: #fee2e2; color: #dc2626;">0 Cotações Paradas</span>
+                    </div>
                 </div>
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Cotações Criadas</div>
-                    <div id="kpi-total-quotes" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">0</div>
-                </div>
-            </div>
-            <!-- KPI 2 -->
-            <div style="display: flex; align-items: center; gap: 15px; border-right: 1px solid var(--color-border); padding-right: 15px;" class="kpi-block">
-                <div style="background-color: rgba(16,185,129,0.08); padding: 12px; border-radius: 12px; color: var(--status-pdf-gerado); display: flex;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                </div>
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Volume Faturado</div>
-                    <div id="kpi-total-billed" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">R$ 0,00</div>
-                </div>
-            </div>
-            <!-- KPI 3 -->
-            <div style="display: flex; align-items: center; gap: 15px; border-right: 1px solid var(--color-border); padding-right: 15px;" class="kpi-block">
-                <div style="background-color: rgba(59,130,246,0.08); padding: 12px; border-radius: 12px; color: var(--status-em-criacao); display: flex;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                </div>
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Taxa de Conversão</div>
-                    <div id="kpi-conversion" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">0%</div>
-                </div>
-            </div>
-            <!-- KPI 4 -->
-            <div style="display: flex; align-items: center; gap: 15px;" class="kpi-block">
-                <div style="background-color: rgba(245,158,11,0.08); padding: 12px; border-radius: 12px; color: var(--status-devolvida); display: flex;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                </div>
-                <div>
-                    <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Desconto Médio</div>
-                    <div id="kpi-discount" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">0%</div>
+                <div id="sla-list" style="font-size: 13px; color: #475569; display: flex; flex-direction: column; gap: 8px;">
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- Module 1: Grouped KPIs (Always visible at the top) -->
+        <div class="card" id="widget-kpi-container" style="padding: 20px; width: 100%;">
+            <div class="kpi-grid">
+                <!-- KPI 1 -->
+                <div style="display: flex; align-items: center; gap: 15px; border-right: 1px solid var(--color-border); padding-right: 15px;" class="kpi-block" onclick="window.location.href='{{ url('/cotacoes') }}'" title="Clique para ver todas as cotações">
+                    <div style="background-color: var(--color-secondary); padding: 12px; border-radius: 12px; color: var(--color-primary); display: flex;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Cotações Criadas</div>
+                        <div id="kpi-total-quotes" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">0</div>
+                        <div id="kpi-quotes-diff" class="kpi-diff neutral">-- vs período ant.</div>
+                    </div>
+                </div>
+                <!-- KPI 2 -->
+                <div style="display: flex; align-items: center; gap: 15px; border-right: 1px solid var(--color-border); padding-right: 15px;" class="kpi-block" onclick="window.location.href='{{ url('/cotacoes') }}'" title="Clique para ver faturadas">
+                    <div style="background-color: rgba(16,185,129,0.08); padding: 12px; border-radius: 12px; color: var(--status-pdf-gerado); display: flex;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Volume Faturado</div>
+                        <div id="kpi-total-billed" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">R$ 0,00</div>
+                        <div id="kpi-billed-diff" class="kpi-diff neutral">-- vs período ant.</div>
+                    </div>
+                </div>
+                <!-- KPI 3 -->
+                <div style="display: flex; align-items: center; gap: 15px; border-right: 1px solid var(--color-border); padding-right: 15px;" class="kpi-block" onclick="window.location.href='{{ url('/cotacoes') }}'" title="Clique para ver cotações ganhas">
+                    <div style="background-color: rgba(59,130,246,0.08); padding: 12px; border-radius: 12px; color: var(--status-em-criacao); display: flex;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Taxa de Conversão</div>
+                        <div id="kpi-conversion" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">0%</div>
+                        <div id="kpi-conv-diff" class="kpi-diff neutral">-- vs período ant.</div>
+                    </div>
+                </div>
+                <!-- KPI 4 -->
+                <div style="display: flex; align-items: center; gap: 15px;" class="kpi-block" onclick="window.location.href='{{ url('/cotacoes') }}'" title="Clique para ver lista de cotações">
+                    <div style="background-color: rgba(245,158,11,0.08); padding: 12px; border-radius: 12px; color: var(--status-devolvida); display: flex;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Desconto Médio</div>
+                        <div id="kpi-discount" style="font-size: 22px; font-weight: 800; color: var(--color-text-main); margin-top: 2px;">0%</div>
+                        <div class="kpi-diff neutral">Média de desconto</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     <!-- Unified Analysis Card with Selector in Upper Right Corner -->
     <div class="card" style="padding: 24px; width: 100%;">
@@ -467,6 +703,30 @@
             let descMed = parseFloat(sum.desconto_medio || 0);
             if (descMed > 0 && descMed < 1) descMed = descMed * 100;
             document.getElementById("kpi-discount").innerText = descMed.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+
+            if (sum.comparisons) {
+                const qDiff = sum.comparisons.quotes_diff;
+                const bDiff = sum.comparisons.billed_diff;
+                const cDiff = sum.comparisons.conversao_diff;
+
+                const qEl = document.getElementById("kpi-quotes-diff");
+                if (qEl) {
+                    qEl.className = 'kpi-diff ' + (qDiff > 0 ? 'up' : (qDiff < 0 ? 'down' : 'neutral'));
+                    qEl.innerText = (qDiff > 0 ? `▲ +${qDiff}%` : (qDiff < 0 ? `▼ ${qDiff}%` : '= 0%')) + ' vs período ant.';
+                }
+
+                const bEl = document.getElementById("kpi-billed-diff");
+                if (bEl) {
+                    bEl.className = 'kpi-diff ' + (bDiff > 0 ? 'up' : (bDiff < 0 ? 'down' : 'neutral'));
+                    bEl.innerText = (bDiff > 0 ? `▲ +${bDiff}%` : (bDiff < 0 ? `▼ ${bDiff}%` : '= 0%')) + ' vs período ant.';
+                }
+
+                const cEl = document.getElementById("kpi-conv-diff");
+                if (cEl) {
+                    cEl.className = 'kpi-diff ' + (cDiff > 0 ? 'up' : (cDiff < 0 ? 'down' : 'neutral'));
+                    cEl.innerText = (cDiff > 0 ? `▲ +${cDiff}%` : (cDiff < 0 ? `▼ ${cDiff}%` : '= 0%')) + ' vs período ant.';
+                }
+            }
         }
 
         // 3. Render Timeline Chart
@@ -852,5 +1112,83 @@
             tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--status-perdida);">Erro de conexão.</td></tr>`;
         }
     }
+
+    // Main Tab Switching (Minha Fila vs Indicadores BI)
+    function switchMainTab(tab) {
+        const btnQueue = document.getElementById('tab-btn-queue');
+        const btnBi = document.getElementById('tab-btn-bi');
+        const contentQueue = document.getElementById('tab-content-queue');
+        const contentBi = document.getElementById('tab-content-bi');
+
+        if (tab === 'queue') {
+            btnQueue.classList.add('active');
+            btnBi.classList.remove('active');
+            contentQueue.style.display = 'block';
+            contentBi.style.display = 'none';
+        } else {
+            btnBi.classList.add('active');
+            btnQueue.classList.remove('active');
+            contentBi.style.display = 'block';
+            contentQueue.style.display = 'none';
+
+            // Resize charts to fit current layout
+            setTimeout(() => {
+                if (chartTimelineInstance) chartTimelineInstance.resize();
+                if (chartStatusInstance) chartStatusInstance.resize();
+                if (chartSellersInstance) chartSellersInstance.resize();
+            }, 100);
+        }
+    }
+
+    // Load Minha Fila Counts
+    async function loadQueueData() {
+        try {
+            const res = await fetch("{{ url('/api/v1/dashboard/queue') }}");
+            const json = await res.json();
+            if (json.success && json.data) {
+                const q = json.data;
+                const approvals = q.approvals || 0;
+                const billing = q.billing || 0;
+                const expiring = q.expiring_today || 0;
+                const semPreco = q.catalog_health?.products_without_price || 0;
+                const semEquipe = q.catalog_health?.users_without_team || 0;
+
+                const appEl = document.getElementById('queue-approvals-num');
+                if (appEl) appEl.innerText = approvals;
+
+                const billEl = document.getElementById('queue-billing-num');
+                if (billEl) billEl.innerText = billing;
+
+                const expEl = document.getElementById('queue-expiring-num');
+                if (expEl) expEl.innerText = expiring;
+
+                const healthEl = document.getElementById('queue-health-num');
+                if (healthEl) healthEl.innerText = semPreco + semEquipe;
+
+                const healthDesc = document.getElementById('queue-health-desc');
+                if (healthDesc) {
+                    healthDesc.innerHTML = `<strong>${semPreco} produtos sem preço de tabela</strong> · ${semEquipe} representantes sem equipe.`;
+                }
+
+                const totalPending = approvals + billing + expiring;
+                const badge = document.getElementById('tab-badge-queue');
+                if (badge) {
+                    if (totalPending > 0) {
+                        badge.innerText = totalPending;
+                        badge.style.display = 'inline-block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao carregar fila:", e);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadQueueData();
+        loadDashboardData();
+    });
 </script>
 @endsection

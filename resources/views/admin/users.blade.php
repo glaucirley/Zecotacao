@@ -49,7 +49,17 @@
     </div>
 </div>
 
-<div class="card">
+<!-- View Mode Switcher (Point 7) -->
+<div style="display:flex; gap:8px; margin-bottom:16px;">
+    <button type="button" class="btn" id="view-tab-table" onclick="switchUsersView('table')" style="background:#2563eb; color:#ffffff; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; border:none; cursor:pointer;">
+        📋 Lista de Colaboradores
+    </button>
+    <button type="button" class="btn" id="view-tab-teams" onclick="switchUsersView('teams')" style="background:#ffffff; color:#475569; border:1px solid #e2e8f0; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer;">
+        👥 Visão por Equipes (Gestores &amp; Representantes)
+    </button>
+</div>
+
+<div class="card" id="users-table-container">
     <div class="card-header">
         <div>
             <h3 style="margin:0;">Colaboradores Cadastrados</h3>
@@ -88,6 +98,21 @@
     <!-- Loading spinner -->
     <div id="loading-spinner" style="text-align: center; padding: 40px 20px;">
         <div style="border: 3px solid rgba(15,81,50,0.1); border-top: 3px solid var(--color-primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+    </div>
+</div>
+
+<!-- Teams Board Container (Point 7) -->
+<div id="users-teams-board" style="display: none; margin-bottom: 24px;">
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span>💡</span>
+            <span><strong>Hierarquia de Vendas:</strong> Cada equipe tem seu Gestor no topo e seus Representantes vinculados. Arraste e solte representantes entre as colunas para reatribuir equipes em tempo real.</span>
+        </div>
+        <span style="font-size:11px; background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700;">Drag &amp; Drop Ativo</span>
+    </div>
+
+    <div id="teams-grid-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: flex-start;">
+        <!-- Teams rendered dynamically -->
     </div>
 </div>
 
@@ -234,13 +259,45 @@
                 teamsList = data.data.teams;
 
                 renderUsers();
+                renderTeamsBoard();
                 populateTeamsDropdown();
             } else {
-                alert("Erro ao carregar dados: " + data.error);
+                showToast("Erro ao carregar dados: " + data.error, "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao buscar usuários.");
+            showToast("Erro de conexão ao buscar usuários.", "error");
+        }
+    }
+
+    let currentUsersView = 'table';
+
+    function switchUsersView(mode) {
+        currentUsersView = mode;
+        const btnTable = document.getElementById("view-tab-table");
+        const btnTeams = document.getElementById("view-tab-teams");
+        const tableContainer = document.getElementById("users-table-container");
+        const teamsBoard = document.getElementById("users-teams-board");
+
+        if (mode === 'table') {
+            btnTable.style.background = "#2563eb";
+            btnTable.style.color = "#ffffff";
+            btnTable.style.border = "none";
+            btnTeams.style.background = "#ffffff";
+            btnTeams.style.color = "#475569";
+            btnTeams.style.border = "1px solid #e2e8f0";
+            if (tableContainer) tableContainer.style.display = "block";
+            if (teamsBoard) teamsBoard.style.display = "none";
+        } else {
+            btnTeams.style.background = "#2563eb";
+            btnTeams.style.color = "#ffffff";
+            btnTeams.style.border = "none";
+            btnTable.style.background = "#ffffff";
+            btnTable.style.color = "#475569";
+            btnTable.style.border = "1px solid #e2e8f0";
+            if (tableContainer) tableContainer.style.display = "none";
+            if (teamsBoard) teamsBoard.style.display = "block";
+            renderTeamsBoard();
         }
     }
 
@@ -274,6 +331,8 @@
 
             const limitText = u.papel === 'gestor' ? `${parseFloat(u.limite_desconto_percentual)}%` : '-';
             const teamName = u.equipe ? u.equipe.nome : '-';
+            const toggleColor = u.ativo ? '#ef4444' : '#16a34a';
+            const toggleText = u.ativo ? 'Inativar' : 'Ativar';
 
             body.innerHTML += `
                 <tr>
@@ -291,16 +350,168 @@
                         </span>
                     </td>
                     <td class="text-center" style="white-space: nowrap;">
-                        <button class="btn btn-outline" style="padding: 6px 12px; font-size:11px;" onclick="openEditModal(${u.id})">
+                        <button class="btn btn-outline" style="padding: 5px 10px; font-size:11px; font-weight:600;" onclick="openEditModal(${u.id})">
                             Editar
                         </button>
-                        <button class="btn btn-outline" style="padding: 6px 12px; font-size:11px; color:var(--status-recusada); border-color:var(--status-recusada); margin-left:4px;" onclick="deleteUser(${u.id})">
-                            Excluir
+                        <button class="btn btn-outline" style="padding: 5px 10px; font-size:11px; font-weight:600; color:${toggleColor}; border-color:${toggleColor}; margin-left:4px;" onclick="toggleUserStatus(${u.id}, ${u.ativo ? 1 : 0})">
+                            ${toggleText}
                         </button>
                     </td>
                 </tr>
             `;
         });
+    }
+
+    function renderTeamsBoard() {
+        const grid = document.getElementById("teams-grid-container");
+        if (!grid) return;
+        grid.innerHTML = "";
+
+        teamsList.forEach(t => {
+            const teamUsers = usersList.filter(u => u.equipe_id == t.id);
+            const manager = usersList.find(u => u.id == t.gestor_id) || teamUsers.find(u => u.papel === 'gestor');
+            const reps = teamUsers.filter(u => u.papel === 'representante');
+
+            const card = document.createElement("div");
+            card.className = "team-board-card";
+            card.style.cssText = "background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); display:flex; flex-direction:column;";
+            card.dataset.teamId = t.id;
+
+            card.innerHTML = `
+                <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:700; font-size:14px; color:#0f172a;">${t.nome}</div>
+                    <span style="font-size:11px; background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:999px; font-weight:700;">${reps.length} rep(s)</span>
+                </div>
+
+                <!-- Gestor da Equipe (No Topo) -->
+                <div style="padding:12px 16px; background:#f0fdf4; border-bottom:1px solid #bbf7d0; display:flex; align-items:center; gap:10px;">
+                    <div style="width:32px; height:32px; border-radius:50%; background:#16a34a; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">
+                        ${manager ? manager.nome.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div style="min-width:0; flex-grow:1;">
+                        <div style="font-size:11px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.3px;">Gestor da Equipe</div>
+                        <div style="font-size:13px; font-weight:700; color:#166534; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            ${manager ? manager.nome : 'Sem gestor vinculado'}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Representantes (Dropzone) -->
+                <div class="team-reps-dropzone" 
+                     ondragover="allowDropUser(event)" 
+                     ondragleave="leaveDropUser(event)"
+                     ondrop="dropUser(event, ${t.id})" 
+                     style="padding:12px 16px; min-height:140px; display:flex; flex-direction:column; gap:8px; flex-grow:1; background:#ffffff; transition:background 0.2s;">
+                    ${reps.length === 0 ? '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:24px 8px; border:1px dashed #cbd5e1; border-radius:8px;">Arraste representantes para cá</div>' : ''}
+                    ${reps.map(r => `
+                        <div class="rep-card-draggable" 
+                             draggable="true" 
+                             ondragstart="dragUser(event, ${r.id})"
+                             style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; cursor:grab; transition:all 0.15s;">
+                            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                                <span style="color:#94a3b8; font-size:13px;">⠿</span>
+                                <div style="min-width:0;">
+                                    <div style="font-size:12.5px; font-weight:600; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.nome}</div>
+                                    <div style="font-size:10.5px; color:#64748b;">${r.codigo_sankhya ? 'Cód: ' + r.codigo_sankhya : r.email}</div>
+                                </div>
+                            </div>
+                            <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; ${r.ativo ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#dc2626;'}">
+                                ${r.ativo ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        // Card para representantes sem equipe
+        const orphanReps = usersList.filter(u => u.papel === 'representante' && !u.equipe_id);
+        if (orphanReps.length > 0) {
+            const orphanCard = document.createElement("div");
+            orphanCard.style.cssText = "background:#ffffff; border:1px dashed #fca5a5; border-radius:14px; overflow:hidden; display:flex; flex-direction:column;";
+            orphanCard.innerHTML = `
+                <div style="background:#fef2f2; border-bottom:1px solid #fecaca; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:700; font-size:14px; color:#991b1b;">Sem Equipe Vinculada</div>
+                    <span style="font-size:11px; background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:999px; font-weight:700;">${orphanReps.length}</span>
+                </div>
+                <div style="padding:12px 16px; display:flex; flex-direction:column; gap:8px;">
+                    ${orphanReps.map(r => `
+                        <div class="rep-card-draggable" 
+                             draggable="true" 
+                             ondragstart="dragUser(event, ${r.id})"
+                             style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; cursor:grab;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="color:#94a3b8; font-size:13px;">⠿</span>
+                                <div>
+                                    <div style="font-size:12.5px; font-weight:600; color:#1e293b;">${r.nome}</div>
+                                    <div style="font-size:10.5px; color:#64748b;">${r.email}</div>
+                                </div>
+                            </div>
+                            <span style="font-size:10.5px; color:#ea580c; font-weight:600;">Arraste p/ equipe</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            grid.appendChild(orphanCard);
+        }
+    }
+
+    let draggedUserId = null;
+
+    function dragUser(e, userId) {
+        draggedUserId = userId;
+        e.dataTransfer.setData("text/plain", userId);
+        e.dataTransfer.effectAllowed = "move";
+    }
+
+    function allowDropUser(e) {
+        e.preventDefault();
+        e.currentTarget.style.background = "#eff6ff";
+    }
+
+    function leaveDropUser(e) {
+        e.currentTarget.style.background = "#ffffff";
+    }
+
+    async function dropUser(e, targetTeamId) {
+        e.preventDefault();
+        e.currentTarget.style.background = "#ffffff";
+        const userId = draggedUserId || e.dataTransfer.getData("text/plain");
+        if (!userId) return;
+
+        const user = usersList.find(u => u.id == userId);
+        if (!user) return;
+        if (user.equipe_id == targetTeamId) return;
+
+        const team = teamsList.find(t => t.id == targetTeamId);
+        const teamName = team ? team.nome : `Equipe #${targetTeamId}`;
+
+        await updateUserTeam(userId, targetTeamId, teamName);
+    }
+
+    async function updateUserTeam(userId, targetTeamId, teamName) {
+        try {
+            const res = await fetch(`${API_URL}/usuarios/${userId}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ equipe_id: targetTeamId })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast(`Representante transferido para ${teamName}!`, "success");
+                loadData();
+            } else {
+                showToast("Erro ao transferir: " + (data.message || data.error), "error");
+            }
+        } catch(err) {
+            console.error(err);
+            showToast("Erro de comunicação ao reatribuir equipe.", "error");
+        }
     }
 
     function filterUsers() {
@@ -486,7 +697,7 @@
         }
 
         if (payload.papel === 'representante' && payload.ativo && !payload.equipe_id) {
-            alert("⚠️ Não é permitido salvar um Representante Comercial ativo sem equipe vinculada.\nSelecione uma equipe para o representante antes de salvar.");
+            showToast("Não é permitido salvar um Representante Comercial ativo sem equipe vinculada. Selecione uma equipe antes de salvar.", "warning");
             return;
         }
 
@@ -505,51 +716,58 @@
 
             const data = await res.json();
             if (data.success) {
-                alert(isEdit ? "Dados do usuário atualizados!" : "Novo usuário cadastrado!");
+                showToast(isEdit ? "Dados do usuário atualizados com sucesso!" : "Novo usuário cadastrado com sucesso!", "success");
                 closeUserModal();
                 loadData();
             } else {
                 let msg = data.message || "Erro ao salvar usuário.";
                 if (data.messages) {
                     if (typeof data.messages === 'object') {
-                        msg = Object.values(data.messages).flat().join("\n");
+                        msg = Object.values(data.messages).flat().join(". ");
                     } else {
                         msg = JSON.stringify(data.messages);
                     }
                 }
-                alert("Erro ao salvar:\n" + msg);
+                showToast("Erro ao salvar: " + msg, "error");
             }
         } catch (e) {
-            alert("Erro de conexão.");
+            showToast("Erro de conexão ao salvar usuário.", "error");
         }
     }
 
-    async function deleteUser(id) {
+    function deleteUser(id) {
         if (id === CURRENT_USER.id) {
-            alert("Você não pode excluir a sua própria conta.");
+            showToast("Você não pode excluir a sua própria conta.", "warning");
             return;
         }
 
-        if (!confirm("Deseja realmente excluir este usuário permanentemente?")) return;
+        appConfirmModal({
+            title: "Excluir Usuário",
+            message: "Deseja realmente excluir este usuário permanentemente? Esta ação é irreversível.",
+            confirmText: "Sim, Excluir",
+            cancelText: "Cancelar",
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    const res = await fetch(`${API_URL}/usuarios/${id}`, {
+                        method: "DELETE",
+                        headers: {
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        }
+                    });
 
-        try {
-            const res = await fetch(`${API_URL}/usuarios/${id}`, {
-                method: "DELETE",
-                headers: {
-                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    const data = await res.json();
+                    if (data.success) {
+                        showToast("Usuário excluído com sucesso!", "success");
+                        loadData();
+                    } else {
+                        showToast("Erro ao excluir: " + (data.message || data.error), "error");
+                    }
+                } catch (e) {
+                    showToast("Erro de conexão ao excluir usuário.", "error");
                 }
-            });
-
-            const data = await res.json();
-            if (data.success) {
-                alert("Usuário excluído com sucesso!");
-                loadData();
-            } else {
-                alert("Erro ao excluir: " + data.message);
             }
-        } catch (e) {
-            alert("Erro de conexão.");
-        }
+        });
     }
 </script>
 @endsection

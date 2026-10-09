@@ -133,11 +133,11 @@
                     `;
                 });
             } else {
-                alert("Erro ao carregar lista: " + data.error);
+                showToast("Erro ao carregar lista: " + (data.error || 'Erro desconhecido'), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao buscar aprovações.");
+            showToast("Erro de conexão ao buscar aprovações.", "error");
         }
     }
 </script>

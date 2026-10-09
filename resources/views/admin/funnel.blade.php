@@ -355,11 +355,11 @@
                 
                 renderFunnel(rawQuotes);
             } else {
-                alert("Erro ao buscar cotações: " + data.error);
+                showToast("Erro ao buscar cotações: " + (data.error || 'Erro desconhecido'), "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Erro de conexão ao buscar pipeline.");
+            showToast("Erro de conexão ao buscar pipeline.", "error");
         }
     }
 
@@ -467,7 +467,7 @@
             const res = await fetch(`${API_URL}/faturamento/${id}`);
             const data = await res.json();
             if (!data.success) {
-                alert("Erro ao carregar detalhes: " + data.message);
+                showToast("Erro ao carregar detalhes: " + (data.message || data.error), "error");
                 return;
             }
 
@@ -537,7 +537,7 @@
             document.getElementById("detail-modal").classList.add("open");
         } catch (e) {
             console.error(e);
-            alert("Erro ao conectar com o servidor.");
+            showToast("Erro ao conectar com o servidor.", "error");
         }
     }
 
