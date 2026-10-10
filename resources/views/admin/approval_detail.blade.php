@@ -269,6 +269,8 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
 
         // Bind Titles
         document.getElementById("header-quote-number").innerText = quote.numero;
+        const pageTitleEl = document.querySelector(".page-title");
+        if (pageTitleEl) pageTitleEl.setAttribute("title", "Análise da Cotação #" + quote.numero);
         const priorityBadge = document.getElementById("header-priority");
         if (priorityBadge) {
             if (quote.prioridade) {

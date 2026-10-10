@@ -384,7 +384,7 @@
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         <span>Voltar</span>
                     </button>
-                    <h2 class="page-title" style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;" title="@yield('page_title', 'Painel Geral')">@yield('page_title', 'Painel Geral')</h2>
+                    <h2 class="page-title" style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;" title="{{ trim(preg_replace('/\s+/', ' ', strip_tags($__env->yieldContent('page_title', 'Painel Geral')))) }}">@yield('page_title', 'Painel Geral')</h2>
                 </div>
                 
                 <!-- Global Search Box -->

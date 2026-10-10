@@ -319,6 +319,8 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
 
         // Bind headers
         document.getElementById("header-quote-number").innerText = quote.numero;
+        const pageTitleEl = document.querySelector(".page-title");
+        if (pageTitleEl) pageTitleEl.setAttribute("title", "Conferência de Faturamento #" + quote.numero);
         document.getElementById("client-title").innerText = "Cliente: " + quote.parceiro.razao_social;
         document.getElementById("rep-subtitle").innerText = `Vendedor: ${quote.representante.nome} | Tipo Frete: ${quote.frete_tipo}`;
 
