@@ -1,5 +1,7 @@
 @extends(auth()->check() ? (auth()->user()->isRepresentante() ? 'layouts.representative' : 'layouts.app') : 'layouts.public')
 
+@section('page_title', isset($quote) ? 'Cotação ' . $quote->numero : 'Cotação Comercial')
+
 @section('styles')
 <style>
     /* Items Search and Filter Bar */
@@ -707,23 +709,6 @@
 @section('content')
 <div id="toast-container" class="toast-container"></div>
 <div id="representative-panel" style="display: none;">
-    <!-- Dynamic Authenticated User Top Navigation Bar -->
-    <div id="user-auth-bar" style="display: none; margin-bottom: 16px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155;">
-                <span id="logged-user-role-badge" style="background: #e0f2fe; color: #0284c7; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; text-transform: uppercase;">
-                    👤 <span id="logged-user-role">Usuário</span>
-                </span>
-                <span id="logged-user-name" style="font-weight: 600;">-</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <button type="button" onclick="goToHomeDashboard()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; padding: 8px 16px; border-radius: 8px; background: #2563eb; color: #ffffff; border: none; cursor: pointer; transition: all 0.2s ease;">
-                    <span>🏠</span> <span id="btn-home-label">Ir para o Meu Painel</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Title and Stepper Row -->
     <div style="margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
@@ -788,7 +773,7 @@
     <div class="compact-client-strip" style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px;">
-                <span style="font-size: 16px;">🏢</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" style="flex-shrink:0;"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9h1M9 13h1M9 17h1M15 13h1M15 17h1"/></svg>
                 <strong id="client-name" style="color: var(--color-text); font-size: 14.5px;">...</strong>
                 <span style="color: #94a3b8;">·</span>
                 <span id="client-cnpj" style="color: var(--color-text-muted);">CNPJ: ...</span>
@@ -906,7 +891,7 @@
     <div class="card" style="margin-bottom: 16px; padding: 0; overflow: hidden; border: 1px solid var(--color-border);">
         <div onclick="toggleConditionsAccordion()" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #f8fafc; transition: background 0.2s ease;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <span style="font-size: 16px;">📋</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" style="flex-shrink:0;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
                 <span id="conditions-summary-badge" style="font-size: 13px; font-weight: 600; color: #334155;">
                     Condições & Observações
                 </span>
@@ -1008,7 +993,7 @@
     <div class="card" style="margin-bottom: 24px; padding: 18px; border: 1px solid var(--color-border); border-radius: 12px; background: #ffffff; box-shadow: var(--shadow-sm);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
             <h3 style="font-size: 15px; margin: 0; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                <span>📜</span> Trilha de Auditoria &amp; Histórico
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Trilha de Auditoria &amp; Histórico
             </h3>
             <span style="font-size: 11.5px; color: #64748b;">Registro de eventos e aprovações</span>
         </div>
@@ -1197,20 +1182,29 @@
             }
             quote = quoteData.data;
 
-            // 2. Fetch Products Catalog for addition using quote endpoint
-            try {
-                const prodRes = await fetch(`${QUOTE_BASE_URL}/produtos`);
-                if (prodRes.ok) {
-                    const prodData = await prodRes.json();
-                    if (prodData.success) {
-                        productsList = prodData.data;
-                    }
-                }
-            } catch (errProd) {
-                console.warn("Não foi possível carregar o catálogo de produtos:", errProd);
+            // Update Navbar and Tab Title dynamically
+            const pageTitleEl = document.querySelector(".page-title");
+            if (pageTitleEl) {
+                pageTitleEl.innerText = `Cotação ${quote.numero}`;
+                pageTitleEl.setAttribute("title", `Cotação ${quote.numero}`);
             }
+            document.title = `Zé Cotação — Cotação ${quote.numero}`;
 
+            // Render view immediately with quote details (Instant response, zero lag!)
             renderView();
+
+            // Background fetch products catalog for addition only if quote is editable
+            const editableStatuses = ['EM_CRIACAO', 'DEVOLVIDA'];
+            if (editableStatuses.includes(quote.status)) {
+                fetch(`${QUOTE_BASE_URL}/produtos?limit=50`)
+                    .then(res => res.json())
+                    .then(prodData => {
+                        if (prodData && prodData.success) {
+                            productsList = prodData.data;
+                        }
+                    })
+                    .catch(errProd => console.warn("Background produtos:", errProd));
+            }
         } catch (e) {
             console.error("Erro em loadData:", e);
             showToast("Falha na conexão com o servidor: " + (e.message || "Erro de rede"), 'error');
@@ -1594,7 +1588,16 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     <span>Liberar Faturamento</span>
                 `;
-            } else if (['FINALIZADA_COM_PEDIDO', 'FATURADA'].includes(quote.status)) {
+            } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
+                primaryBtn.style.background = "#fef3c7";
+                primaryBtn.style.color = "#92400e";
+                primaryBtn.disabled = true;
+                primaryBtn.style.cursor = "default";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Aguardando conferência do faturamento</span>
+                `;
+            } else if (quote.status === 'FATURADA') {
                 primaryBtn.style.background = "#dcfce7";
                 primaryBtn.style.color = "#15803d";
                 primaryBtn.disabled = true;
@@ -1765,10 +1768,10 @@
                 } else if (Math.abs(propPrice - sugPrice) < 0.005) {
                     priceTagHtml = `<span class="badge-price-tag tag-table">Preço de tabela</span>`;
                 } else if (propPrice < sugPrice) {
-                    const perc = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100).toFixed(1) : '0';
+                    const perc = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100).toFixed(1).replace('.', ',') : '0';
                     priceTagHtml = `<span class="badge-price-tag tag-discount">−${perc}%</span>`;
                 } else {
-                    const perc = sugPrice > 0 ? (((propPrice - sugPrice) / sugPrice) * 100).toFixed(1) : '0';
+                    const perc = sugPrice > 0 ? (((propPrice - sugPrice) / sugPrice) * 100).toFixed(1).replace('.', ',') : '0';
                     priceTagHtml = `<span class="badge-price-tag tag-above">+${perc}%</span>`;
                 }
 
@@ -1791,26 +1794,38 @@
                             </div>
                         </div>
 
-                        <!-- LINHA 2: quantidade (–/+) à esquerda e preço proposto com inputmode="decimal" à direita -->
+                        <!-- LINHA 2: quantidade (–/+) à esquerda e preço proposto à direita -->
                         <div class="item-line-2">
-                            <div class="qty-stepper">
-                                ${!isItemLocked ? `<button type="button" class="qty-btn" onclick="stepQty(${item.id}, -1)">–</button>` : ''}
-                                <input type="number" class="qty-input" value="${item.qtd}" min="1" inputmode="numeric"
-                                    ${isItemLocked ? 'disabled' : ''} 
-                                    oninput="updateItemCalculations(${item.id}, this.value, null)">
-                                ${!isItemLocked ? `<button type="button" class="qty-btn" onclick="stepQty(${item.id}, 1)">+</button>` : ''}
-                            </div>
+                            ${!isItemLocked ? `
+                                <div class="qty-stepper">
+                                    <button type="button" class="qty-btn" onclick="stepQty(${item.id}, -1)">–</button>
+                                    <input type="number" class="qty-input" value="${item.qtd}" min="1" inputmode="numeric"
+                                        oninput="updateItemCalculations(${item.id}, this.value, null)">
+                                    <button type="button" class="qty-btn" onclick="stepQty(${item.id}, 1)">+</button>
+                                </div>
+                            ` : `
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Qtd:</span>
+                                    <span style="font-weight:700; font-size:13.5px; color:#1e293b; padding:4px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">${item.qtd} un</span>
+                                </div>
+                            `}
 
-                            <div class="item-price-proposto-wrap">
-                                <span class="price-currency">R$</span>
-                                <input type="number" class="price-input ${isBelowMin ? 'price-below-min' : ''}" 
-                                    value="${propPrice.toFixed(2)}" step="0.01" min="0.01" inputmode="decimal"
-                                    ${isItemLocked ? 'disabled' : ''} 
-                                    oninput="updateItemCalculations(${item.id}, null, this.value)">
-                                ${!isItemLocked && isBelowMin ? `
-                                    <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; font-weight:700; color:#dc2626; border-color:#fca5a5; background:#fff1f2; border-radius:6px;" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>
-                                ` : ''}
-                            </div>
+                            ${!isItemLocked ? `
+                                <div class="item-price-proposto-wrap">
+                                    <span class="price-currency">R$</span>
+                                    <input type="number" class="price-input ${isBelowMin ? 'price-below-min' : ''}" 
+                                        value="${propPrice.toFixed(2)}" step="0.01" min="0.01" inputmode="decimal"
+                                        oninput="updateItemCalculations(${item.id}, null, this.value)">
+                                    ${isBelowMin ? `
+                                        <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; font-weight:700; color:#dc2626; border-color:#fca5a5; background:#fff1f2; border-radius:6px;" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>
+                                    ` : ''}
+                                </div>
+                            ` : `
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Preço:</span>
+                                    <span style="font-weight:700; font-size:14px; color:#0f172a; padding:4px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">R$ ${propPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                </div>
+                            `}
                         </div>
 
                         <!-- LINHA 3: Sug. R$ X · Mín. R$ Y e selo à direita -->

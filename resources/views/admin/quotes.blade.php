@@ -453,6 +453,11 @@
         background: #d1fae5;
         color: #047857;
     }
+    .badge-status-mockup.finalizada-com-pedido,
+    .badge-status-mockup.pedido-registrado {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
     .badge-status-mockup.perdida,
     .badge-status-mockup.recusada {
         background: #fee2e2;
@@ -1344,6 +1349,10 @@
                     break;
                 case 'FATURADA':
                     statusText = 'Pedido faturado';
+                    break;
+                case 'FINALIZADA_COM_PEDIDO':
+                    statusText = 'Pedido registrado';
+                    subText = 'Aguardando faturamento';
                     break;
                 case 'PERDIDA':
                     statusText = 'Perdida';

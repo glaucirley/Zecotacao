@@ -8,11 +8,15 @@
     <div style="display: flex; align-items: center; gap: 12px;">
         <span style="font-size: 22px;">⚠️</span>
         <div>
-            <div style="font-weight: 700; color: #92400e; font-size: 13.5px;">Atenção: 64 produtos com preço padrão (R$ 100,00) ou sem tabela cadastrada</div>
+            <div style="font-weight: 700; color: #92400e; font-size: 13.5px;">Atenção: produtos com preço padrão (R$ 100,00) ou sem tabela cadastrada</div>
             <div style="font-size: 12px; color: #b45309; margin-top: 2px;">Itens sem preço de tabela ativo no ERP estão automaticamente bloqueados para novas cotações por segurança.</div>
         </div>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" onclick="filterProblemProducts()" style="background: #92400e; color: #ffffff; border: none; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: background 0.15s ease;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Ver quais são
+        </button>
         <span style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 700;">
             Sincronizado Sankhya
         </span>
@@ -38,11 +42,12 @@
         <div style="flex-grow: 1; min-width: 250px;">
             <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por código Sankhya, descrição do produto, marca ou NCM..." onkeyup="filterProductsDebounced()">
         </div>
-        <div style="width: 160px;">
+        <div style="width: 220px;">
             <select id="status-filter-select" class="form-control" onchange="loadProducts()">
                 <option value="">Status: Todos</option>
                 <option value="ativo">Ativos</option>
                 <option value="inativo">Inativos</option>
+                <option value="problema">⚠️ Com inconsistência de preço / cadastro</option>
             </select>
         </div>
         <div style="width: 100%; font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">
@@ -138,6 +143,14 @@
         searchTimer = setTimeout(() => {
             loadProducts();
         }, 300);
+    }
+
+    function filterProblemProducts() {
+        const sel = document.getElementById("status-filter-select");
+        if (sel) {
+            sel.value = "problema";
+            loadProducts();
+        }
     }
 
     async function loadProducts() {

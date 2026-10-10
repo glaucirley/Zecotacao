@@ -392,14 +392,14 @@ class DashboardController extends Controller
         }
         $pendingApprovals = $approvalQuery->count();
 
-        // 2. Billing orders to check
+        // 2. Billing orders to check (matches exactly the destination screen /faturamento)
         $billingQuery = Cotacao::where(function($q) {
-            $q->where('status', 'FINALIZADA_COM_PEDIDO')
-              ->orWhere(function($sub) {
-                  $sub->whereNotNull('numero_pedido_externo')
-                      ->where('status', '!=', 'FATURADA');
+            $q->whereIn('status', ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO'])
+              ->orWhereHas('pedidoExterno', function($sub) {
+                  $sub->where('status_conferencia', '!=', 'conforme');
               });
-        });
+        })->where('status', '!=', 'FATURADA');
+
         if ($user->isRepresentante()) {
             $billingQuery->where('representante_id', $user->id);
         }
@@ -419,8 +419,19 @@ class DashboardController extends Controller
         }
         $expiringToday = $expiringQuery->count();
 
-        // 4. Catalog & user health
-        $productsWithoutPrice = \App\Models\Produto::whereDoesntHave('tabelasPreco')->count();
+        // 4. Catalog & user health (matches product quality alert)
+        $productsWithoutPrice = \App\Models\Produto::where(function($q) {
+            $q->whereDoesntHave('precos')
+              ->orWhereHas('precos', function($p) {
+                  $p->where('preco_venda', '<=', 0)
+                    ->orWhere('preco_venda', 100.00);
+              })
+              ->orWhere('descricao', '^')
+              ->orWhere('codigo_sankhya', '0')
+              ->orWhere('codigo_sankhya', '')
+              ->orWhereNull('codigo_sankhya');
+        })->count();
+
         $usersWithoutTeam = User::where('ativo', true)->where('papel', 'REPRESENTANTE')->whereNull('equipe_id')->count();
 
         return response()->json([

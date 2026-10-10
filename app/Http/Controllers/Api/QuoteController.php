@@ -1151,16 +1151,41 @@ class QuoteController extends Controller
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
         $rawProducts = $query->take(200)->get();
 
+        $prodIds = $rawProducts->pluck('id')->filter()->all();
+        $prodCodes = $rawProducts->pluck('codigo_sankhya')->filter()->all();
+
+        $priceItems = \App\Models\TabelaPrecoItem::where(function($q) use ($prodIds, $prodCodes) {
+            if (!empty($prodIds)) {
+                $q->whereIn('produto_id', $prodIds);
+            }
+            if (!empty($prodCodes)) {
+                $q->orWhereIn('codigo_sankhya_produto', $prodCodes);
+            }
+        })->get();
+
+        $priceByProdId = [];
+        $priceByCode = [];
+        foreach ($priceItems as $pi) {
+            if ($pi->produto_id && !isset($priceByProdId[$pi->produto_id])) {
+                $priceByProdId[$pi->produto_id] = $pi;
+            }
+            if ($pi->codigo_sankhya_produto && !isset($priceByCode[$pi->codigo_sankhya_produto])) {
+                $priceByCode[$pi->codigo_sankhya_produto] = $pi;
+            }
+        }
+
         $processed = [];
         foreach ($rawProducts as $p) {
             $desc = trim($p->descricao ?? '');
             $cod = trim($p->codigo_sankhya ?? '');
-            if ($cod === '0' || $cod === '' || $desc === '^' || $desc === '' || strlen($desc) < 2) {
+            if ($cod === '0' || $cod === '' || $cod === '^' || $desc === '^' || $desc === '' || strlen($desc) < 2 || str_starts_with($desc, '^') || str_starts_with(strtolower($desc), '<sem')) {
                 continue;
             }
 
-            $priceItem = \App\Models\TabelaPrecoItem::where('produto_id', $p->id)->first()
-                      ?? \App\Models\TabelaPrecoItem::where('codigo_sankhya_produto', $p->codigo_sankhya)->first();
+            // Normalize encoding
+            $p->descricao = str_ireplace(['descric?o', 'descrio'], 'descrição', $p->descricao);
+
+            $priceItem = $priceByProdId[$p->id] ?? ($priceByCode[$p->codigo_sankhya] ?? null);
             
             if ($priceItem && (float)$priceItem->preco_venda > 0) {
                 $p->preco_sugerido = round((float)$priceItem->preco_venda, 2);

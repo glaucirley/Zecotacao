@@ -44,4 +44,14 @@ class Produto extends Model
     {
         return $this->hasMany(CotacaoItem::class, 'produto_id');
     }
+
+    public function precos()
+    {
+        return $this->hasMany(TabelaPrecoItem::class, 'produto_id');
+    }
+
+    public function tabelasPreco()
+    {
+        return $this->hasMany(TabelaPrecoItem::class, 'produto_id');
+    }
 }

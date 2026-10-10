@@ -23,8 +23,23 @@ class UserController extends Controller
             return response()->json(['error' => 'Forbidden. Only administrators can manage users.'], 403);
         }
 
+        // Ensure every gestor has an Equipe linked to them so they appear in Visão por Equipes
+        $gestores = User::where('papel', 'GESTOR')->get();
+        foreach ($gestores as $g) {
+            $hasTeam = Equipe::where('gestor_id', $g->id)->exists();
+            if (!$hasTeam) {
+                $team = Equipe::create([
+                    'nome' => 'Equipe ' . $g->nome,
+                    'gestor_id' => $g->id,
+                ]);
+                if (!$g->equipe_id) {
+                    $g->update(['equipe_id' => $team->id]);
+                }
+            }
+        }
+
         $users = User::with('equipe')->orderBy('nome')->get();
-        $teams = Equipe::orderBy('nome')->get();
+        $teams = Equipe::with('gestor')->orderBy('nome')->get();
 
         return response()->json([
             'success' => true,
@@ -33,6 +48,44 @@ class UserController extends Controller
                 'teams' => $teams
             ]
         ]);
+    }
+
+    /**
+     * Create a new team.
+     */
+    public function storeTeam(Request $request)
+    {
+        $currentUser = Auth::user();
+        if (!$currentUser->isAdministrador()) {
+            return response()->json(['error' => 'Forbidden. Only administrators can create teams.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'nome' => 'required|string|max:255',
+            'gestor_id' => 'nullable|exists:usuarios,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
+        }
+
+        $team = Equipe::create([
+            'nome' => $request->nome,
+            'gestor_id' => $request->gestor_id
+        ]);
+
+        if ($request->filled('gestor_id')) {
+            $gestor = User::find($request->gestor_id);
+            if ($gestor && !$gestor->equipe_id) {
+                $gestor->update(['equipe_id' => $team->id]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Equipe criada com sucesso.',
+            'data' => $team->load('gestor')
+        ], 201);
     }
 
     /**

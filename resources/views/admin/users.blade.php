@@ -110,7 +110,12 @@
             <span>💡</span>
             <span><strong>Hierarquia de Vendas:</strong> Cada equipe tem seu Gestor no topo e seus Representantes vinculados. Arraste e solte representantes entre as colunas para reatribuir equipes em tempo real.</span>
         </div>
-        <span style="font-size:11px; background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700;">Drag &amp; Drop Ativo</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="btn btn-primary" onclick="openCreateTeamModal()" style="font-size:12.5px; padding: 6px 14px; font-weight:700;">
+                + Nova Equipe
+            </button>
+            <span style="font-size:11px; background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700;">Drag &amp; Drop Ativo</span>
+        </div>
     </div>
 
     <div id="teams-grid-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: flex-start;">
@@ -228,6 +233,30 @@
             <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
                 <button type="button" class="btn btn-outline" onclick="closeUserModal()">Cancelar</button>
                 <button type="submit" class="btn btn-primary">Salvar Usuário</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Create Team Modal Dialog -->
+<div id="team-modal-overlay" class="app-modal-overlay" onclick="closeTeamModal()">
+    <div class="app-modal-box" onclick="event.stopPropagation()" style="max-width: 480px;">
+        <h3 class="app-modal-title" style="margin-top:0; color:#0f172a;">Cadastrar Nova Equipe</h3>
+        <p style="font-size:13px; color:#64748b; margin-bottom:16px;">Crie uma equipe de vendas e vincule ao gestor responsável para o fluxo de aprovação.</p>
+        <form id="team-form" onsubmit="saveTeam(event)">
+            <div class="form-group" style="margin-bottom:14px;">
+                <label class="form-label" for="team-nome-input">Nome da Equipe</label>
+                <input type="text" id="team-nome-input" class="form-control" required placeholder="Ex: Equipe Vendas Centro-Oeste">
+            </div>
+            <div class="form-group" style="margin-bottom:18px;">
+                <label class="form-label" for="team-gestor-select">Gestor Responsável</label>
+                <select id="team-gestor-select" class="form-control">
+                    <option value="">Selecione um gestor...</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-outline" onclick="closeTeamModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="font-weight:700;">Criar Equipe</button>
             </div>
         </form>
     </div>
@@ -462,7 +491,10 @@
                     <span style="font-size:11px; background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:999px; font-weight:700;">${orphanReps.length}</span>
                 </div>
                 <div style="padding:12px 16px; display:flex; flex-direction:column; gap:8px;">
-                    ${orphanReps.map(r => `
+                    ${orphanReps.map(r => {
+                        const rNameEscaped = escapeHtml(r.nome || 'Sem Nome');
+                        const rSubEscaped = escapeHtml(r.codigo_sankhya ? 'Cód: ' + r.codigo_sankhya : (r.email || '-'));
+                        return `
                         <div class="rep-card-draggable" 
                              draggable="true" 
                              ondragstart="dragUser(event, ${r.id})"
@@ -470,13 +502,14 @@
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <span style="color:#94a3b8; font-size:13px;">⠿</span>
                                 <div>
-                                    <div style="font-size:12.5px; font-weight:600; color:#1e293b;">${r.nome}</div>
-                                    <div style="font-size:10.5px; color:#64748b;">${r.email}</div>
+                                    <div style="font-size:12.5px; font-weight:600; color:#1e293b;" title="${rNameEscaped}">${rNameEscaped}</div>
+                                    <div style="font-size:10.5px; color:#64748b;">${rSubEscaped}</div>
                                 </div>
                             </div>
                             <span style="font-size:10.5px; color:#ea580c; font-weight:600;">Arraste p/ equipe</span>
                         </div>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
             `;
             grid.appendChild(orphanCard);
@@ -794,6 +827,64 @@
                 }
             }
         });
+    }
+
+    function openCreateTeamModal() {
+        document.getElementById("team-form").reset();
+        const gestorSelect = document.getElementById("team-gestor-select");
+        if (gestorSelect) {
+            gestorSelect.innerHTML = '<option value="">Sem gestor atribuído no momento</option>';
+            const gestores = usersList.filter(u => u.papel === 'gestor');
+            gestores.forEach(g => {
+                gestorSelect.innerHTML += `<option value="${g.id}">${escapeHtml(g.nome)} (${escapeHtml(g.email)})</option>`;
+            });
+        }
+        const overlay = document.getElementById("team-modal-overlay");
+        if (overlay) {
+            overlay.classList.add("open");
+            overlay.style.display = "flex";
+        }
+    }
+
+    function closeTeamModal() {
+        const overlay = document.getElementById("team-modal-overlay");
+        if (overlay) {
+            overlay.classList.remove("open");
+            overlay.style.display = "none";
+        }
+    }
+
+    async function saveTeam(e) {
+        e.preventDefault();
+        const nome = document.getElementById("team-nome-input").value.trim();
+        const gestorId = document.getElementById("team-gestor-select").value || null;
+        if (!nome) return;
+
+        try {
+            const res = await fetch(`${API_URL}/equipes`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ nome, gestor_id: gestorId })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast("Equipe criada com sucesso!", "success");
+                closeTeamModal();
+                loadData();
+            } else {
+                let msg = data.message || "Erro ao salvar equipe.";
+                if (data.messages) {
+                    msg = Object.values(data.messages).flat().join(". ");
+                }
+                showToast("Erro ao criar equipe: " + msg, "error");
+            }
+        } catch (err) {
+            showToast("Erro de conexão ao salvar equipe.", "error");
+        }
     }
 </script>
 @endsection

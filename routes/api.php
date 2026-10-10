@@ -84,6 +84,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/usuarios', [UserController::class, 'store']);
             Route::patch('/usuarios/{id}', [UserController::class, 'update']);
             Route::delete('/usuarios/{id}', [UserController::class, 'destroy']);
+            Route::post('/equipes', [UserController::class, 'storeTeam']);
 
             // 13. Representative Check-in Routes
             Route::post('/checkin', [\App\Http\Controllers\Api\CheckinController::class, 'store']);

@@ -47,12 +47,40 @@ class ProductController extends Controller
                 $query->where('ativo', true);
             } elseif ($st === 'inativo') {
                 $query->where('ativo', false);
+            } elseif ($st === 'problema') {
+                $query->where(function($q) {
+                    $q->whereDoesntHave('precos')
+                      ->orWhereHas('precos', function($p) {
+                          $p->where('preco_venda', '<=', 0)
+                            ->orWhere('preco_venda', 100.00);
+                      })
+                      ->orWhere('descricao', '^')
+                      ->orWhere('codigo_sankhya', '0')
+                      ->orWhere('codigo_sankhya', '')
+                      ->orWhereNull('codigo_sankhya')
+                      ->orWhere('descricao', 'like', '%descric?o%')
+                      ->orWhere('descricao', 'like', '^%')
+                      ->orWhere('descricao', 'like', '<sem%');
+                });
             }
         }
 
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
 
-        $products = $query->orderBy('descricao')->take($limit)->get();
+        $products = $query->orderByRaw("
+            CASE 
+                WHEN codigo_sankhya = '0' OR codigo_sankhya = '^' THEN 2
+                WHEN descricao LIKE '^%' OR descricao LIKE '<%' OR descricao = '' OR descricao IS NULL THEN 2
+                ELSE 1
+            END ASC
+        ")->orderBy('descricao')->take($limit)->get();
+
+        $products->transform(function ($p) {
+            if ($p->descricao) {
+                $p->descricao = str_ireplace(['descric?o', 'descrio'], 'descrição', $p->descricao);
+            }
+            return $p;
+        });
 
         return response()->json([
             'success' => true,
