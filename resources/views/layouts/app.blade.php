@@ -566,14 +566,24 @@
 
         const globalSearchInput = document.getElementById('global-search-input');
         if (globalSearchInput) {
+            globalSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const firstResult = document.querySelector('#global-search-results .search-result-item');
+                    if (firstResult) {
+                        e.preventDefault();
+                        firstResult.click();
+                    }
+                }
+            });
+
             globalSearchInput.addEventListener('input', (e) => {
                 clearTimeout(searchDebounceTimer);
                 const q = e.target.value.trim();
                 const container = document.getElementById('global-search-results');
-                if (q.length < 2) {
+                if (q.length < 1) {
                     container.innerHTML = `
                         <div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;">
-                            Digite ao menos 2 caracteres para pesquisar...
+                            Digite número da cotação, cliente, pedido ou CNPJ...
                         </div>
                     `;
                     return;
@@ -587,15 +597,26 @@
 
                 searchDebounceTimer = setTimeout(async () => {
                     try {
-                        const res = await fetch(`/api/v1/dashboard/search?q=${encodeURIComponent(q)}`);
+                        const res = await fetch(`{{ url('/api/v1/dashboard/search') }}?q=${encodeURIComponent(q)}`);
                         const data = await res.json();
                         if (data.success && data.results && data.results.length > 0) {
-                            container.innerHTML = data.results.map(r => `
-                                <a href="${r.url}" class="search-result-item" onclick="closeGlobalSearch()">
-                                    <div class="search-result-title">${r.title}</div>
-                                    <div class="search-result-sub">${r.subtitle}</div>
-                                </a>
-                            `).join('');
+                            const badgeColors = {
+                                cotacao: { bg: '#e0f2fe', color: '#0369a1', text: 'Cotação' },
+                                cliente: { bg: '#dcfce7', color: '#15803d', text: 'Cliente' },
+                                produto: { bg: '#fef3c7', color: '#b45309', text: 'Produto' }
+                            };
+                            container.innerHTML = data.results.map(r => {
+                                const b = badgeColors[r.type] || { bg: '#f1f5f9', color: '#475569', text: r.badge || r.type };
+                                return `
+                                    <a href="${r.url}" class="search-result-item" onclick="closeGlobalSearch()">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                            <div class="search-result-title">${escapeHtml(r.title)}</div>
+                                            <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: ${b.bg}; color: ${b.color}; flex-shrink: 0;">${b.text}</span>
+                                        </div>
+                                        <div class="search-result-sub">${escapeHtml(r.subtitle)}</div>
+                                    </a>
+                                `;
+                            }).join('');
                         } else {
                             container.innerHTML = `
                                 <div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 13px;">
@@ -610,7 +631,7 @@
                             </div>
                         `;
                     }
-                }, 250);
+                }, 200);
             });
         }
 
@@ -703,7 +724,7 @@
         // Load sidebar queue badges dynamically
         async function updateSidebarQueueBadges() {
             try {
-                const res = await fetch('/api/v1/dashboard/queue');
+                const res = await fetch('{{ url('/api/v1/dashboard/queue') }}');
                 const json = await res.json();
                 if (json.success && json.data) {
                     const appBadge = document.getElementById('sidebar-badge-approvals');

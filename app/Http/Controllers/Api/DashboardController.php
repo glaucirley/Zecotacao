@@ -438,51 +438,106 @@ class DashboardController extends Controller
     }
 
     /**
-     * Fast global search across quotations and partners for Ctrl+K modal.
+     * Fast global search across quotations, partners and products for Ctrl+K modal.
      */
     public function globalSearch(Request $request)
     {
         $q = trim($request->input('q', ''));
-        if (strlen($q) < 2) {
+        if (strlen($q) < 1) {
             return response()->json(['success' => true, 'results' => []]);
         }
 
         $results = [];
 
-        // Search quotes
-        $quotes = Cotacao::where('numero', 'like', "%{$q}%")
-            ->orWhere('numero_pedido_externo', 'like', "%{$q}%")
-            ->orWhereHas('parceiro', function($p) use ($q) {
-                $p->where('razao_social', 'like', "%{$q}%")
-                  ->orWhere('cnpj_cpf', 'like', "%{$q}%");
+        // 1. Search quotes
+        $quotes = Cotacao::where(function($query) use ($q) {
+                $query->where('numero', 'like', "%{$q}%");
+                if (is_numeric($q)) {
+                    $query->orWhere('id', (int)$q);
+                }
+                $query->orWhereHas('pedidoExterno', function($p) use ($q) {
+                    $p->where('numero_pedido_externo', 'like', "%{$q}%");
+                })
+                ->orWhereHas('parceiro', function($p) use ($q) {
+                    $p->where('razao_social', 'like', "%{$q}%")
+                      ->orWhere('nome_fantasia', 'like', "%{$q}%")
+                      ->orWhere('cnpj', 'like', "%{$q}%");
+                })
+                ->orWhereHas('representante', function($r) use ($q) {
+                    $r->where('nome', 'like', "%{$q}%");
+                });
             })
-            ->with('parceiro')
-            ->limit(5)
+            ->with(['parceiro', 'pedidoExterno', 'representante'])
+            ->orderByDesc('id')
+            ->limit(6)
             ->get();
 
         foreach ($quotes as $quote) {
+            $orderNum = $quote->pedidoExterno ? $quote->pedidoExterno->numero_pedido_externo : null;
+            $clientName = $quote->parceiro ? ($quote->parceiro->nome_fantasia ?: $quote->parceiro->razao_social) : 'Cliente não informado';
+            $repName = $quote->representante ? $quote->representante->nome : null;
+
+            $subtitleParts = [];
+            $subtitleParts[] = 'Status: ' . $quote->status;
+            $subtitleParts[] = 'Total: R$ ' . number_format($quote->total, 2, ',', '.');
+            if ($repName) $subtitleParts[] = 'Vendedor: ' . $repName;
+            if ($orderNum) $subtitleParts[] = 'Pedido: ' . $orderNum;
+
             $results[] = [
                 'type' => 'cotacao',
-                'title' => $quote->numero . ' — ' . ($quote->parceiro->razao_social ?? 'Cliente não identificado'),
-                'subtitle' => 'Status: ' . $quote->status . ' · Total: R$ ' . number_format($quote->total, 2, ',', '.') . ($quote->numero_pedido_externo ? ' · Pedido: ' . $quote->numero_pedido_externo : ''),
+                'badge' => 'Cotação',
+                'title' => $quote->numero . ' — ' . $clientName,
+                'subtitle' => implode(' · ', $subtitleParts),
                 'url' => url('/cotacoes/id/' . $quote->id)
             ];
         }
 
-        // Search partners
-        $partners = \App\Models\Parceiro::where('razao_social', 'like', "%{$q}%")
-            ->orWhere('nome_fantasia', 'like', "%{$q}%")
-            ->orWhere('cnpj_cpf', 'like', "%{$q}%")
-            ->orWhere('codigo_sankhya', 'like', "%{$q}%")
+        // 2. Search partners (Clients)
+        $partners = \App\Models\Parceiro::where(function($query) use ($q) {
+                $query->where('razao_social', 'like', "%{$q}%")
+                      ->orWhere('nome_fantasia', 'like', "%{$q}%")
+                      ->orWhere('cnpj', 'like', "%{$q}%")
+                      ->orWhere('codigo_sankhya', 'like', "%{$q}%");
+            })
             ->limit(5)
             ->get();
 
         foreach ($partners as $partner) {
+            $name = $partner->nome_fantasia ?: $partner->razao_social;
+            $doc = $partner->cnpj ?: 'S/N';
+            $code = $partner->codigo_sankhya ?: '-';
+            $cityState = trim(($partner->cidade ?: '') . ($partner->uf ? '/' . $partner->uf : ''));
+
+            $subtitleParts = [];
+            $subtitleParts[] = 'Cód: ' . $code;
+            $subtitleParts[] = 'CNPJ: ' . $doc;
+            if ($cityState) $subtitleParts[] = $cityState;
+
             $results[] = [
                 'type' => 'cliente',
-                'title' => $partner->razao_social,
-                'subtitle' => 'Doc: ' . ($partner->cnpj_cpf ?: 'S/N') . ' · Cód: ' . ($partner->codigo_sankhya ?: '-') . ' · ' . ($partner->cidade ?: '') . '/' . ($partner->uf ?: ''),
+                'badge' => 'Cliente',
+                'title' => $name . ($partner->nome_fantasia && $partner->razao_social !== $partner->nome_fantasia ? " ({$partner->razao_social})" : ''),
+                'subtitle' => implode(' · ', $subtitleParts),
                 'url' => url('/cotacoes?q=' . urlencode($partner->razao_social))
+            ];
+        }
+
+        // 3. Search Products
+        $products = \App\Models\Produto::where(function($query) use ($q) {
+                $query->where('descricao', 'like', "%{$q}%")
+                      ->orWhere('codigo_sankhya', 'like', "%{$q}%")
+                      ->orWhere('marca', 'like', "%{$q}%");
+            })
+            ->limit(5)
+            ->get();
+
+        foreach ($products as $product) {
+            $results[] = [
+                'type' => 'produto',
+                'badge' => 'Produto',
+                'title' => $product->descricao,
+                'subtitle' => 'Cód: ' . ($product->codigo_sankhya ?: '-') . ($product->marca ? ' · Marca: ' . $product->marca : '') . ($product->unidade ? ' · ' . $product->unidade : ''),
+                'url' => url('/produtos?q=' . urlencode($product->descricao))
             ];
         }
 
