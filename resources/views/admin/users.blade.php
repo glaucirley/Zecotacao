@@ -51,11 +51,13 @@
 
 <!-- View Mode Switcher (Point 7) -->
 <div style="display:flex; gap:8px; margin-bottom:16px;">
-    <button type="button" class="btn" id="view-tab-table" onclick="switchUsersView('table')" style="background:#2563eb; color:#ffffff; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; border:none; cursor:pointer;">
-        📋 Lista de Colaboradores
+    <button type="button" class="btn" id="view-tab-table" onclick="switchUsersView('table')" style="background:#2563eb; color:#ffffff; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; border:none; cursor:pointer; display:flex; align-items:center; gap:6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        Lista de Colaboradores
     </button>
-    <button type="button" class="btn" id="view-tab-teams" onclick="switchUsersView('teams')" style="background:#ffffff; color:#475569; border:1px solid #e2e8f0; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer;">
-        👥 Visão por Equipes (Gestores &amp; Representantes)
+    <button type="button" class="btn" id="view-tab-teams" onclick="switchUsersView('teams')" style="background:#ffffff; color:#475569; border:1px solid #e2e8f0; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        Visão por Equipes (Gestores &amp; Representantes)
     </button>
 </div>
 
@@ -301,6 +303,16 @@
         }
     }
 
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function renderUsers(list = usersList) {
         const body = document.getElementById("users-table-body");
         const countInfo = document.getElementById("users-count-info");
@@ -323,7 +335,7 @@
             const activeText = u.ativo ? "Ativo" : "Inativo";
             
             // Format Role
-            let roleLabel = u.papel.toUpperCase();
+            let roleLabel = (u.papel || '').toUpperCase();
             if (u.papel === 'representante') roleLabel = "REPRESENTANTE";
             else if (u.papel === 'gestor') roleLabel = "GESTOR DE EQUIPE";
             else if (u.papel === 'diretor') roleLabel = "DIRETOR";
@@ -334,15 +346,20 @@
             const toggleColor = u.ativo ? '#ef4444' : '#16a34a';
             const toggleText = u.ativo ? 'Inativar' : 'Ativar';
 
+            const nameEscaped = escapeHtml(u.nome || 'Sem Nome');
+            const emailEscaped = escapeHtml(u.email || '-');
+            const codeEscaped = escapeHtml(u.codigo_sankhya || '-');
+            const teamEscaped = escapeHtml(teamName);
+
             body.innerHTML += `
                 <tr>
                     <td>
-                        <strong>${u.nome}</strong><br>
-                        <span style="font-size:12px; color:var(--color-text-muted);">${u.email}</span>
+                        <strong>${nameEscaped}</strong><br>
+                        <span style="font-size:12px; color:var(--color-text-muted);">${emailEscaped}</span>
                     </td>
                     <td><span class="user-role-label" style="background-color: var(--color-primary-hover);">${roleLabel}</span></td>
-                    <td><strong>${u.codigo_sankhya || '-'}</strong></td>
-                    <td>${teamName}</td>
+                    <td><strong>${codeEscaped}</strong></td>
+                    <td>${teamEscaped}</td>
                     <td><strong>${limitText}</strong></td>
                     <td class="text-center">
                         <span style="display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:50px; ${activeClass}">
@@ -377,21 +394,26 @@
             card.style.cssText = "background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04); display:flex; flex-direction:column;";
             card.dataset.teamId = t.id;
 
+            const cleanManagerName = manager ? manager.nome.replace(/<[^>]*>/g, '').trim() : '';
+            const managerInitial = cleanManagerName ? cleanManagerName.charAt(0).toUpperCase() : '?';
+            const managerNameEscaped = manager ? escapeHtml(manager.nome) : 'Sem gestor vinculado';
+            const teamNameEscaped = escapeHtml(t.nome);
+
             card.innerHTML = `
                 <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="font-weight:700; font-size:14px; color:#0f172a;">${t.nome}</div>
+                    <div style="font-weight:700; font-size:14px; color:#0f172a;">${teamNameEscaped}</div>
                     <span style="font-size:11px; background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:999px; font-weight:700;">${reps.length} rep(s)</span>
                 </div>
 
                 <!-- Gestor da Equipe (No Topo) -->
                 <div style="padding:12px 16px; background:#f0fdf4; border-bottom:1px solid #bbf7d0; display:flex; align-items:center; gap:10px;">
                     <div style="width:32px; height:32px; border-radius:50%; background:#16a34a; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">
-                        ${manager ? manager.nome.charAt(0).toUpperCase() : '?'}
+                        ${managerInitial}
                     </div>
                     <div style="min-width:0; flex-grow:1;">
                         <div style="font-size:11px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.3px;">Gestor da Equipe</div>
-                        <div style="font-size:13px; font-weight:700; color:#166534; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                            ${manager ? manager.nome : 'Sem gestor vinculado'}
+                        <div style="font-size:13px; font-weight:700; color:#166534; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${managerNameEscaped}">
+                            ${managerNameEscaped}
                         </div>
                     </div>
                 </div>
@@ -403,7 +425,10 @@
                      ondrop="dropUser(event, ${t.id})" 
                      style="padding:12px 16px; min-height:140px; display:flex; flex-direction:column; gap:8px; flex-grow:1; background:#ffffff; transition:background 0.2s;">
                     ${reps.length === 0 ? '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:24px 8px; border:1px dashed #cbd5e1; border-radius:8px;">Arraste representantes para cá</div>' : ''}
-                    ${reps.map(r => `
+                    ${reps.map(r => {
+                        const rNameEscaped = escapeHtml(r.nome || 'Sem Nome');
+                        const rSubEscaped = escapeHtml(r.codigo_sankhya ? 'Cód: ' + r.codigo_sankhya : (r.email || '-'));
+                        return `
                         <div class="rep-card-draggable" 
                              draggable="true" 
                              ondragstart="dragUser(event, ${r.id})"
@@ -411,15 +436,16 @@
                             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                                 <span style="color:#94a3b8; font-size:13px;">⠿</span>
                                 <div style="min-width:0;">
-                                    <div style="font-size:12.5px; font-weight:600; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.nome}</div>
-                                    <div style="font-size:10.5px; color:#64748b;">${r.codigo_sankhya ? 'Cód: ' + r.codigo_sankhya : r.email}</div>
+                                    <div style="font-size:12.5px; font-weight:600; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${rNameEscaped}">${rNameEscaped}</div>
+                                    <div style="font-size:10.5px; color:#64748b;">${rSubEscaped}</div>
                                 </div>
                             </div>
                             <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; ${r.ativo ? 'background:#dcfce7; color:#15803d;' : 'background:#fee2e2; color:#dc2626;'}">
                                 ${r.ativo ? 'Ativo' : 'Inativo'}
                             </span>
                         </div>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
             `;
             grid.appendChild(card);

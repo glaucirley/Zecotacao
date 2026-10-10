@@ -1149,10 +1149,16 @@ class QuoteController extends Controller
         }
 
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
-        $products = $query->orderBy('descricao')->take($limit)->get();
+        $rawProducts = $query->take(200)->get();
 
-        // Attach price info from TabelaPrecoItem if present, or provide standard fallback
-        foreach ($products as $p) {
+        $processed = [];
+        foreach ($rawProducts as $p) {
+            $desc = trim($p->descricao ?? '');
+            $cod = trim($p->codigo_sankhya ?? '');
+            if ($cod === '0' || $cod === '' || $desc === '^' || $desc === '' || strlen($desc) < 2) {
+                continue;
+            }
+
             $priceItem = \App\Models\TabelaPrecoItem::where('produto_id', $p->id)->first()
                       ?? \App\Models\TabelaPrecoItem::where('codigo_sankhya_produto', $p->codigo_sankhya)->first();
             
@@ -1184,11 +1190,24 @@ class QuoteController extends Controller
             }
             $p->inconsistente = ($p->cotavel && $p->preco_sugerido > 0 && $p->preco_minimo > $p->preco_sugerido);
             $p->preco_minimo_efetivo = $p->inconsistente ? $p->preco_sugerido : $p->preco_minimo;
+            $processed[] = $p;
         }
+
+        // Sort: products with price and cotavel first, then alphabetically by description
+        usort($processed, function ($a, $b) {
+            $aScore = ($a->cotavel && $a->preco_sugerido > 0) ? 1 : 0;
+            $bScore = ($b->cotavel && $b->preco_sugerido > 0) ? 1 : 0;
+            if ($aScore !== $bScore) {
+                return $bScore <=> $aScore;
+            }
+            return strcasecmp($a->descricao, $b->descricao);
+        });
+
+        $products = array_slice($processed, 0, $limit);
 
         return response()->json([
             'success' => true,
-            'data' => $products
+            'data' => array_values($products)
         ]);
     }
 }

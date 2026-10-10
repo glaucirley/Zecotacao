@@ -299,8 +299,7 @@
                         <li>
                             <a href="{{ url('/aprovacoes') }}" class="sidebar-link {{ request()->is('aprovacoes*') ? 'active' : '' }}">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                <span class="sidebar-text">Aprovações</span>
-                                <span id="sidebar-badge-approvals" class="sidebar-badge" style="display:none;">0</span>
+                                <span class="sidebar-text">Aprovações<span id="sidebar-badge-approvals" style="font-weight:700; color:#60a5fa; margin-left:4px;"></span></span>
                             </a>
                         </li>
                     @endif
@@ -309,8 +308,7 @@
                         <li>
                             <a href="{{ url('/faturamento') }}" class="sidebar-link {{ request()->is('faturamento*') ? 'active' : '' }}">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 4v16"/><path d="M2 12h20"/></svg>
-                                <span class="sidebar-text">Faturamento</span>
-                                <span id="sidebar-badge-billing" class="sidebar-badge" style="display:none;">0</span>
+                                <span class="sidebar-text">Faturamento<span id="sidebar-badge-billing" style="font-weight:700; color:#34d399; margin-left:4px;"></span></span>
                             </a>
                         </li>
                     @endif
@@ -375,34 +373,34 @@
         <!-- Main Wrapper -->
         <div class="main-wrapper">
             <!-- Navbar -->
-            <header class="navbar">
-                <div style="display: flex; align-items: center; gap: 14px;">
+            <header class="navbar" style="gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; overflow: hidden;">
                     @if(auth()->check() && !auth()->user()->isRepresentante())
-                    <button type="button" id="sidebar-toggle" style="background: none; border: none; cursor: pointer; color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 8px; transition: var(--transition);" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-text-muted)'" onclick="toggleSidebar()">
+                    <button type="button" id="sidebar-toggle" style="background: none; border: none; cursor: pointer; color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 8px; flex-shrink: 0; transition: var(--transition);" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-text-muted)'" onclick="toggleSidebar()">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
                     @endif
-                    <button type="button" class="btn-go-back" onclick="appGoBack()" title="Voltar para a página anterior">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    <button type="button" class="btn-go-back" onclick="appGoBack()" title="Voltar para a página anterior" style="flex-shrink: 0;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                         <span>Voltar</span>
                     </button>
-                    <h2 class="page-title" style="margin: 0;">@yield('page_title', 'Painel Geral')</h2>
+                    <h2 class="page-title" style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;" title="@yield('page_title', 'Painel Geral')">@yield('page_title', 'Painel Geral')</h2>
                 </div>
                 
                 <!-- Global Search Box -->
                 @if(auth()->check() && !auth()->user()->isRepresentante())
-                <div style="flex-grow: 1; max-width: 380px; margin: 0 16px;">
+                <div style="flex: 1 1 240px; max-width: 320px; margin: 0 8px;">
                     <button type="button" class="btn-global-search" onclick="openGlobalSearch()" title="Pressione Ctrl+K para buscar">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <span>Buscar cotação, cliente, pedido...</span>
+                        <span>Buscar...</span>
                         <kbd>Ctrl+K</kbd>
                     </button>
                 </div>
                 @endif
 
-                <div class="user-profile-badge">
-                    <span style="font-weight: 500;">{{ auth()->user()->nome }}</span>
-                    <span class="user-role-label">{{ auth()->user()->papel }}</span>
+                <div class="user-profile-badge" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap;">
+                    <span style="font-weight: 600; font-size: 13.5px; color: #1e293b;">{{ explode(' ', trim(auth()->user()->nome))[0] }}</span>
+                    <span class="user-role-label" style="font-size: 11px; padding: 2px 8px; border-radius: 999px;">{{ ucfirst(auth()->user()->papel) }}</span>
                 </div>
             </header>
 

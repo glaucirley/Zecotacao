@@ -25,9 +25,12 @@
             <h3 style="margin: 0;">Catálogo de Produtos</h3>
             <span style="font-size: 11px; color: #16a34a; background: #dcfce7; border: 1px solid #86efac; padding: 2px 8px; border-radius: 12px; font-weight: 600;">Sincronizado via ERP</span>
         </div>
-        <button class="btn btn-primary" onclick="openCreateModal()" style="font-size:13px; padding: 8px 16px;">
-            + Novo Produto
-        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <a href="{{ url('/parametros') }}" class="btn btn-outline" style="font-size:12.5px; padding: 7px 14px; text-decoration:none; display:flex; align-items:center; gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                Sincronizar via ERP Sankhya
+            </a>
+        </div>
     </div>
 
     <!-- Filter Bar -->
@@ -170,6 +173,16 @@
         }
     }
 
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function renderProducts() {
         const body = document.getElementById("products-table-body");
         body.innerHTML = "";
@@ -190,15 +203,18 @@
             const statusText = p.ativo ? 'Ativo' : 'Inativo';
             const toggleActionText = p.ativo ? 'Inativar' : 'Ativar';
             const toggleColor = p.ativo ? '#ef4444' : '#16a34a';
+            const codEscaped = escapeHtml(p.codigo_sankhya || 'N/A');
+            const descEscaped = escapeHtml(p.descricao || 'Sem descrição');
+            const unEscaped = escapeHtml(p.unidade || 'UN');
             
             body.innerHTML += `
                 <tr>
                     <td>
-                        <strong>${p.codigo_sankhya}</strong>
+                        <strong>${codEscaped}</strong>
                         <div style="font-size: 10px; color: #16a34a; font-weight:600;">Sankhya ERP</div>
                     </td>
-                    <td><strong>${p.descricao}</strong></td>
-                    <td>${p.unidade}</td>
+                    <td><strong>${descEscaped}</strong></td>
+                    <td>${unEscaped}</td>
                     <td class="text-center">
                         <span class="${statusClass}">${statusText}</span>
                     </td>

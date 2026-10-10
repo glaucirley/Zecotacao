@@ -190,7 +190,7 @@
 
     .table-mockup {
         width: 100%;
-        min-width: 1050px;
+        table-layout: fixed;
         border-collapse: collapse;
         text-align: left;
     }
@@ -202,25 +202,73 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        padding: 14px 16px;
+        padding: 12px 14px;
         border-bottom: 1px solid #e2e8f0;
         white-space: nowrap;
         position: relative;
         user-select: none;
     }
 
-    /* Consolidated Column Widths fitting 1280px without scroll */
-    .table-mockup {
-        width: 100%;
-        min-width: 100%;
-        border-collapse: collapse;
-        text-align: left;
+    .col-cotacao-cliente { width: 34%; }
+    .col-vendedor        { width: 24%; }
+    .col-total           { width: 18%; }
+    .col-status          { width: 14%; text-align: center; }
+    .col-acoes           { width: 10%; text-align: center; }
+
+    /* Modal Wizard Stepper */
+    .wizard-steps-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        margin-bottom: 18px;
     }
-    .col-cotacao-cliente { width: 32%; min-width: 240px; }
-    .col-vendedor        { width: 24%; min-width: 180px; }
-    .col-total           { width: 18%; min-width: 130px; }
-    .col-status          { width: 14%; min-width: 120px; text-align: center; }
-    .col-acoes           { width: 12%; min-width: 100px; text-align: center; }
+    .wizard-step-node {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        user-select: none;
+    }
+    .wizard-step-node.active {
+        color: #2563eb;
+        font-weight: 700;
+    }
+    .wizard-step-node.completed {
+        color: #16a34a;
+    }
+    .wizard-step-circle {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11.5px;
+        font-weight: 700;
+        background: #e2e8f0;
+        color: #475569;
+    }
+    .wizard-step-node.active .wizard-step-circle {
+        background: #2563eb;
+        color: #ffffff;
+    }
+    .wizard-step-node.completed .wizard-step-circle {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+    .wizard-step-line {
+        flex: 1;
+        height: 2px;
+        background: #e2e8f0;
+        margin: 0 12px;
+    }
 
     /* Quotes Status Tabs */
     .quotes-tabs-wrapper {
@@ -372,37 +420,48 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 4px 14px;
-        border-radius: 20px;
+        padding: 4px 10px;
+        border-radius: 12px;
         font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0.1px;
         white-space: nowrap;
     }
     .badge-status-mockup.em-criacao {
         background: #dbeafe;
-        color: #2563eb;
+        color: #1e40af;
     }
-    .badge-status-mockup.liberada {
+    .badge-status-mockup.liberada,
+    .badge-status-mockup.aprovada {
         background: #dcfce7;
-        color: #16a34a;
+        color: #15803d;
+    }
+    .badge-status-mockup.pdf-gerado {
+        background: #ccfbf1;
+        color: #0f766e;
     }
     .badge-status-mockup.aguardando-gestor {
         background: #fef3c7;
-        color: #d97706;
+        color: #b45309;
     }
     .badge-status-mockup.com-diretor {
         background: #ffedd5;
-        color: #ea580c;
+        color: #c2410c;
     }
     .badge-status-mockup.faturada {
-        background: #ccfbf1;
-        color: #0d9488;
+        background: #d1fae5;
+        color: #047857;
     }
-    .badge-status-mockup.perdida {
+    .badge-status-mockup.perdida,
+    .badge-status-mockup.recusada {
         background: #fee2e2;
-        color: #dc2626;
+        color: #b91c1c;
+    }
+    .badge-status-mockup.expirada,
+    .badge-status-mockup.cancelada {
+        background: #f1f5f9;
+        color: #475569;
     }
 
     .badge-subtext {
@@ -750,92 +809,148 @@
     </div>
 </div>
 
-<!-- Create Manual Quote Sheet Drawer -->
+<!-- Create Manual Quote Sheet Drawer with 3-Step Wizard -->
 <div id="create-overlay" class="sheet-overlay" onclick="closeCreateModal()"></div>
-<div id="create-modal" class="sheet-drawer" style="width: 680px; max-width: 95vw;">
+<div id="create-modal" class="sheet-drawer" style="width: 720px; max-width: 95vw;">
     <div class="sheet-header">
-        <h3 style="margin: 0; color: var(--color-primary); font-size: 18px; font-weight:700;">Incluir Nova Cotação Manual</h3>
+        <h3 style="margin: 0; color: var(--color-primary); font-size: 18px; font-weight:700;">Nova Cotação Comercial</h3>
         <button type="button" class="sheet-close-btn" onclick="closeCreateModal()">&times;</button>
     </div>
     <div class="sheet-body" style="padding: 16px 20px;">
 
-        <form id="create-quote-form" onsubmit="submitManualQuote(event)">
-            <!-- Cliente (Parceiro) Selection -->
-            <div class="form-group" style="margin-bottom: 14px;">
-                <label class="form-label" style="font-weight: 600;">Cliente (Parceiro) <span style="color:#ef4444;">*</span></label>
-                <div id="admin-selected-partner-card" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:10px 14px; margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div id="admin-sp-name" style="font-weight:700; font-size:14px; color:#166534;">-</div>
-                            <div id="admin-sp-doc" style="font-size:11.5px; color:#15803d; margin-top:2px;">-</div>
-                        </div>
-                        <button type="button" onclick="clearAdminSelectedPartner()" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">Alterar</button>
-                    </div>
-                </div>
-                
-                <div id="admin-partner-search-box">
-                    <input type="text" id="admin-partner-search-input" class="form-control" placeholder="🔍 Digite iniciais, razão social, CNPJ ou código do cliente..." oninput="filterAdminPartnerOptions()" style="font-size: 13px;">
-                    <div id="admin-partner-search-results" style="max-height:180px; overflow-y:auto; margin-top:6px; display:flex; flex-direction:column; gap:6px; border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#fff;">
-                        <!-- Partner search cards dynamically rendered -->
-                    </div>
-                </div>
+        <!-- Wizard Steps Navigation Header -->
+        <div class="wizard-steps-header">
+            <div class="wizard-step-node active" id="admin-step-node-1" onclick="goToAdminWizardStep(1)">
+                <span class="wizard-step-circle">1</span>
+                <span>Cliente &amp; Vendedor</span>
             </div>
+            <div class="wizard-step-line"></div>
+            <div class="wizard-step-node" id="admin-step-node-2" onclick="goToAdminWizardStep(2)">
+                <span class="wizard-step-circle">2</span>
+                <span>Produtos (<span id="admin-wizard-prod-count">0</span>)</span>
+            </div>
+            <div class="wizard-step-line"></div>
+            <div class="wizard-step-node" id="admin-step-node-3" onclick="goToAdminWizardStep(3)">
+                <span class="wizard-step-circle">3</span>
+                <span>Condições</span>
+            </div>
+        </div>
 
-            <!-- Representante Comercial & Condições -->
-            <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
-                <div class="form-group" style="margin-bottom:0;" id="rep-group-container">
-                    <label for="create-representante" class="form-label" style="font-weight: 600;">Representante Comercial <span style="color:#ef4444;">*</span></label>
-                    <input type="text" id="admin-rep-search-input" class="form-control" placeholder="🔍 Filtrar vendedor por nome ou e-mail..." oninput="filterAdminRepSelect()" style="font-size: 12px; margin-bottom: 6px; padding: 6px 10px;">
+        <form id="create-quote-form" onsubmit="submitManualQuote(event)">
+
+            <!-- ETAPA 1: CLIENTE E VENDEDOR -->
+            <div id="admin-wizard-step-1" class="admin-wizard-panel">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label" style="font-weight: 600; font-size: 13px;">Cliente (Parceiro Comercial) <span style="color:#ef4444;">*</span></label>
+                    <div id="admin-selected-partner-card" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:12px 14px; margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-size:11px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.4px;">✓ Cliente Selecionado</div>
+                                <div id="admin-sp-name" style="font-weight:700; font-size:14px; color:#166534; margin-top:2px;">-</div>
+                                <div id="admin-sp-doc" style="font-size:12px; color:#15803d; margin-top:2px;">-</div>
+                            </div>
+                            <button type="button" onclick="clearAdminSelectedPartner()" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:6px 14px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">Alterar</button>
+                        </div>
+                    </div>
+                    
+                    <div id="admin-partner-search-box">
+                        <input type="text" id="admin-partner-search-input" class="form-control" placeholder="🔍 Digite iniciais, razão social, CNPJ ou código do cliente..." oninput="filterAdminPartnerOptions()" style="font-size: 13px;">
+                        <div id="admin-partner-search-results" style="max-height:220px; overflow-y:auto; margin-top:6px; display:flex; flex-direction:column; gap:6px; border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#fff;">
+                            <!-- Partner search cards dynamically rendered -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;" id="rep-group-container">
+                    <label for="create-representante" class="form-label" style="font-weight: 600; font-size: 13px;">Representante Comercial Responsável <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="admin-rep-search-input" class="form-control" placeholder="🔍 Filtrar vendedor por nome ou e-mail..." oninput="filterAdminRepSelect()" style="font-size: 12px; margin-bottom: 6px; padding: 7px 10px;">
                     <select id="create-representante" class="form-control" required style="font-size: 13px;">
-                        <option value="">🔄 Carregando vendedores...</option>
+                        <option value="">Selecione um representante...</option>
                     </select>
                 </div>
-                <div class="form-group" style="margin-bottom:0;">
-                    <label for="create-pagamento" class="form-label" style="font-weight: 600;">Forma de Pagamento</label>
-                    <input type="text" id="create-pagamento" class="form-control" placeholder="Ex: 30/60 dias" value="A combinar" style="font-size: 13px;">
+
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 14px; border-top: 1px solid #f1f5f9;">
+                    <button type="button" class="btn btn-outline" onclick="closeCreateModal()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="validateAdminStep1AndNext()" style="font-weight:700; padding:8px 22px;">
+                        Avançar para Produtos &rarr;
+                    </button>
                 </div>
             </div>
 
-            <div class="grid-2" style="gap: 12px; margin-bottom: 14px;">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label for="create-prazo" class="form-label" style="font-weight: 600;">Prazo de Entrega</label>
-                    <input type="text" id="create-prazo" class="form-control" placeholder="Ex: 3 dias" value="3 dias" style="font-size: 13px;">
+            <!-- ETAPA 2: PRODUTOS DA COTAÇÃO -->
+            <div id="admin-wizard-step-2" class="admin-wizard-panel" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div>
+                        <h4 style="margin:0; color:var(--color-primary); font-size:15px; font-weight:700;">Itens da Cotação</h4>
+                        <span style="font-size:12px; color:#64748b;">Adicione os produtos e defina as quantidades e preços propostos</span>
+                    </div>
+                    <button type="button" class="btn btn-secondary" style="font-size:12px; padding:7px 14px; font-weight:600;" onclick="addAdminManualProductRow()">+ Adicionar Produto</button>
                 </div>
-                <div class="form-group" style="margin-bottom:0;">
-                    <label for="create-frete" class="form-label" style="font-weight: 600;">Tipo de Frete</label>
+
+                <div style="background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:16px;">
+                    <div id="manual-items-container" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Dynamic product rows here -->
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid #cbd5e1; font-size:14px;">
+                        <span style="font-weight:600; color:#64748b;">Total Previsto:</span>
+                        <span id="admin-manual-quote-total" style="color:var(--color-primary); font-weight:800; font-size:17px;">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 14px; border-top: 1px solid #f1f5f9;">
+                    <button type="button" class="btn btn-outline" onclick="goToAdminWizardStep(1)">&larr; Voltar para Cliente</button>
+                    <button type="button" class="btn btn-primary" onclick="validateAdminStep2AndNext()" style="font-weight:700; padding:8px 22px;">
+                        Avançar para Condições &rarr;
+                    </button>
+                </div>
+            </div>
+
+            <!-- ETAPA 3: CONDIÇÕES COMERCIAIS & FINALIZAÇÃO -->
+            <div id="admin-wizard-step-3" class="admin-wizard-panel" style="display:none;">
+                <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="create-pagamento" class="form-label" style="font-weight: 600; font-size: 13px;">Forma de Pagamento</label>
+                        <input type="text" id="create-pagamento" class="form-control" placeholder="Ex: 30/60 dias" value="A combinar" style="font-size: 13px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="create-prazo" class="form-label" style="font-weight: 600; font-size: 13px;">Prazo de Entrega</label>
+                        <input type="text" id="create-prazo" class="form-control" placeholder="Ex: 3 dias" value="3 dias" style="font-size: 13px;">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="create-frete" class="form-label" style="font-weight: 600; font-size: 13px;">Tipo de Frete</label>
                     <select id="create-frete" class="form-control" style="font-size: 13px;">
                         <option value="CIF">CIF (Frete por conta do emitente)</option>
                         <option value="FOB">FOB (Frete por conta do destinatário)</option>
                     </select>
                 </div>
-            </div>
 
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label for="create-obs-cliente" class="form-label" style="font-weight: 600;">Observação Cliente</label>
-                <textarea id="create-obs-cliente" class="form-control" rows="2" placeholder="Ex: Horário de recebimento das 8h às 17h..." style="font-size: 13px;"></textarea>
-            </div>
-
-            <!-- Products Section -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
-                <h4 style="margin:0; color:var(--color-primary); font-size:15px; font-weight:700;">Produtos da Cotação</h4>
-                <button type="button" class="btn btn-secondary" style="font-size:12px; padding:6px 12px; font-weight:600;" onclick="addAdminManualProductRow()">+ Adicionar Produto</button>
-            </div>
-
-            <div style="background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:16px;">
-                <div id="manual-items-container" style="display: flex; flex-direction: column; gap: 10px;">
-                    <!-- Dynamic product rows here -->
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="create-obs-cliente" class="form-label" style="font-weight: 600; font-size: 13px;">Observação Cliente / Instruções</label>
+                    <textarea id="create-obs-cliente" class="form-control" rows="2" placeholder="Ex: Horário de recebimento das 8h às 17h, nota fiscal com pedido..." style="font-size: 13px;"></textarea>
                 </div>
-                
-                <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:12px; padding-top:10px; border-top:1px solid #cbd5e1; font-weight:700; font-size:14px; color:var(--color-text);">
-                    <span>Total da Cotação:</span>
-                    <span id="admin-manual-quote-total" style="color:var(--color-primary); margin-left:8px; font-size:16px;">R$ 0,00</span>
+
+                <!-- Resumo da Cotação -->
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:12px 16px; margin-bottom:16px;">
+                    <div style="font-weight:700; color:#166534; font-size:13px; margin-bottom:6px;">Resumo da Proposta Comercial</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; color:#15803d;">
+                        <div>Cliente: <strong id="admin-summary-client">-</strong></div>
+                        <div>Vendedor: <strong id="admin-summary-rep">-</strong></div>
+                        <div>Total de Itens: <strong id="admin-summary-items">0 item(ns)</strong></div>
+                        <div>Valor Total: <strong id="admin-summary-total" style="font-size:13px; color:#14532d;">R$ 0,00</strong></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 14px; border-top: 1px solid #f1f5f9;">
+                    <button type="button" class="btn btn-outline" onclick="goToAdminWizardStep(2)">&larr; Voltar para Produtos</button>
+                    <button type="submit" class="btn btn-primary" style="font-weight:700; padding:9px 24px;">
+                        💾 Salvar e Gerar Cotação
+                    </button>
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
-                <button type="button" class="btn btn-outline" onclick="closeCreateModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary" style="font-weight:700; padding:8px 20px;">💾 Salvar e Gerar Cotação</button>
-            </div>
         </form>
     </div>
 </div>
@@ -847,6 +962,111 @@
     const CURRENT_USER = @json(auth()->user());
     let rawQuotes = [];
     let metaProducts = [];
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    let currentAdminWizardStep = 1;
+
+    function goToAdminWizardStep(step) {
+        if (step === 2 && !adminSelectedPartner) {
+            showToast("Por favor, selecione um Cliente na Etapa 1 antes de prosseguir.", "warning");
+            return;
+        }
+        if (step === 3) {
+            const prodRows = document.querySelectorAll("#manual-items-container .admin-prod-row-item .admin-item-prod-id");
+            let validCount = 0;
+            prodRows.forEach(el => { if (el.value) validCount++; });
+            if (validCount === 0) {
+                showToast("Adicione pelo menos 1 produto na Etapa 2 antes de avançar para as Condições.", "warning");
+                return;
+            }
+        }
+
+        currentAdminWizardStep = step;
+        [1, 2, 3].forEach(s => {
+            const panel = document.getElementById(`admin-wizard-step-${s}`);
+            const node = document.getElementById(`admin-step-node-${s}`);
+            if (panel) panel.style.display = s === step ? 'block' : 'none';
+            if (node) {
+                node.classList.remove('active', 'completed');
+                if (s === step) node.classList.add('active');
+                else if (s < step) node.classList.add('completed');
+            }
+        });
+
+        if (step === 3) {
+            updateAdminSummary();
+        }
+    }
+
+    function validateAdminStep1AndNext() {
+        if (!adminSelectedPartner) {
+            showToast("Por favor, selecione um Cliente (Parceiro Comercial) para continuar.", "warning");
+            return;
+        }
+        const repVal = document.getElementById("create-representante").value;
+        if (!repVal) {
+            showToast("Por favor, selecione o Representante Comercial responsável.", "warning");
+            return;
+        }
+        goToAdminWizardStep(2);
+    }
+
+    function validateAdminStep2AndNext() {
+        const rows = document.querySelectorAll("#manual-items-container .admin-prod-row-item");
+        let validCount = 0;
+        let hasInvalid = false;
+        rows.forEach(r => {
+            const prodId = r.querySelector(".admin-item-prod-id")?.value;
+            const qtd = parseInt(r.querySelector(".admin-item-qtd")?.value || 0);
+            const price = parseFloat(r.querySelector(".admin-item-price")?.value || 0);
+            if (prodId && qtd > 0 && price > 0) {
+                validCount++;
+            } else if (prodId || price > 0) {
+                hasInvalid = true;
+            }
+        });
+
+        if (validCount === 0) {
+            showToast("Adicione pelo menos 1 produto válido com quantidade e preço maior que zero.", "warning");
+            return;
+        }
+        if (hasInvalid) {
+            showToast("Existem produtos na lista com quantidade ou preço inválidos. Por favor, verifique.", "warning");
+            return;
+        }
+        goToAdminWizardStep(3);
+    }
+
+    function updateAdminSummary() {
+        const clientEl = document.getElementById("admin-summary-client");
+        const repEl = document.getElementById("admin-summary-rep");
+        const itemsEl = document.getElementById("admin-summary-items");
+        const totalEl = document.getElementById("admin-summary-total");
+
+        const repSelect = document.getElementById("create-representante");
+        const selectedRepName = repSelect && repSelect.selectedIndex >= 0 ? repSelect.options[repSelect.selectedIndex].text : '-';
+
+        let itemCount = 0;
+        document.querySelectorAll("#manual-items-container .admin-prod-row-item").forEach(r => {
+            if (r.querySelector(".admin-item-prod-id")?.value) itemCount++;
+        });
+
+        const totalText = document.getElementById("admin-manual-quote-total")?.innerText || 'R$ 0,00';
+
+        if (clientEl) clientEl.innerText = adminSelectedPartner ? adminSelectedPartner.razao_social : '-';
+        if (repEl) repEl.innerText = selectedRepName;
+        if (itemsEl) itemsEl.innerText = `${itemCount} item(ns)`;
+        if (totalEl) totalEl.innerText = totalText;
+    }
 
     function normalizeStr(str) {
         if (!str) return '';
@@ -1100,7 +1320,7 @@
 
         list.forEach(q => {
             const date = new Date(q.created_at).toLocaleDateString('pt-BR');
-            const statusClass = q.status.toLowerCase().replace(/_/g, '-');
+            const statusClass = (q.status || '').toLowerCase().replace(/_/g, '-');
             let statusText = 'Em criação';
             let subText = '';
 
@@ -1128,28 +1348,27 @@
                 case 'PERDIDA':
                     statusText = 'Perdida';
                     break;
+                case 'RECUSADA':
+                    statusText = 'Recusada';
+                    break;
+                case 'EXPIRADA':
+                    statusText = 'Expirada';
+                    break;
+                case 'CANCELADA':
+                    statusText = 'Cancelada';
+                    break;
                 default:
-                    statusText = q.status.replace(/_/g, ' ');
+                    statusText = q.status ? q.status.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase()) : 'Em criação';
                     break;
             }
 
-            const repName = q.representante ? q.representante.nome : 'Sem Vendedor';
-            const teamName = (q.representante && q.representante.equipe) ? q.representante.equipe.nome : 'Sem Equipe';
-            const initial = repName.charAt(0).toUpperCase();
+            const rawRepName = q.representante ? q.representante.nome : 'Sem Vendedor';
+            const rawTeamName = (q.representante && q.representante.equipe) ? q.representante.equipe.nome : 'Sem Equipe';
+            const cleanRepName = rawRepName.replace(/<[^>]*>/g, '').trim();
+            const initial = cleanRepName.charAt(0).toUpperCase() || 'S';
 
-            // Authorization logic for Editing / Deleting
-            const canEdit = q.status === 'EM_CRIACAO' && (
-                CURRENT_USER.papel === 'administrador' || 
-                CURRENT_USER.id == q.representante_id ||
-                (CURRENT_USER.papel === 'gestor' && q.representante && q.representante.equipe && q.representante.equipe.gestor_id == CURRENT_USER.id)
-            );
-
-            const canDelete = CURRENT_USER.papel === 'administrador' || (
-                q.status === 'EM_CRIACAO' && (
-                    CURRENT_USER.id == q.representante_id ||
-                    (CURRENT_USER.papel === 'gestor' && q.representante && q.representante.equipe && q.representante.equipe.gestor_id == CURRENT_USER.id)
-                )
-            );
+            const repNameEscaped = escapeHtml(rawRepName);
+            const teamNameEscaped = escapeHtml(rawTeamName);
 
             const p = q.parceiro || {};
             const clientName = p.razao_social || p.nome_fantasia || 'Cliente Sem Razão';
@@ -1158,34 +1377,36 @@
             const clientCity = (p.cidade || pUf) ? `${p.cidade || ''}${pUf ? '/' + pUf : ''}` : '';
             const clientSub = [clientDoc, clientCity].filter(Boolean).join(' • ');
 
+            const clientNameEscaped = escapeHtml(clientName);
+            const clientSubEscaped = escapeHtml(clientSub || ('Cód: ' + (p.codigo_sankhya || 'N/A')));
+            const quoteNumEscaped = escapeHtml(q.numero || ('#' + q.id));
+
             body.innerHTML += `
                 <tr class="quote-row-clickable" onclick="window.location.href='{{ url('/cotacoes/id') }}/${q.id}'" title="Clique para abrir a cotação">
                     <td class="col-cotacao-cliente">
-                        <div style="display:flex; align-items:flex-start; gap:10px;">
-                            <div class="quote-pill-badge" style="margin-top:2px;">
-                                <span class="doc-icon">📄</span>
-                                <span class="quote-num">${q.numero}</span>
+                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                            <div class="quote-pill-badge" style="margin-top:2px; flex-shrink:0;">
+                                <span class="quote-num">${quoteNumEscaped}</span>
                             </div>
-                            <div style="min-width:0;">
-                                <div style="font-weight:700; color:#0f172a; font-size:13px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${clientName}">${clientName}</div>
-                                <div style="font-size:11px; color:#64748b; margin-top:2px;">${clientSub || ('Cód: ' + (p.codigo_sankhya || 'N/A'))}</div>
+                            <div style="min-width:0; overflow:hidden;">
+                                <div style="font-weight:700; color:#0f172a; font-size:13px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${clientNameEscaped}">${clientNameEscaped}</div>
+                                <div style="font-size:11px; color:#64748b; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${clientSubEscaped}</div>
                             </div>
                         </div>
                     </td>
                     <td class="col-vendedor">
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
                             <div class="user-avatar-circle">${initial}</div>
-                            <div style="min-width:0;">
-                                <div style="font-weight: 700; color: #0f172a; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${repName}</div>
-                                <div style="font-size: 11px; color: #64748b; margin-top:2px;">${teamName}</div>
+                            <div style="min-width:0; overflow:hidden;">
+                                <div style="font-weight: 700; color: #0f172a; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${repNameEscaped}">${repNameEscaped}</div>
+                                <div style="font-size: 11px; color: #64748b; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${teamNameEscaped}</div>
                             </div>
                         </div>
                     </td>
                     <td class="col-total">
                         <div>
                             <span class="price-text-primary">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
-                            <div class="date-text-container" style="font-size:11px; margin-top:3px;">
-                                <span class="cal-icon">📅</span>
+                            <div class="date-text-container" style="font-size:11px; margin-top:2px; color:#64748b;">
                                 <span>${date}</span>
                             </div>
                         </div>
@@ -1202,9 +1423,14 @@
                             <div class="dropdown-dots-wrapper">
                                 <button class="btn-dots-row" onclick="toggleDotsMenu(event, ${q.id})" title="Mais Ações">⋮</button>
                                 <div class="dropdown-dots-menu" id="dots-menu-${q.id}">
-                                    <a href="{{ url('/cotacoes/id') }}/${q.id}" class="dropdown-dots-item">✏️ Ver / Editar</a>
-                                    <button type="button" class="dropdown-dots-item" onclick="handleDetailClick(${q.id}, '${q.status}')">👁️ Resumo Rápido</button>
-                                    ${canDelete ? `<button type="button" class="dropdown-dots-item danger" onclick="deleteQuote(${q.id})">🗑️ Excluir</button>` : ''}
+                                    <a href="{{ url('/cotacoes/id') }}/${q.id}" class="dropdown-dots-item">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                        Ver / Editar
+                                    </a>
+                                    <button type="button" class="dropdown-dots-item" onclick="handleDetailClick(${q.id}, '${q.status}')">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        Resumo Rápido
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1483,6 +1709,8 @@
 
         const container = document.getElementById("manual-items-container");
         if (container) container.innerHTML = "";
+
+        goToAdminWizardStep(1);
 
         document.getElementById("create-overlay").classList.add("active", "open");
         document.getElementById("create-modal").classList.add("active", "open");
@@ -1980,6 +2208,13 @@
 
             total += subtotal;
         });
+
+        let validItemCount = 0;
+        rows.forEach(r => {
+            if (r.querySelector(".admin-item-prod-id")?.value) validItemCount++;
+        });
+        const badgeCount = document.getElementById("admin-wizard-prod-count");
+        if (badgeCount) badgeCount.innerText = validItemCount;
 
         const totalEl = document.getElementById("admin-manual-quote-total");
         if (totalEl) {

@@ -7,16 +7,16 @@
     /* Tabs Navigation */
     .param-nav-tabs {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 24px;
         border-bottom: 2px solid #e2e8f0;
-        overflow-x: auto;
     }
     .param-nav-tab {
         background: transparent;
         border: none;
-        padding: 12px 20px;
-        font-size: 14px;
+        padding: 10px 16px;
+        font-size: 13.5px;
         font-weight: 700;
         color: #64748b;
         cursor: pointer;
@@ -202,15 +202,12 @@
             <strong>Exemplo prático:</strong> Quando o desconto concedido passar da alçada configurada no representante → enviar cotação ao gestor. Ex.: Representante possui 5% de alçada e concede 7% de desconto ➔ o sistema encaminha a cotação imediatamente para a fila do gestor.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <select id="val-REGRA_LIBERACAO_DESCONTO" class="form-control" style="font-size: 13.5px; padding: 8px 12px;">
                     <option value="ALCADA_REPRESENTANTE">Alçada do Representante (Recomendado - Exige Gestor)</option>
                     <option value="PRECO_MINIMO">Apenas Preço Mínimo (Libera se acima do mínimo)</option>
                 </select>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('REGRA_LIBERACAO_DESCONTO', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
     </div>
 
@@ -232,15 +229,12 @@
             <strong>Exemplo prático:</strong> No modo <em>Item a Item</em> (mais seguro), se 3 produtos estiverem com desconto de 2% e 1 produto estiver com 8%, a cotação exige aprovação pelo item excedente. Na <em>Média Total</em>, o desconto médio da proposta inteira é usado.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <select id="val-DESCONTO_AVALIACAO_MODO" class="form-control" style="font-size: 13.5px; padding: 8px 12px;">
                     <option value="ITEM_A_ITEM">Item a Item (Mais Rigoroso / Recomendado)</option>
                     <option value="MEDIA_TOTAL">Média Total Ponderada da Proposta</option>
                 </select>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('DESCONTO_AVALIACAO_MODO', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
     </div>
 
@@ -262,15 +256,12 @@
             <strong>Exemplo prático:</strong> Se ativado, o representante não consegue enviar a cotação para aprovação apenas digitando texto; ele deve obrigatoriamente fazer upload do comprovante para a diretoria analisar.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <select id="val-EXIGE_ANEXO_JUSTIFICATIVA" class="form-control" style="font-size: 13.5px; padding: 8px 12px;">
                     <option value="true">Ativo (Exigir anexo de documento/comprovante)</option>
                     <option value="false">Inativo (Permitir justificativa apenas por texto)</option>
                 </select>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('EXIGE_ANEXO_JUSTIFICATIVA', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
     </div>
 
@@ -292,15 +283,12 @@
             <strong>Exemplo prático:</strong> Se configurado como <em>Encaminhar para Diretoria</em>, a cotação vai direto para a fila dos diretores. Se for <em>Bloquear Envio</em>, o representante é alertado para entrar em contato com o suporte comercial.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <select id="val-SEM_GESTOR_ACAO" class="form-control" style="font-size: 13.5px; padding: 8px 12px;">
                     <option value="BLOQUEAR">Bloquear Envio (Exigir Gestor Ativo Cadastrado)</option>
                     <option value="DIRETORIA">Encaminhar Diretamente para a Diretoria</option>
                 </select>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('SEM_GESTOR_ACAO', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
     </div>
 
@@ -322,16 +310,21 @@
             <strong>Exemplo prático:</strong> <em>Recalcula Tudo</em> reavalia a conformidade e os preços de todos os produtos do pedido. <em>Só Itens Alterados</em> mantém a aprovação dos itens que o representante não mexeu.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <select id="val-REENVIO_PARCIAL_MODO" class="form-control" style="font-size: 13.5px; padding: 8px 12px;">
                     <option value="RECALCULA_TUDO">Recalcula Tudo (Reavalia Todos os Itens)</option>
                     <option value="SO_ITENS_ALTERADOS">Só Itens Alterados (Preserva Itens Inalterados)</option>
                 </select>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('REENVIO_PARCIAL_MODO', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
+    </div>
+
+    <!-- Tab 1 Unified Save Button -->
+    <div style="display:flex; justify-content:flex-end; margin-top:20px; padding:16px 20px; background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <button type="button" class="btn btn-primary" onclick="saveTabParameters('alcada', this)" style="padding:10px 24px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Salvar alterações de Aprovação &amp; Alçada
+        </button>
     </div>
 
 </div>
@@ -359,17 +352,22 @@
             <strong>Exemplo prático:</strong> Valor configurado: <code>24</code> horas. Se uma cotação for criada na terça-feira às 14:00, ela expira na quarta-feira às 14:00 ("Vence em 24h"). Cotações expiradas saem da lista de ativas e bloqueiam faturamento direto.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <div style="position: relative; width: 100%; max-width: 200px;">
                     <input type="number" id="val-VALIDADE_PADRAO_HORAS" class="form-control" min="1" max="720" style="font-size: 14px; padding: 8px 36px 8px 12px; font-weight: 600;">
                     <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #64748b; font-weight: 600;">horas</span>
                 </div>
                 <span style="font-size: 12px; color: #64748b;">(Ex: 24h = 1 dia, 48h = 2 dias, 72h = 3 dias)</span>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('VALIDADE_PADRAO_HORAS', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
+    </div>
+
+    <!-- Tab 2 Unified Save Button -->
+    <div style="display:flex; justify-content:flex-end; margin-top:20px; padding:16px 20px; background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <button type="button" class="btn btn-primary" onclick="saveTabParameters('validade', this)" style="padding:10px 24px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Salvar alterações de Prazos &amp; Validade
+        </button>
     </div>
 
 </div>
@@ -397,15 +395,12 @@
             <strong>Exemplo prático:</strong> Valor configurado: <code>R$ 10.000,00</code>. Um pedido de R$ 12.500,00 entra no topo da fila dos gestores com destaque dourado de alta relevância comercial.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <div style="position: relative; width: 100%; max-width: 220px;">
                     <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #64748b; font-weight: 600;">R$</span>
                     <input type="number" step="0.01" id="val-ALCADA_GRANDE_CONTA_VALOR" class="form-control" style="font-size: 14px; padding: 8px 12px 8px 36px; font-weight: 600;">
                 </div>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('ALCADA_GRANDE_CONTA_VALOR', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
     </div>
 
@@ -427,15 +422,12 @@
             <strong>Exemplo prático:</strong> Valor configurado: <code>100</code> unidades. Um pedido de 150 unidades dispara prioridade alta para verificação de capacidade de fornecimento e conferência rápida.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <div style="position: relative; width: 100%; max-width: 220px;">
                     <input type="number" id="val-ALCADA_GRANDE_CONTA_QTD" class="form-control" style="font-size: 14px; padding: 8px 38px 8px 12px; font-weight: 600;">
                     <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #64748b; font-weight: 600;">unid.</span>
                 </div>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('ALCADA_GRANDE_CONTA_QTD', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
     </div>
 
@@ -457,16 +449,21 @@
             <strong>Exemplo prático:</strong> Valor configurado: <code>15.0%</code>. Se o vendedor conceder descontos que resultem em uma margem de 11.5%, a cotação dispara alerta visual para a diretoria avaliar a viabilidade antes da aprovação.
         </div>
         <div class="param-action-row">
-            <div class="param-input-group">
+            <div class="param-input-group" style="max-width: 100%;">
                 <div style="position: relative; width: 100%; max-width: 180px;">
                     <input type="number" step="0.1" id="val-ALCADA_GRANDE_CONTA_MARGEM" class="form-control" style="font-size: 14px; padding: 8px 30px 8px 12px; font-weight: 600;">
                     <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 13px; color: #64748b; font-weight: 600;">%</span>
                 </div>
             </div>
-            <button type="button" class="btn btn-primary" onclick="saveParameter('ALCADA_GRANDE_CONTA_MARGEM', this)" style="padding: 8px 20px; font-weight: 600; font-size: 13px;">
-                Salvar Alteração
-            </button>
         </div>
+    </div>
+
+    <!-- Tab 3 Unified Save Button -->
+    <div style="display:flex; justify-content:flex-end; margin-top:20px; padding:16px 20px; background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <button type="button" class="btn btn-primary" onclick="saveTabParameters('grande-conta', this)" style="padding:10px 24px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Salvar alterações de Grande Conta
+        </button>
     </div>
 
 </div>
@@ -715,6 +712,49 @@
         } catch (e) {
             console.error(e);
             showToast("Erro de conexão ao carregar parâmetros.", "error");
+        }
+    }
+
+    async function saveTabParameters(tabId, btnEl) {
+        const panel = document.getElementById(`tab-content-${tabId}`);
+        if (!panel) return;
+
+        const inputs = panel.querySelectorAll('input[id^="val-"], select[id^="val-"]');
+        if (inputs.length === 0) return;
+
+        const originalText = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.innerHTML = '<span style="display:inline-block; animation:spin 1s linear infinite; margin-right:6px;">⏳</span> Salvando alterações...';
+            btnEl.disabled = true;
+        }
+
+        try {
+            const promises = [];
+            inputs.forEach(input => {
+                const chave = input.id.replace('val-', '');
+                const val = input.value;
+                promises.push(
+                    fetch(`{{ url('/api/v1/parametros') }}/${chave}`, {
+                        method: "PATCH",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({ valor: val })
+                    })
+                );
+            });
+
+            await Promise.all(promises);
+            showToast("Todas as alterações da aba foram salvas com sucesso!", "success");
+        } catch (e) {
+            console.error(e);
+            showToast("Erro de comunicação ao salvar parâmetros.", "error");
+        } finally {
+            if (btnEl) {
+                btnEl.innerHTML = originalText;
+                btnEl.disabled = false;
+            }
         }
     }
 

@@ -283,6 +283,21 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
                 window.location.href = "{{ url('/login') }}";
                 return;
             }
+            if (res.status === 404) {
+                const spinner = document.getElementById("loading-spinner");
+                if (spinner) {
+                    spinner.innerHTML = `
+                        <div style="text-align:center; padding:50px 20px;">
+                            <div style="font-size:36px; margin-bottom:12px;">🔍</div>
+                            <h3 style="color:#0f172a; margin-bottom:8px;">Cotação não encontrada</h3>
+                            <p style="color:#64748b; font-size:13px; margin-bottom:16px;">O registro solicitado não existe ou não está liberado para faturamento.</p>
+                            <a href="{{ url('/faturamento') }}" class="btn btn-primary" style="text-decoration:none;">Voltar para Faturamento</a>
+                        </div>
+                    `;
+                }
+                showToast("Cotação não encontrada.", "error");
+                return;
+            }
             const data = await res.json();
             if (data.success) {
                 quote = data.data;

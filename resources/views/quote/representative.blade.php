@@ -1165,6 +1165,21 @@
             // 1. Fetch Quote Details
             const quoteRes = await fetch(`${QUOTE_BASE_URL}`);
             if (!quoteRes.ok) {
+                if (quoteRes.status === 404) {
+                    const loadContainer = document.getElementById("loading-container");
+                    if (loadContainer) {
+                        loadContainer.innerHTML = `
+                            <div style="text-align:center; padding:50px 20px;">
+                                <div style="font-size:36px; margin-bottom:12px;">🔍</div>
+                                <h3 style="color:#0f172a; margin-bottom:8px; font-weight:700;">Cotação não encontrada</h3>
+                                <p style="color:#64748b; font-size:13px; margin-bottom:20px;">A cotação solicitada não existe ou foi removida.</p>
+                                <a href="{{ url('/cotacoes') }}" class="btn btn-primary" style="text-decoration:none; display:inline-block; font-size:13px; font-weight:600; padding:8px 16px; border-radius:8px;">Voltar para Cotações</a>
+                            </div>
+                        `;
+                    }
+                    showToast("Cotação não encontrada", 'error');
+                    return;
+                }
                 const errText = await quoteRes.text();
                 let errMsg = "Erro HTTP " + quoteRes.status;
                 try {
