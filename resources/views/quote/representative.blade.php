@@ -449,56 +449,69 @@
         bottom: 0;
         left: 0;
         right: 0;
-        background: rgba(255, 255, 255, 0.96);
+        background: rgba(255, 255, 255, 0.98);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         border-top: 1px solid #e2e8f0;
         box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
-        padding: 10px 16px;
+        padding: 10px 20px;
         z-index: 999;
+        display: none; /* Initially hidden until quote loads */
+        transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
+    /* Prevent footer from covering sidebar on desktop */
+    @media (min-width: 769px) {
+        .app-container:has(.sidebar) .sticky-footer-quote-bar {
+            left: 260px;
+        }
+        .app-container.sidebar-collapsed:has(.sidebar) .sticky-footer-quote-bar {
+            left: 76px;
+        }
+    }
+
     .sticky-footer-inner {
         max-width: 1200px;
         margin: 0 auto;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 12px;
+        gap: 16px;
     }
-    .sticky-total-block {
+    .sticky-footer-totals {
         display: flex;
         flex-direction: column;
         min-width: 0;
     }
-    .sticky-total-val {
-        font-size: 18px;
+    .sticky-footer-val {
+        font-size: 19px;
         font-weight: 800;
         color: #0f172a;
-        line-height: 1.1;
+        line-height: 1.2;
     }
-    .sticky-discount-val {
-        font-size: 11px;
+    .sticky-footer-discount {
+        font-size: 12px;
         color: #64748b;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .sticky-actions-block {
+    .sticky-footer-actions {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
     .btn-sticky-primary {
         background: #2563eb;
         color: #ffffff;
         border: none;
         border-radius: 8px;
-        padding: 10px 18px;
+        padding: 10px 20px;
         font-size: 13.5px;
         font-weight: 700;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         cursor: pointer;
         box-shadow: 0 2px 6px rgba(37,99,235,0.25);
         transition: all 0.15s ease;
@@ -520,43 +533,60 @@
         font-size: 18px;
         font-weight: 800;
         cursor: pointer;
-        transition: background 0.15s;
+        transition: background 0.15s, border-color 0.15s;
     }
     .btn-options-menu:hover {
         background: #e2e8f0;
+        border-color: #94a3b8;
     }
     .options-menu-dropdown {
         position: absolute;
-        bottom: 46px;
+        bottom: 48px;
         right: 0;
         background: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 10px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
         padding: 6px;
         min-width: 200px;
-        z-index: 1000;
-        display: flex;
+        z-index: 1050;
+        display: none; /* Must be hidden by default */
         flex-direction: column;
         gap: 4px;
     }
+    .options-menu-dropdown.show {
+        display: flex !important;
+    }
+    .options-menu-dropdown .menu-item,
     .options-menu-item {
         background: none;
         border: none;
+        width: 100%;
         text-align: left;
-        padding: 8px 12px;
-        font-size: 12.5px;
+        padding: 9px 12px;
+        font-size: 13px;
         font-weight: 600;
         color: #334155;
         border-radius: 6px;
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 8px;
-        transition: background 0.15s;
+        gap: 10px;
+        transition: background 0.15s, color 0.15s;
     }
+    .options-menu-dropdown .menu-item:hover,
     .options-menu-item:hover {
         background: #f1f5f9;
+        color: #0f172a;
+    }
+    .options-menu-dropdown .menu-item.item-danger,
+    .options-menu-item.item-danger {
+        color: #dc2626;
+    }
+    .options-menu-dropdown .menu-item.item-danger:hover,
+    .options-menu-item.item-danger:hover {
+        background: #fef2f2;
+        color: #b91c1c;
     }
 
     /* Toast Notification System */
@@ -989,7 +1019,7 @@
 </div>
 
 <!-- Sticky Bottom Action & Totals Bar (Point 2) -->
-<div class="sticky-footer-quote-bar" id="sticky-footer-bar">
+<div class="sticky-footer-quote-bar" id="sticky-footer-bar" style="display: none;">
     <div class="sticky-footer-inner">
         <!-- Totals & Discount -->
         <div class="sticky-footer-totals">
@@ -1001,30 +1031,29 @@
         <!-- Action Buttons -->
         <div class="sticky-footer-actions">
             <!-- Secondary Options Menu Button "⋯" -->
-            <div class="dropdown-wrapper" style="position: relative;">
-                <button type="button" class="btn-options-menu" onclick="toggleOptionsMenu(event)" title="Mais opções">
+            <div class="dropdown-wrapper" id="options-menu-wrapper" style="position: relative;">
+                <button type="button" class="btn-options-menu" id="btn-options-menu" onclick="toggleOptionsMenu(event)" title="Mais opções">
                     ⋯
                 </button>
                 <div class="options-menu-dropdown" id="options-menu-dropdown">
                     <button type="button" class="menu-item" id="menu-save-draft" onclick="handleMenuAction('draft')">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        Salvar Rascunho
+                        <span>Salvar Rascunho</span>
                     </button>
-                    <button type="button" class="menu-item" onclick="handleMenuAction('conditions')">
+                    <button type="button" class="menu-item" id="menu-edit-conditions" onclick="handleMenuAction('conditions')">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                        Editar Condições
+                        <span>Editar Condições</span>
                     </button>
                     <button type="button" class="menu-item item-danger" id="menu-mark-lost" onclick="handleMenuAction('lost')">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                        Marcar como Perdida
+                        <span>Marcar como Perdida</span>
                     </button>
                 </div>
             </div>
 
             <!-- Single Dynamic Primary Action Button -->
-            <button type="button" class="btn-sticky-primary btn-submit-action" id="btn-sticky-primary" onclick="handlePrimaryAction()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                <span id="btn-sticky-primary-label">Enviar para Aprovação</span>
+            <button type="button" class="btn-sticky-primary" id="btn-sticky-primary" onclick="handlePrimaryAction()">
+                <span id="btn-sticky-primary-label">Carregando...</span>
             </button>
         </div>
     </div>
@@ -1092,89 +1121,27 @@
 
 @section('scripts')
 <script>
-    // Responsive In-Screen Toast Notifications with message deduplication
-    let lastToastMessage = "";
-    let lastToastTime = 0;
-
-    function showToast(message, type = 'info', title = null) {
-        const now = Date.now();
-        const strMsg = String(message || '').trim();
-        // Prevent duplicate toasts within 2 seconds
-        if (strMsg === lastToastMessage && (now - lastToastTime) < 2000) {
-            return;
-        }
-        lastToastMessage = strMsg;
-        lastToastTime = now;
-
-        let container = document.getElementById('toast-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'toast-container';
-            container.className = 'toast-container';
-            document.body.appendChild(container);
-        }
-
-        const toast = document.createElement('div');
-        toast.className = `app-toast app-toast-${type}`;
-
-        let icon = 'ℹ️';
-        let defaultTitle = 'Aviso';
-        if (type === 'success') {
-            icon = '✓';
-            defaultTitle = 'Sucesso';
-        } else if (type === 'error') {
-            icon = '✕';
-            defaultTitle = 'Erro';
-        } else if (type === 'warning') {
-            icon = '⚠️';
-            defaultTitle = 'Atenção';
-        }
-
-        const toastTitle = title || defaultTitle;
-        const formattedMsg = String(message || '').replace(/\n/g, '<br>');
-
-        toast.innerHTML = `
-            <span class="app-toast-icon">${icon}</span>
-            <div class="app-toast-body">
-                <div class="app-toast-title">${toastTitle}</div>
-                <div class="app-toast-msg">${formattedMsg}</div>
-            </div>
-            <button type="button" class="app-toast-close" title="Fechar">&times;</button>
-        `;
-
-        const closeBtn = toast.querySelector('.app-toast-close');
-        const dismiss = () => {
-            toast.classList.remove('show');
-            toast.classList.add('hide');
-            setTimeout(() => {
-                if (toast.parentElement) toast.remove();
-            }, 250);
-        };
-
-        if (closeBtn) {
-            closeBtn.onclick = (e) => {
-                e.stopPropagation();
-                dismiss();
-            };
-        }
-
-        toast.onclick = dismiss;
-
-        container.appendChild(toast);
-        requestAnimationFrame(() => {
-            toast.classList.add('show');
-        });
-
-        const duration = (type === 'error' || String(message).length > 80) ? 6000 : 4000;
-        setTimeout(() => {
-            if (toast.parentElement) dismiss();
-        }, duration);
-    }
-
     // Global override to guarantee no native alert locks the mobile screen
     window.alert = function(msg) {
-        showToast(msg, 'warning');
+        if (typeof showToast === 'function') {
+            showToast(msg, 'warning');
+        } else {
+            console.warn(msg);
+        }
     };
+
+    function updateStickyFooterOffset() {
+        const bar = document.getElementById("sticky-footer-bar");
+        if (!bar) return;
+        const sidebar = document.querySelector(".sidebar");
+        if (!sidebar || window.innerWidth <= 768) {
+            bar.style.left = "0px";
+        } else {
+            const isCollapsed = document.querySelector(".app-container")?.classList.contains("sidebar-collapsed");
+            bar.style.left = isCollapsed ? "76px" : "260px";
+        }
+    }
+    window.addEventListener("resize", updateStickyFooterOffset);
 
     const QUOTE_ID = {{ isset($quoteId) ? (int)$quoteId : 'null' }};
     const TOKEN = "{{ $token ?? '' }}";
@@ -1185,6 +1152,9 @@
     let isEditingLocked = false;
 
     document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
+            setTimeout(updateStickyFooterOffset, 50);
+        });
         checkUserSession();
         loadData();
         setupAttachmentValidation();
@@ -1631,6 +1601,20 @@
                 primaryBtn.style.cursor = "default";
                 primaryBtn.innerHTML = `<span>Proposta Expirada</span>`;
             }
+        }
+
+        // Show Sticky Footer Bar and update offset
+        const stickyBar = document.getElementById("sticky-footer-bar");
+        if (stickyBar) {
+            stickyBar.style.display = "block";
+            updateStickyFooterOffset();
+        }
+
+        // Hide options menu "⋯" on finalized, lost or expired quotes
+        const optionsWrapper = document.getElementById("options-menu-wrapper");
+        if (optionsWrapper) {
+            const isClosed = ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'].includes(quote.status);
+            optionsWrapper.style.display = isClosed ? "none" : "block";
         }
 
         // Bind Items List
