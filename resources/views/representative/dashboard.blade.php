@@ -2640,6 +2640,22 @@
 
         let partnerSearchTimer = null;
 
+        function preparePartnerSearchKey(p) {
+            if (!p) return '';
+            if (!p._searchKey) {
+                const parts = [
+                    p.razao_social || '',
+                    p.nome_fantasia || '',
+                    p.cnpj || p.cnpj_cpf || '',
+                    p.codigo_sankhya || '',
+                    p.cidade || '',
+                    p.bairro || ''
+                ];
+                p._searchKey = normalizeStr(parts.join(' '));
+            }
+            return p._searchKey;
+        }
+
         function filterPartnerOptions() {
             try {
                 if (partnerSearchTimer) {
@@ -2658,20 +2674,12 @@
                     return;
                 }
 
-                // Perform instant local search across pre-loaded items
+                // Perform instant local search across pre-loaded items without heavy in-loop normalizations
                 const terms = normalizedQuery.split(/\s+/).filter(Boolean);
                 const localMatches = (allPartnersList || []).filter(p => {
                     if (!p) return false;
-                    const searchables = [
-                        normalizeStr(p.razao_social),
-                        normalizeStr(p.nome_fantasia),
-                        normalizeStr(p.cnpj || p.cnpj_cpf),
-                        normalizeStr(p.codigo_sankhya),
-                        normalizeStr(p.cidade),
-                        normalizeStr(p.bairro)
-                    ].join(" ");
-
-                    return terms.every(term => searchables.includes(term));
+                    const key = p._searchKey || preparePartnerSearchKey(p);
+                    return terms.every(term => key.includes(term));
                 });
 
                 // Immediately render local matches (or searching state if empty)
@@ -2680,7 +2688,7 @@
                 // Live debounced server query across ALL partners in MySQL
                 partnerSearchTimer = setTimeout(() => {
                     executeServerPartnerSearch(rawQuery.trim());
-                }, 180);
+                }, 280);
             } catch (err) {
                 console.error("Erro ao filtrar parceiros:", err);
             }
@@ -2691,7 +2699,7 @@
         async function executeServerPartnerSearch(query) {
             if (!query) return;
             const trimmedQuery = query.trim();
-            if (!trimmedQuery) return;
+            if (trimmedQuery.length < 2) return;
 
             const thisReqId = ++partnerSearchReqId;
 
@@ -2714,6 +2722,7 @@
 
                 if (Array.isArray(rawResults)) {
                     rawResults.forEach(partner => {
+                        preparePartnerSearchKey(partner);
                         if (!allPartnersList.some(p => p.id == partner.id)) {
                             allPartnersList.push(partner);
                         }

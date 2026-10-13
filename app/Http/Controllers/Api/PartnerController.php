@@ -16,7 +16,10 @@ class PartnerController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Parceiro::query();
+        $query = Parceiro::query()->select([
+            'id', 'codigo_sankhya', 'razao_social', 'nome_fantasia',
+            'cnpj', 'cidade', 'uf', 'bairro', 'ativo'
+        ]);
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));

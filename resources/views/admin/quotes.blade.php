@@ -1007,6 +1007,10 @@
             }
         });
 
+        if (step === 2) {
+            loadAdminProductsIfNeeded();
+        }
+
         if (step === 3) {
             updateAdminSummary();
         }
@@ -1679,19 +1683,36 @@
     let adminRowCounter = 0;
     let adminProdRowTimers = {};
 
+    function populateAdminRepSelect(currentVal = null) {
+        const rSelect = document.getElementById("create-representante");
+        if (!rSelect) return;
+        rSelect.innerHTML = '<option value="">Selecione um representante...</option>';
+        adminRepsList.forEach(r => {
+            const opt = document.createElement("option");
+            opt.value = r.id;
+            opt.textContent = `${r.nome} (${r.email || r.papel})`;
+            if (currentVal && r.id == currentVal) opt.selected = true;
+            rSelect.appendChild(opt);
+        });
+    }
+
     function filterAdminRepSelect() {
         const query = (document.getElementById("admin-rep-search-input")?.value || "").toLowerCase().trim();
         const rSelect = document.getElementById("create-representante");
         if (!rSelect) return;
 
         const currentVal = rSelect.value;
-        rSelect.innerHTML = '<option value="">Selecione um representante...</option>';
+        if (!query) {
+            populateAdminRepSelect(currentVal);
+            return;
+        }
 
+        rSelect.innerHTML = '<option value="">Selecione um representante...</option>';
         const filtered = adminRepsList.filter(r => {
             const name = (r.nome || "").toLowerCase();
             const email = (r.email || "").toLowerCase();
             const papel = (r.papel || "").toLowerCase();
-            return !query || name.includes(query) || email.includes(query) || papel.includes(query);
+            return name.includes(query) || email.includes(query) || papel.includes(query);
         });
 
         filtered.forEach(r => {
@@ -1705,9 +1726,6 @@
 
     function openCreateModal() {
         adminSelectedPartner = null;
-        adminPartnersList = [];
-        adminProductsList = [];
-        adminRepsList = [];
         adminRowCounter = 0;
 
         const form = document.getElementById("create-quote-form");
@@ -1731,75 +1749,110 @@
         document.getElementById("create-modal").classList.remove("active", "open");
     }
 
+    function preparePartnerSearchKey(p) {
+        if (!p) return '';
+        if (!p._searchKey) {
+            const parts = [
+                p.razao_social || '',
+                p.nome_fantasia || '',
+                p.cnpj || p.cnpj_cpf || '',
+                p.codigo_sankhya || '',
+                p.cidade || ''
+            ];
+            p._searchKey = normalizeStr(parts.join(' '));
+        }
+        return p._searchKey;
+    }
+
     async function loadAdminModalData() {
         try {
             const container = document.getElementById("admin-partner-search-results");
-            if (container) {
+            const rSelect = document.getElementById("create-representante");
+
+            // If we already have reps, populate the select immediately
+            if (adminRepsList && adminRepsList.length > 0) {
+                if (rSelect && rSelect.options.length <= 1) {
+                    populateAdminRepSelect();
+                }
+            }
+
+            // If we already have partners, render immediately
+            if (adminPartnersList && adminPartnersList.length > 0) {
+                renderAdminPartnerOptions(adminPartnersList);
+            } else if (container) {
                 container.innerHTML = '<div style="font-size:12px; color:var(--color-primary); text-align:center; padding:10px; font-weight:600;">🔄 Carregando clientes...</div>';
             }
 
-            const rSelect = document.getElementById("create-representante");
-            if (rSelect) {
-                rSelect.innerHTML = '<option value="">🔄 Carregando vendedores...</option>';
+            const promises = [];
+            if (!adminPartnersList || adminPartnersList.length === 0) {
+                promises.push(
+                    fetch(`${API_URL}/clientes?limit=50`)
+                        .then(r => r.json())
+                        .then(pData => {
+                            const list = (pData.success && Array.isArray(pData.data)) ? pData.data : (Array.isArray(pData) ? pData : []);
+                            adminPartnersList = list;
+                            adminPartnersList.forEach(preparePartnerSearchKey);
+                            renderAdminPartnerOptions(adminPartnersList);
+                        })
+                );
             }
 
-            const [pRes, rRes, prodRes] = await Promise.all([
-                fetch(`${API_URL}/clientes?limit=50`),
-                fetch(`${API_URL}/usuarios`),
-                fetch(`${API_URL}/produtos?limit=40`)
-            ]);
-
-            const pData = await pRes.json();
-            const rData = await rRes.json();
-            const prodData = await prodRes.json();
-
-            // 1. Process Partners (Clientes)
-            if (pData.success && Array.isArray(pData.data)) {
-                adminPartnersList = pData.data;
-            } else if (Array.isArray(pData)) {
-                adminPartnersList = pData;
-            } else {
-                adminPartnersList = [];
+            if (!adminRepsList || adminRepsList.length === 0) {
+                if (rSelect) rSelect.innerHTML = '<option value="">🔄 Carregando vendedores...</option>';
+                promises.push(
+                    fetch(`${API_URL}/usuarios`)
+                        .then(r => r.json())
+                        .then(rData => {
+                            let users = [];
+                            if (rData.success && rData.data) {
+                                users = Array.isArray(rData.data) ? rData.data : (Array.isArray(rData.data.users) ? rData.data.users : []);
+                            } else if (Array.isArray(rData)) {
+                                users = rData;
+                            }
+                            adminRepsList = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
+                            populateAdminRepSelect();
+                        })
+                );
             }
-            renderAdminPartnerOptions(adminPartnersList);
 
-            // 2. Process Representatives (Vendedores)
-            let users = [];
-            if (rData.success && rData.data) {
-                if (Array.isArray(rData.data)) {
-                    users = rData.data;
-                } else if (Array.isArray(rData.data.users)) {
-                    users = rData.data.users;
+            if (promises.length > 0) {
+                await Promise.all(promises);
+            }
+
+            // Lazy background prefetch of products (never competing with customer search)
+            setTimeout(() => {
+                if (!adminProductsList || adminProductsList.length === 0) {
+                    loadAdminProductsIfNeeded();
                 }
-            } else if (Array.isArray(rData)) {
-                users = rData;
-            }
+            }, 800);
 
-            adminRepsList = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
-            if (rSelect) {
-                rSelect.innerHTML = '<option value="" selected>Selecione um representante...</option>';
-                adminRepsList.forEach(r => {
-                    rSelect.innerHTML += `<option value="${r.id}">${r.nome} (${r.email || r.papel})</option>`;
-                });
-            }
+        } catch(e) {
+            console.error("Error loading admin modal data:", e);
+        }
+    }
 
-            // 3. Process Products
-            if (prodData.success && Array.isArray(prodData.data)) {
-                adminProductsList = prodData.data;
-            } else if (Array.isArray(prodData)) {
-                adminProductsList = prodData;
-            } else {
-                adminProductsList = [];
-            }
-
-            // Add first product row if container is empty
+    async function loadAdminProductsIfNeeded() {
+        if (adminProductsList && adminProductsList.length > 0) {
             const itemsContainer = document.getElementById("manual-items-container");
             if (itemsContainer && itemsContainer.children.length === 0) {
                 addAdminManualProductRow();
             }
-
+            return;
+        }
+        try {
+            const prodRes = await fetch(`${API_URL}/produtos?limit=40`);
+            const prodData = await prodRes.json();
+            if (prodData.success && Array.isArray(prodData.data)) {
+                adminProductsList = prodData.data;
+            } else if (Array.isArray(prodData)) {
+                adminProductsList = prodData;
+            }
+            const itemsContainer = document.getElementById("manual-items-container");
+            if (itemsContainer && itemsContainer.children.length === 0) {
+                addAdminManualProductRow();
+            }
         } catch(e) {
-            console.error("Error loading admin modal data:", e);
+            console.error("Erro ao carregar produtos:", e);
         }
     }
 
@@ -1820,36 +1873,38 @@
         if (!list || list.length === 0) {
             container.innerHTML = `
                 <div style="text-align:center; padding:12px; background:#f8fafc; border-radius:8px; border:1px dashed var(--color-border); font-size:12px; color:var(--color-text-muted);">
-                    ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${query}</strong>"...` : `Nenhum cliente encontrado para "<strong>${query}</strong>".`) : 'Sem clientes para exibir.'}
+                    ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${escapeHtml(query)}</strong>"...` : `Nenhum cliente encontrado para "<strong>${escapeHtml(query)}</strong>".`) : 'Sem clientes para exibir.'}
                 </div>
             `;
             return;
         }
 
-        container.innerHTML = "";
-        list.forEach(p => {
-            const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
+        let html = "";
+        const maxDisplay = 40;
+        const items = list.slice(0, maxDisplay);
+        for (let i = 0; i < items.length; i++) {
+            const p = items[i];
+            const code = p.codigo_sankhya ? `Cód: ${escapeHtml(p.codigo_sankhya)}` : 'Cód: N/A';
             const docVal = p.cnpj || p.cnpj_cpf;
-            const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
+            const docStr = docVal ? `CNPJ/CPF: ${escapeHtml(docVal)}` : 'Sem documento';
             const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
-            const cityStr = (p.cidade || pUf) ? ` &bull; ${p.cidade || ''}${pUf ? '/' + pUf : ''}` : '';
+            const cityStr = (p.cidade || pUf) ? ` &bull; ${escapeHtml(p.cidade || '')}${pUf ? '/' + escapeHtml(pUf) : ''}` : '';
+            const razao = escapeHtml(p.razao_social || 'Sem razão social');
 
-            const card = document.createElement("div");
-            card.className = "partner-item-card";
-            card.style.cssText = "display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.2s;";
-            card.onclick = () => selectAdminPartnerById(p.id);
-            card.innerHTML = `
-                <div style="flex-grow:1; padding-right:8px;">
-                    <div style="font-weight:700; font-size:13px; color:var(--color-text); line-height:1.3;">${p.razao_social}</div>
-                    <div style="font-size:11px; color:var(--color-text-muted); margin-top:2px;">${code}${cityStr}</div>
-                    <div style="font-size:11px; color:var(--color-primary); font-weight:600; margin-top:1px;">${docStr}</div>
-                </div>
-                <div style="background:#e0f2fe; color:#0284c7; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; flex-shrink:0;">
-                    Selecionar
+            html += `
+                <div class="partner-item-card" onclick="selectAdminPartnerById(${p.id})" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.15s;">
+                    <div style="flex-grow:1; padding-right:8px; min-width:0;">
+                        <div style="font-weight:700; font-size:13px; color:var(--color-text); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${razao}</div>
+                        <div style="font-size:11px; color:var(--color-text-muted); margin-top:2px;">${code}${cityStr}</div>
+                        <div style="font-size:11px; color:var(--color-primary); font-weight:600; margin-top:1px;">${docStr}</div>
+                    </div>
+                    <div style="background:#e0f2fe; color:#0284c7; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; flex-shrink:0;">
+                        Selecionar
+                    </div>
                 </div>
             `;
-            container.appendChild(card);
-        });
+        }
+        container.innerHTML = html;
     }
 
     function filterAdminPartnerOptions() {
@@ -1867,64 +1922,59 @@
 
         const terms = normalizedQuery.split(/\s+/).filter(Boolean);
         const localMatches = (adminPartnersList || []).filter(p => {
-            const searchables = [
-                normalizeStr(p.razao_social),
-                normalizeStr(p.nome_fantasia),
-                normalizeStr(p.cnpj || p.cnpj_cpf),
-                normalizeStr(p.codigo_sankhya),
-                normalizeStr(p.cidade)
-            ].join(" ");
-            return terms.every(term => searchables.includes(term));
+            const key = p._searchKey || preparePartnerSearchKey(p);
+            return terms.every(term => key.includes(term));
         });
 
         renderAdminPartnerOptions(localMatches, true);
 
         adminPartnerSearchTimer = setTimeout(() => {
             executeAdminServerPartnerSearch(rawQuery.trim());
-        }, 250);
+        }, 300);
     }
 
-        let adminPartnerSearchReqId = 0;
+    let adminPartnerSearchReqId = 0;
 
-        async function executeAdminServerPartnerSearch(query) {
-            if (!query) return;
-            const trimmedQuery = query.trim();
-            if (!trimmedQuery) return;
+    async function executeAdminServerPartnerSearch(query) {
+        if (!query) return;
+        const trimmedQuery = query.trim();
+        if (trimmedQuery.length < 2) return;
 
-            const thisReqId = ++adminPartnerSearchReqId;
+        const thisReqId = ++adminPartnerSearchReqId;
 
-            try {
-                const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(trimmedQuery)}&limit=50`);
-                if (!res.ok) {
-                    throw new Error(`Servidor retornou status ${res.status}`);
-                }
-                const data = await res.json();
-                
-                if (thisReqId !== adminPartnerSearchReqId) return;
+        try {
+            const res = await fetch(`${API_URL}/clientes?search=${encodeURIComponent(trimmedQuery)}&limit=50`);
+            if (!res.ok) {
+                throw new Error(`Servidor retornou status ${res.status}`);
+            }
+            const data = await res.json();
+            
+            if (thisReqId !== adminPartnerSearchReqId) return;
 
-                let results = [];
-                if (data.success && Array.isArray(data.data)) {
-                    results = data.data;
-                } else if (Array.isArray(data)) {
-                    results = data;
-                }
+            let results = [];
+            if (data.success && Array.isArray(data.data)) {
+                results = data.data;
+            } else if (Array.isArray(data)) {
+                results = data;
+            }
 
-                if (Array.isArray(results)) {
-                    results.forEach(partner => {
-                        if (!adminPartnersList.some(p => p.id == partner.id)) {
-                            adminPartnersList.push(partner);
-                        }
-                    });
-                    renderAdminPartnerOptions(results, false);
-                }
-            } catch(e) {
-                console.error("Error searching admin partners:", e);
-                const container = document.getElementById("admin-partner-search-results");
-                if (container && thisReqId === adminPartnerSearchReqId) {
-                    container.innerHTML = `<div style="text-align:center; padding:12px; color:#ef4444; font-size:12px;">⚠️ Erro na consulta (${e.message}).</div>`;
-                }
+            if (Array.isArray(results)) {
+                results.forEach(partner => {
+                    preparePartnerSearchKey(partner);
+                    if (!adminPartnersList.some(p => p.id == partner.id)) {
+                        adminPartnersList.push(partner);
+                    }
+                });
+                renderAdminPartnerOptions(results, false);
+            }
+        } catch(e) {
+            console.error("Error searching admin partners:", e);
+            const container = document.getElementById("admin-partner-search-results");
+            if (container && thisReqId === adminPartnerSearchReqId) {
+                container.innerHTML = `<div style="text-align:center; padding:12px; color:#ef4444; font-size:12px;">⚠️ Erro na consulta (${escapeHtml(e.message)}).</div>`;
             }
         }
+    }
 
     function selectAdminPartnerById(id) {
         adminSelectedPartner = adminPartnersList.find(p => p.id == id);
