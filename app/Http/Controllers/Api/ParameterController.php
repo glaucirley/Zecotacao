@@ -47,7 +47,7 @@ class ParameterController extends Controller
             ParametroSistema::firstOrCreate(['chave' => $d['chave']], $d);
         }
 
-        $params = ParametroSistema::all();
+        $params = ParametroSistema::where('chave', '!=', 'SANKHYA_DB_PASS')->get();
 
         return response()->json([
             'success' => true,
@@ -64,6 +64,13 @@ class ParameterController extends Controller
 
         if (!$user->isAdministrador() && !$user->isDiretor()) {
             return response()->json(['error' => 'Forbidden. Only administrators and directors can edit system parameters.'], 403);
+        }
+
+        if ($chave === 'SANKHYA_DB_PASS') {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'A senha do banco do Sankhya não pode ser alterada diretamente por esta rota. Utilize a tela de conectividade do Sankhya.'
+            ], 403);
         }
 
         $param = ParametroSistema::where('chave', $chave)->firstOrFail();
