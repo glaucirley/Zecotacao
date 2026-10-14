@@ -128,6 +128,13 @@
         background: #fee2e2;
         color: #dc2626;
     }
+    .filter-tab-btn.tab-rejected.active {
+        color: #b91c1c;
+    }
+    .filter-tab-btn.tab-rejected .tab-badge {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
 
     /* Stepper Quantity Control */
     .qty-stepper {
@@ -235,27 +242,36 @@
     }
 
     /* Compact Item Card (3 Lines Layout) */
+    .compact-item-card,
     .item-card-row {
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 12px;
         margin-bottom: 10px;
-        padding: 0 !important;
+        padding: 12px 14px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.03);
         position: relative;
-        transition: border-color 0.15s;
-    }
-    .item-card-row.below-min-card {
-        border-color: #fca5a5 !important;
-        background: #fff8f8 !important;
-    }
-    .compact-item-card {
-        padding: 10px 14px;
+        transition: all 0.15s ease;
         display: flex;
         flex-direction: column;
         gap: 8px;
         width: 100%;
         box-sizing: border-box;
+    }
+    .compact-item-card.below-min-card,
+    .item-card-row.below-min-card {
+        border-color: #fca5a5 !important;
+        background: #fff8f8 !important;
+    }
+    .compact-item-card.recusado,
+    .item-card-row.recusado {
+        border-color: #f87171 !important;
+        background-color: #fef2f2 !important;
+        border-left: 5px solid #ef4444 !important;
+    }
+    .compact-item-card.aprovado,
+    .item-card-row.aprovado {
+        border-left: 4px solid #10b981;
     }
     .item-line-1 {
         display: flex;
@@ -818,6 +834,9 @@
                 </button>
                 <button type="button" class="filter-tab-btn" id="tab-approved" onclick="setFilterTab('approved')">
                     ✅ Normais <span class="tab-badge" id="count-approved">0</span>
+                </button>
+                <button type="button" class="filter-tab-btn tab-rejected" id="tab-rejected" onclick="setFilterTab('rejected')">
+                    ❌ Recusados <span class="tab-badge" id="count-rejected">0</span>
                 </button>
             </div>
         </div>
@@ -1703,11 +1722,16 @@
         let countAll = quote.itens.length;
         let countAttention = 0;
         let countApproved = 0;
+        let countRejected = 0;
 
         quote.itens.forEach(item => {
             const minEf = getItemEffectiveMin(item);
             const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
-            if (isBelowMin && item.status_item !== 'aprovado') {
+            const isRejected = item.status_item === 'recusado';
+
+            if (isRejected) {
+                countRejected++;
+            } else if (isBelowMin && item.status_item !== 'aprovado') {
                 hasItemBelowMin = true;
                 countAttention++;
             } else {
@@ -1720,10 +1744,12 @@
         const elAllBadge = document.getElementById("count-all-badge");
         const elAtt = document.getElementById("count-attention");
         const elApp = document.getElementById("count-approved");
+        const elRej = document.getElementById("count-rejected");
         if (elAll) elAll.innerText = countAll;
         if (elAllBadge) elAllBadge.innerText = `${countAll} itens`;
         if (elAtt) elAtt.innerText = countAttention;
         if (elApp) elApp.innerText = countApproved;
+        if (elRej) elRej.innerText = countRejected;
 
         // Filter items for display
         const filtered = quote.itens.filter(item => {
@@ -1736,11 +1762,16 @@
 
             const minEf = getItemEffectiveMin(item);
             const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
+            const isRejected = item.status_item === 'recusado';
+
             if (currentFilterTab === 'attention') {
-                return isBelowMin && item.status_item !== 'aprovado';
+                return isBelowMin && item.status_item !== 'aprovado' && !isRejected;
             }
             if (currentFilterTab === 'approved') {
-                return !isBelowMin || item.status_item === 'aprovado';
+                return (!isBelowMin || item.status_item === 'aprovado') && !isRejected;
+            }
+            if (currentFilterTab === 'rejected') {
+                return isRejected;
             }
             return true;
         });
@@ -1758,8 +1789,10 @@
                 const propPrice = parseFloat(item.preco_unit_proposto || 0);
                 const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
                 const isBelowMin = propPrice < minEf;
-                const isItemLocked = isEditingLocked || item.status_item === 'recusado';
-                const rowClass = item.status_item === 'recusado' ? "recusado" : (item.status_item === 'aprovado' ? "aprovado" : "");
+                const isRejected = item.status_item === 'recusado';
+                const isApproved = item.status_item === 'aprovado';
+                const isItemLocked = isEditingLocked || isRejected;
+                const rowClass = isRejected ? "recusado" : (isApproved ? "aprovado" : "");
 
                 // Semantic Price Tag Badge for Line 3
                 let priceTagHtml = '';
@@ -1775,15 +1808,32 @@
                     priceTagHtml = `<span class="badge-price-tag tag-above">+${perc}%</span>`;
                 }
 
+                // Check justification/rejection reason
+                const justifItem = (quote.justificativas && quote.justificativas.length) 
+                    ? quote.justificativas.find(j => j.cotacao_item_id === item.id) 
+                    : null;
+                const motivoTexto = justifItem ? justifItem.texto : '';
+
                 container.innerHTML += `
-                    <div class="compact-item-card ${rowClass} ${isBelowMin ? 'below-min-card' : ''}" id="card-item-${item.id}">
-                        <!-- LINHA 1: descrição em destaque + código + unidade + lixeira -->
+                    <div class="compact-item-card ${rowClass} ${isBelowMin && !isRejected ? 'below-min-card' : ''}" id="card-item-${item.id}">
+                        <!-- LINHA 1: descrição em destaque + código + unidade + etiqueta status + lixeira -->
                         <div class="item-line-1">
-                            <div class="item-desc-wrap">
-                                <span class="item-desc">${item.produto.descricao}</span>
-                                <span class="item-code-un">#${item.produto.codigo_sankhya} · ${item.produto.unidade}</span>
+                            <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : ''}">${item.produto.descricao}</span>
+                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">#${item.produto.codigo_sankhya} · ${item.produto.unidade}</span>
                                 ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
-                                ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d; margin-left:4px;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
+                                ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
+                                ${isRejected ? `
+                                    <span class="badge-status recusado" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        Recusado
+                                    </span>
+                                ` : (isApproved ? `
+                                    <span class="badge-status aprovado" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Aprovado
+                                    </span>
+                                ` : '')}
                             </div>
                             <div>
                                 ${!isItemLocked ? `
@@ -1805,8 +1855,8 @@
                                 </div>
                             ` : `
                                 <div style="display:flex; align-items:center; gap:6px;">
-                                    <span style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Qtd:</span>
-                                    <span style="font-weight:700; font-size:13.5px; color:#1e293b; padding:4px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">${item.qtd} un</span>
+                                    <span style="font-size:11px; color:${isRejected ? '#991b1b' : '#64748b'}; font-weight:700; text-transform:uppercase;">Qtd:</span>
+                                    <span style="font-weight:700; font-size:13.5px; color:${isRejected ? '#991b1b' : '#1e293b'}; padding:4px 10px; background:${isRejected ? '#fee2e2' : '#f1f5f9'}; border:1px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}; border-radius:6px;">${item.qtd} un</span>
                                 </div>
                             `}
 
@@ -1822,8 +1872,8 @@
                                 </div>
                             ` : `
                                 <div style="display:flex; align-items:center; gap:6px;">
-                                    <span style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Preço:</span>
-                                    <span style="font-weight:700; font-size:14px; color:#0f172a; padding:4px 10px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px;">R$ ${propPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                    <span style="font-size:11px; color:${isRejected ? '#991b1b' : '#64748b'}; font-weight:700; text-transform:uppercase;">Preço:</span>
+                                    <span style="font-weight:700; font-size:14px; color:${isRejected ? '#991b1b; text-decoration:line-through;' : '#0f172a;'}; padding:4px 10px; background:${isRejected ? '#fee2e2' : '#f1f5f9'}; border:1px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}; border-radius:6px;">R$ ${propPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                             `}
                         </div>
@@ -1836,9 +1886,15 @@
                                 <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
                             </div>
                             <div>
-                                ${priceTagHtml}
+                                ${isRejected ? `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">Desconsiderado do total</span>` : priceTagHtml}
                             </div>
                         </div>
+
+                        ${isRejected && motivoTexto ? `
+                            <div style="margin-top: 4px; padding: 6px 10px; background: #fff5f5; border-radius: 6px; font-size: 11.5px; color: #991b1b; border: 1px dashed #fca5a5; display: flex; align-items: center; gap: 6px;">
+                                <strong>Motivo da recusa:</strong> <span>${motivoTexto}</span>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
             });
@@ -1887,7 +1943,7 @@
         let hasItemBelowMin = false;
         quote.itens.forEach(i => {
             const minEf = getItemEffectiveMin(i);
-            if (parseFloat(i.preco_unit_proposto) < minEf && i.status_item !== 'aprovado') {
+            if (parseFloat(i.preco_unit_proposto) < minEf && i.status_item !== 'aprovado' && i.status_item !== 'recusado') {
                 hasItemBelowMin = true;
             }
         });
