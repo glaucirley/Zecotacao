@@ -201,4 +201,9 @@ class Parceiro extends Model
     {
         return $this->hasMany(Cotacao::class, 'parceiro_id');
     }
+
+    public function contatos()
+    {
+        return $this->hasMany(ClienteContato::class, 'parceiro_id');
+    }
 }

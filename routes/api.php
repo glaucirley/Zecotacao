@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ChatLogController;
+use App\Http\Controllers\Api\QuoteDeliveryController;
 
 Route::prefix('v1')->group(function () {
     // 1. Webhook N8N API Route
@@ -124,6 +125,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/cotacoes/token/{token}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/token/{token}/pdf', [QuoteController::class, 'generatePdf']);
         Route::get('/cotacoes/token/{token}/produtos', [QuoteController::class, 'listProducts']);
+        Route::get('/cotacoes/token/{token}/contatos-envio', [QuoteDeliveryController::class, 'getDeliveryData']);
+        Route::post('/cotacoes/token/{token}/envios', [QuoteDeliveryController::class, 'send']);
 
         // Authenticated ID routes (Direct access by quote ID without writing token to client)
         Route::get('/cotacoes/{id}', [QuoteController::class, 'show']);
@@ -136,5 +139,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/cotacoes/{id}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/{id}/pdf', [QuoteController::class, 'generatePdf']);
         Route::get('/cotacoes/{id}/produtos', [QuoteController::class, 'listProducts']);
+        Route::get('/cotacoes/{id}/contatos-envio', [QuoteDeliveryController::class, 'getDeliveryData']);
+        Route::post('/cotacoes/{id}/envios', [QuoteDeliveryController::class, 'send']);
+        Route::patch('/cliente-contatos/{id}/inativar', [QuoteDeliveryController::class, 'inactivateContact']);
     });
 });

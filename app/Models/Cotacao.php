@@ -85,6 +85,16 @@ class Cotacao extends Model
         return $this->hasOne(PedidoExterno::class, 'cotacao_id');
     }
 
+    public function envios()
+    {
+        return $this->hasMany(CotacaoEnvio::class, 'cotacao_id')->orderByDesc('id');
+    }
+
+    public function ultimoEnvio()
+    {
+        return $this->hasOne(CotacaoEnvio::class, 'cotacao_id')->latestOfMany();
+    }
+
     /**
      * Generate the next short sequential quotation number: COT-YYYY-XXXXXX
      */

@@ -383,7 +383,8 @@ class QuoteController extends Controller
             'itens.produto',
             'justificativas.anexos',
             'anexos',
-            'historico.usuario'
+            'historico.usuario',
+            'ultimoEnvio.contato'
         ]);
 
         return response()->json([

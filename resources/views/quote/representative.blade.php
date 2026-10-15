@@ -785,6 +785,17 @@
         <span id="locked-status-banner-text">Esta cotação está em modo somente leitura e não permite edições.</span>
     </div>
 
+    <!-- Proposal Delivery Status Banner (WhatsApp / Web Share Tracking) -->
+    <div id="proposal-delivery-banner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span id="proposal-delivery-icon"></span>
+            <span id="proposal-delivery-text"></span>
+        </div>
+        <button type="button" class="btn btn-outline" id="btn-reopen-send-banner" onclick="openSendQuoteModal()" style="font-size: 11.5px; padding: 4px 10px; border-radius: 6px; white-space: nowrap; background: #ffffff;">
+            Reenviar
+        </button>
+    </div>
+
     <!-- Compact Client Header Strip -->
     <div class="compact-client-strip" style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
@@ -1040,6 +1051,22 @@
                     ⋯
                 </button>
                 <div class="options-menu-dropdown" id="options-menu-dropdown">
+                    <button type="button" class="menu-item" id="menu-send-whatsapp" onclick="handleMenuAction('send_whatsapp')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                        <span>Enviar ao Cliente (WhatsApp)</span>
+                    </button>
+                    <button type="button" class="menu-item" id="menu-share-pdf" onclick="handleMenuAction('share_pdf')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                        <span>Compartilhar PDF</span>
+                    </button>
+                    <button type="button" class="menu-item" id="menu-download-pdf" onclick="handleMenuAction('download_pdf')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <span>Baixar PDF da Proposta</span>
+                    </button>
+                    <button type="button" class="menu-item" id="menu-release-billing" onclick="handleMenuAction('release_billing')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        <span>Liberar Faturamento</span>
+                    </button>
                     <button type="button" class="menu-item" id="menu-save-draft" onclick="handleMenuAction('draft')">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         <span>Salvar Rascunho</span>
@@ -1118,6 +1145,74 @@
         <div style="display: flex; justify-content: flex-end; gap: 12px;">
             <button class="btn btn-outline" onclick="closeReleaseModal()">Cancelar</button>
             <button class="btn btn-primary" onclick="confirmRelease()" style="background-color: #0d9488; border-color: #0d9488;">Liberar Faturamento</button>
+        </div>
+    </div>
+</div>
+
+<!-- Send Quote to Client Modal (WhatsApp & Web Share) -->
+<div id="send-quote-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1050; padding: 16px;">
+    <div class="auth-card" style="max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); background: #ffffff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: #25d366; color: #ffffff; display: flex; align-items: center; justify-content: center;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                </div>
+                <div>
+                    <h3 style="font-size: 16px; margin: 0; font-weight: 700; color: #0f172a;">Enviar Proposta Comercial</h3>
+                    <p style="font-size: 11.5px; color: #64748b; margin: 0;">Disparo direto pelo WhatsApp do seu aparelho</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeSendQuoteModal()" style="border: none; background: none; font-size: 20px; color: #94a3b8; cursor: pointer; padding: 4px 8px;">✕</button>
+        </div>
+
+        <!-- Seletor de Contatos Ranqueados -->
+        <div style="margin-bottom: 16px;">
+            <label style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #475569; display: block; margin-bottom: 8px;">
+                Contato de Destino
+            </label>
+            <div id="send-contacts-container" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Preenchido via JS com os contatos ranqueados -->
+                <div style="text-align: center; padding: 16px; font-size: 12.5px; color: #94a3b8;">Carregando contatos do cliente...</div>
+            </div>
+
+            <!-- Formulário Novo / Outro Número (recolhível) -->
+            <div id="send-custom-contact-box" style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label class="form-label" style="font-size: 11.5px;">Nome do Contato (Opcional)</label>
+                    <input type="text" id="send-custom-name" class="form-control" placeholder="Ex: Dr. Roberto / Comprador" style="font-size: 13px;" oninput="onCustomContactInput()">
+                </div>
+                <div class="form-group" style="margin-bottom: 4px;">
+                    <label class="form-label" style="font-size: 11.5px;">Celular com WhatsApp (com DDD)</label>
+                    <input type="tel" id="send-custom-phone" class="form-control" placeholder="(00) 90000-0000" inputmode="tel" style="font-size: 13px;" oninput="onCustomPhoneInput(this)">
+                </div>
+                <div id="send-phone-validation-feedback" style="font-size: 11.5px; margin-top: 4px; display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Prévia da Mensagem -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #475569;">
+                    Prévia da Mensagem
+                </label>
+                <span style="font-size: 11px; color: #64748b;">Texto editável</span>
+            </div>
+            <textarea id="send-message-preview" class="form-control" rows="5" style="font-size: 12.5px; line-height: 1.4; background: #f8fafc; border-color: #cbd5e1;"></textarea>
+            <small style="display: block; margin-top: 5px; font-size: 11px; color: #64748b;">
+                O link rastreável exclusivo da proposta será anexado à mensagem automaticamente.
+            </small>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline" onclick="submitSendQuote('WEB_SHARE')" id="btn-share-pdf-native" style="flex: 1; padding: 12px; font-size: 12.5px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;" title="Compartilhar pelo menu nativo do aparelho">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                <span>Compartilhar PDF</span>
+            </button>
+            <button type="button" class="btn btn-whatsapp" onclick="submitSendQuote('WHATSAPP')" id="btn-open-wa-native" style="flex: 1.5; padding: 12px; font-size: 13.5px; font-weight: 700; background: #25d366; color: #ffffff; border: none; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3); cursor: pointer;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                <span>Abrir WhatsApp</span>
+            </button>
         </div>
     </div>
 </div>
@@ -1428,6 +1523,14 @@
             body?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else if (action === 'lost') {
             openLostModal();
+        } else if (action === 'send_whatsapp') {
+            openSendQuoteModal();
+        } else if (action === 'share_pdf') {
+            shareViaWebShare();
+        } else if (action === 'download_pdf') {
+            downloadPdf();
+        } else if (action === 'release_billing') {
+            openReleaseModal();
         }
     }
 
@@ -1435,9 +1538,9 @@
         if (!quote) return;
         if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
             submitQuote();
-        } else if (quote.status === 'APROVADA') {
-            downloadPdf();
-        } else if (quote.status === 'PDF_GERADO') {
+        } else if (['APROVADA', 'PDF_GERADO'].includes(quote.status)) {
+            openSendQuoteModal();
+        } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
             openReleaseModal();
         } else if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote.status)) {
             showToast("Cotação em análise de alçada. Aguarde o retorno da gestão.", "info");
@@ -1595,17 +1698,16 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span>Em Análise de Alçada</span>
                 `;
-            } else if (quote.status === 'APROVADA') {
-                primaryBtn.classList.add("btn-pdf-action");
+            } else if (['APROVADA', 'PDF_GERADO'].includes(quote.status)) {
+                primaryBtn.style.background = "#25d366";
+                primaryBtn.style.color = "#ffffff";
+                primaryBtn.style.border = "none";
+                primaryBtn.style.boxShadow = "0 4px 14px rgba(37, 211, 102, 0.35)";
+                primaryBtn.disabled = false;
+                primaryBtn.style.cursor = "pointer";
                 primaryBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                    <span>Gerar PDF da Proposta</span>
-                `;
-            } else if (quote.status === 'PDF_GERADO') {
-                primaryBtn.classList.add("btn-release-action");
-                primaryBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                    <span>Liberar Faturamento</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                    <span>Enviar ao Cliente</span>
                 `;
             } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
                 primaryBtn.style.background = "#fef3c7";
@@ -1647,12 +1749,30 @@
             updateStickyFooterOffset();
         }
 
-        // Hide options menu "⋯" on finalized, lost or expired quotes
+        // Update options menu "⋯" dropdown items
         const optionsWrapper = document.getElementById("options-menu-wrapper");
         if (optionsWrapper) {
-            const isClosed = ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'].includes(quote.status);
+            const isClosed = ['FATURADA', 'PERDIDA', 'EXPIRADA'].includes(quote.status);
             optionsWrapper.style.display = isClosed ? "none" : "block";
+
+            const menuSendWa = document.getElementById("menu-send-whatsapp");
+            const menuSharePdf = document.getElementById("menu-share-pdf");
+            const menuDownloadPdf = document.getElementById("menu-download-pdf");
+            const menuReleaseBilling = document.getElementById("menu-release-billing");
+            const menuSaveDraft = document.getElementById("menu-save-draft");
+            const menuMarkLost = document.getElementById("menu-mark-lost");
+
+            const isApprovedOrSent = ['APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO'].includes(quote.status);
+            if (menuSendWa) menuSendWa.style.display = isApprovedOrSent ? "flex" : "none";
+            if (menuSharePdf) menuSharePdf.style.display = isApprovedOrSent ? "flex" : "none";
+            if (menuDownloadPdf) menuDownloadPdf.style.display = isApprovedOrSent ? "flex" : "none";
+            if (menuReleaseBilling) menuReleaseBilling.style.display = (quote.status === 'PDF_GERADO') ? "flex" : "none";
+            if (menuSaveDraft) menuSaveDraft.style.display = ['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status) ? "flex" : "none";
+            if (menuMarkLost) menuMarkLost.style.display = ['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status) ? "flex" : "none";
         }
+
+        // Update proposal delivery tracking banner
+        updateDeliveryBanner();
 
         // Bind Items List
         renderItems();
@@ -2686,6 +2806,341 @@
 
     function goBackToQuotes() {
         goToHomeDashboard();
+    }
+
+    // ==========================================
+    // PROPOSAL DELIVERY & WHATSAPP TRACKING FLOW
+    // ==========================================
+    let sendDeliveryContacts = [];
+    let selectedContactId = null;
+
+    function updateDeliveryBanner() {
+        const banner = document.getElementById("proposal-delivery-banner");
+        const iconEl = document.getElementById("proposal-delivery-icon");
+        const textEl = document.getElementById("proposal-delivery-text");
+        const reopenBtn = document.getElementById("btn-reopen-send-banner");
+        if (!banner || !iconEl || !textEl) return;
+
+        const env = quote.ultimo_envio;
+        if (!env) {
+            banner.style.display = "none";
+            return;
+        }
+
+        banner.style.display = "flex";
+
+        if (env.aberto_em) {
+            banner.style.background = "#ecfdf5";
+            banner.style.border = "1px solid #a7f3d0";
+            banner.style.color = "#065f46";
+            iconEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+            
+            const openDate = new Date(env.aberto_em);
+            const dateStr = openDate.toLocaleDateString('pt-BR');
+            const timeStr = openDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const contactName = env.nome_contato_snapshot || (env.contato ? env.contato.nome_contato : 'Cliente');
+            
+            textEl.innerHTML = `<strong>Visualizada pelo cliente em ${dateStr} às ${timeStr}</strong> · Contato Confirmado (${contactName})`;
+        } else {
+            banner.style.background = "#eff6ff";
+            banner.style.border = "1px solid #bfdbfe";
+            banner.style.color = "#1e40af";
+            iconEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color: #2563eb;"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>`;
+            
+            const contactName = env.nome_contato_snapshot || (env.contato ? env.contato.nome_contato : 'Cliente');
+            const tel = (env.contato && env.contato.telefone_formatado) ? env.contato.telefone_formatado : (env.telefone_destino || '');
+            
+            textEl.innerHTML = `Enviada para <strong>${contactName}</strong> · ${tel} · <em>aguardando abertura</em>`;
+        }
+
+        if (reopenBtn) {
+            reopenBtn.style.display = ['APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO'].includes(quote.status) ? "inline-block" : "none";
+        }
+    }
+
+    async function openSendQuoteModal() {
+        if (!quote) return;
+        const allowStatuses = ['APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO'];
+        if (!allowStatuses.includes(quote.status)) {
+            showToast("A proposta só pode ser enviada ao cliente após a aprovação (status atual: " + quote.status.replace(/_/g, ' ') + ").", "warning");
+            return;
+        }
+
+        const modal = document.getElementById("send-quote-modal");
+        const container = document.getElementById("send-contacts-container");
+        const previewTextarea = document.getElementById("send-message-preview");
+        if (modal) modal.style.display = "flex";
+
+        container.innerHTML = `<div style="text-align: center; padding: 16px; font-size: 12.5px; color: #94a3b8;">Carregando contatos confiáveis...</div>`;
+
+        try {
+            const res = await fetch(`${QUOTE_BASE_URL}/contatos-envio`);
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                sendDeliveryContacts = data.contatos || [];
+                renderSendContactsList(sendDeliveryContacts);
+                if (previewTextarea && data.previa_mensagem) {
+                    previewTextarea.value = data.previa_mensagem;
+                }
+            } else {
+                container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">Falha ao carregar contatos do cliente.</div>`;
+            }
+        } catch (e) {
+            container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">Erro de conexão ao buscar contatos.</div>`;
+        }
+    }
+
+    function closeSendQuoteModal() {
+        const modal = document.getElementById("send-quote-modal");
+        if (modal) modal.style.display = "none";
+    }
+
+    function renderSendContactsList(contatos) {
+        const container = document.getElementById("send-contacts-container");
+        if (!container) return;
+        container.innerHTML = "";
+
+        if (contatos.length === 0) {
+            selectedContactId = "outro";
+            container.innerHTML = `
+                <div style="font-size: 12.5px; color: #64748b; background: #fffbeb; border: 1px solid #fef3c7; padding: 10px 12px; border-radius: 8px;">
+                    Nenhum telefone registrado para este cliente ainda. Informe o celular do cliente abaixo para realizar o primeiro envio e salvá-lo no histórico.
+                </div>
+            `;
+            document.getElementById("send-custom-contact-box").style.display = "block";
+            return;
+        }
+
+        let hasSuggested = false;
+
+        contatos.forEach((c, idx) => {
+            const isChecked = c.is_sugerido || (idx === 0 && !hasSuggested);
+            if (isChecked) {
+                selectedContactId = c.id;
+                hasSuggested = true;
+            }
+
+            const itemDiv = document.createElement("label");
+            itemDiv.style.cssText = `display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1.5px solid ${isChecked ? '#22c55e' : '#e2e8f0'}; background: ${isChecked ? '#f0fdf4' : '#ffffff'}; border-radius: 10px; cursor: pointer; transition: all 0.15s ease;`;
+            itemDiv.id = `contact-card-${c.id}`;
+
+            const badgeConfirmado = c.confirmado
+                ? `<span style="background: #dcfce7; color: #166534; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 12px; border: 1px solid #bbf7d0;">✓ Confirmado</span>`
+                : `<span style="background: #f1f5f9; color: #64748b; font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 12px; border: 1px solid #e2e8f0;">Não confirmado</span>`;
+
+            const badgeOrigem = c.origem === 'SANKHYA'
+                ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 600;">Sankhya</span>`
+                : `<span style="font-size: 10px; color: #94a3b8; font-weight: 600;">Vendedor</span>`;
+
+            itemDiv.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="radio" name="delivery_contact_choice" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="onContactSelectionChange(this.value)">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <strong style="font-size: 13.5px; color: #0f172a;">${c.nome_contato}</strong>
+                            ${c.cargo ? `<span style="font-size: 11px; color: #64748b;">(${c.cargo})</span>` : ''}
+                        </div>
+                        <div style="font-size: 12px; color: #475569; font-weight: 600; margin-top: 2px;">
+                            ${c.telefone_formatado || c.telefone}
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+                    ${badgeConfirmado}
+                    ${badgeOrigem}
+                </div>
+            `;
+            container.appendChild(itemDiv);
+        });
+
+        // Add "+ Outro número" radio option
+        const outroDiv = document.createElement("label");
+        outroDiv.style.cssText = `display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1.5px dashed #cbd5e1; background: #ffffff; border-radius: 10px; cursor: pointer; margin-top: 4px;`;
+        outroDiv.id = `contact-card-outro`;
+        outroDiv.innerHTML = `
+            <input type="radio" name="delivery_contact_choice" value="outro" onchange="onContactSelectionChange(this.value)">
+            <span style="font-size: 13px; font-weight: 600; color: #334155;">+ Outro número de WhatsApp</span>
+        `;
+        container.appendChild(outroDiv);
+
+        document.getElementById("send-custom-contact-box").style.display = (selectedContactId === 'outro') ? "block" : "none";
+    }
+
+    function onContactSelectionChange(val) {
+        selectedContactId = val;
+        document.querySelectorAll("[id^='contact-card-']").forEach(el => {
+            el.style.borderColor = "#e2e8f0";
+            el.style.backgroundColor = "#ffffff";
+        });
+        const activeCard = document.getElementById(`contact-card-${val}`);
+        if (activeCard) {
+            activeCard.style.borderColor = "#22c55e";
+            activeCard.style.backgroundColor = "#f0fdf4";
+        }
+
+        const customBox = document.getElementById("send-custom-contact-box");
+        if (val === 'outro') {
+            customBox.style.display = "block";
+            document.getElementById("send-custom-phone")?.focus();
+        } else {
+            customBox.style.display = "none";
+        }
+    }
+
+    function onCustomPhoneInput(input) {
+        let v = input.value.replace(/\D/g, '');
+        if (v.length > 11) v = v.substring(0, 11);
+
+        if (v.length > 6) {
+            input.value = `(${v.substring(0,2)}) ${v.substring(2,7)}-${v.substring(7)}`;
+        } else if (v.length > 2) {
+            input.value = `(${v.substring(0,2)}) ${v.substring(2)}`;
+        } else if (v.length > 0) {
+            input.value = `(${v}`;
+        }
+
+        const feedback = document.getElementById("send-phone-validation-feedback");
+        if (!feedback) return;
+
+        if (v.length >= 10) {
+            if (v.length === 10) {
+                feedback.style.display = "block";
+                feedback.style.color = "#dc2626";
+                feedback.innerText = "⚠️ Número fixo não tem WhatsApp. Informe um celular com 9 dígitos.";
+            } else if (v.substring(2, 3) !== '9') {
+                feedback.style.display = "block";
+                feedback.style.color = "#dc2626";
+                feedback.innerText = "⚠️ Celulares com WhatsApp devem começar com 9.";
+            } else {
+                feedback.style.display = "block";
+                feedback.style.color = "#16a34a";
+                feedback.innerText = "✓ Celular válido para WhatsApp";
+            }
+        } else {
+            feedback.style.display = "none";
+        }
+    }
+
+    function onCustomContactInput() {
+        // optionally update preview with name
+    }
+
+    async function submitSendQuote(canal) {
+        if (!quote) return;
+        const btnWa = document.getElementById("btn-open-wa-native");
+        const btnShare = document.getElementById("btn-share-pdf-native");
+        
+        let payload = {
+            canal: canal,
+            mensagem: document.getElementById("send-message-preview")?.value || ''
+        };
+
+        if (canal === 'WHATSAPP') {
+            if (selectedContactId === 'outro' || !selectedContactId) {
+                const rawPhone = document.getElementById("send-custom-phone")?.value || '';
+                const contactName = document.getElementById("send-custom-name")?.value || '';
+                const digits = rawPhone.replace(/\D/g, '');
+                
+                if (digits.length !== 11) {
+                    showToast("Informe um número de celular válido com DDD (11 dígitos).", "warning");
+                    document.getElementById("send-custom-phone")?.focus();
+                    return;
+                }
+                if (digits.substring(2, 3) !== '9') {
+                    showToast("Celulares com WhatsApp devem começar com o dígito 9.", "warning");
+                    document.getElementById("send-custom-phone")?.focus();
+                    return;
+                }
+                
+                payload.telefone = digits;
+                payload.nome_contato = contactName;
+            } else {
+                const c = sendDeliveryContacts.find(x => String(x.id) === String(selectedContactId));
+                if (c) {
+                    payload.contato_id = c.id;
+                    payload.telefone = c.telefone;
+                    payload.nome_contato = c.nome_contato;
+                }
+            }
+
+            if (!payload.telefone) {
+                showToast("Selecione ou informe um número de telefone com WhatsApp.", "warning");
+                return;
+            }
+        }
+
+        try {
+            if (btnWa) btnWa.disabled = true;
+            if (btnShare) btnShare.disabled = true;
+
+            const res = await fetch(`${QUOTE_BASE_URL}/envios`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok && data.success) {
+                if (canal === 'WHATSAPP') {
+                    if (data.url_whatsapp) {
+                        window.open(data.url_whatsapp, '_blank');
+                    }
+                    showToast("WhatsApp aberto com a proposta pronta para envio!", "success");
+                } else if (canal === 'WEB_SHARE') {
+                    await shareViaWebShare(`${QUOTE_BASE_URL}/pdf`, quote.numero);
+                }
+
+                closeSendQuoteModal();
+                
+                // Atualizar dados e banner de entrega imediatamente
+                setTimeout(() => {
+                    loadData();
+                }, 1200);
+
+            } else {
+                showToast("Erro no envio: " + (data.error || data.message || "Falha na comunicação"), "error");
+            }
+        } catch (e) {
+            showToast("Erro de conexão ao processar envio.", "error");
+        } finally {
+            if (btnWa) btnWa.disabled = false;
+            if (btnShare) btnShare.disabled = false;
+        }
+    }
+
+    async function shareViaWebShare(pdfUrl, quoteNumero) {
+        if (!pdfUrl) pdfUrl = `${QUOTE_BASE_URL}/pdf`;
+        if (!quoteNumero) quoteNumero = quote ? quote.numero : '';
+
+        if (navigator.share) {
+            try {
+                showToast("Preparando PDF para compartilhamento...", "info");
+                const res = await fetch(pdfUrl);
+                const blob = await res.blob();
+                const file = new File([blob], `proposta_${quoteNumero}.pdf`, { type: 'application/pdf' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: `Proposta Comercial #${quoteNumero}`,
+                        text: `Segue proposta comercial #${quoteNumero} da Central Veterinária.`,
+                        files: [file]
+                    });
+                    showToast("Compartilhamento concluído!", "success");
+                } else {
+                    await navigator.share({
+                        title: `Proposta Comercial #${quoteNumero}`,
+                        text: `Segue proposta comercial #${quoteNumero} da Central Veterinária.`,
+                        url: pdfUrl
+                    });
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    window.open(pdfUrl, '_blank');
+                }
+            }
+        } else {
+            window.open(pdfUrl, '_blank');
+        }
     }
 </script>
 @endsection
