@@ -1,6 +1,7 @@
 @extends(auth()->check() ? (auth()->user()->isRepresentante() ? 'layouts.representative' : 'layouts.app') : 'layouts.public')
 
 @section('page_title', isset($quote) ? 'Cotação ' . $quote->numero : 'Cotação Comercial')
+@section('hide_tab_bar', 'true')
 
 @section('styles')
 <style>
@@ -238,7 +239,14 @@
     }
 
     body {
-        padding-bottom: 85px !important;
+        padding-bottom: 95px !important;
+    }
+    .mobile-container {
+        padding-bottom: 95px !important;
+    }
+    /* Oculta a barra inferior do painel para evitar sobreposição com o rodapé de ações da proposta */
+    .tab-bar {
+        display: none !important;
     }
 
     /* Compact Item Card (3 Lines Layout) */
@@ -472,13 +480,26 @@
         -webkit-backdrop-filter: blur(10px);
         border-top: 1px solid #e2e8f0;
         box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
-        padding: 10px 20px;
-        z-index: 999;
+        padding: 10px 16px;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        z-index: 1050;
         display: none; /* Initially hidden until quote loads */
         transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-sizing: border-box;
     }
 
-    /* Prevent footer from covering sidebar on desktop */
+    /* No layout do Representante (.mobile-container), o rodapé se alinha perfeitamente ao contêiner mobile centralizado */
+    .mobile-container .sticky-footer-quote-bar {
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 100% !important;
+        max-width: 520px !important;
+        right: auto !important;
+        border-left: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+    }
+
+    /* Prevent footer from covering sidebar on desktop when in admin layout */
     @media (min-width: 769px) {
         .app-container:has(.sidebar) .sticky-footer-quote-bar {
             left: 260px;
@@ -494,21 +515,25 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
+        width: 100%;
+        box-sizing: border-box;
     }
     .sticky-footer-totals {
         display: flex;
         flex-direction: column;
         min-width: 0;
+        flex: 1 1 auto;
     }
     .sticky-footer-val {
-        font-size: 19px;
+        font-size: 17px;
         font-weight: 800;
         color: #0f172a;
         line-height: 1.2;
+        white-space: nowrap;
     }
     .sticky-footer-discount {
-        font-size: 12px;
+        font-size: 11px;
         color: #64748b;
         white-space: nowrap;
         overflow: hidden;
@@ -517,22 +542,30 @@
     .sticky-footer-actions {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
+        flex-shrink: 0;
     }
     .btn-sticky-primary {
         background: #2563eb;
         color: #ffffff;
         border: none;
         border-radius: 8px;
-        padding: 10px 20px;
-        font-size: 13.5px;
+        padding: 9px 16px;
+        font-size: 13px;
         font-weight: 700;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
+        gap: 6px;
         cursor: pointer;
         box-shadow: 0 2px 6px rgba(37,99,235,0.25);
         transition: all 0.15s ease;
+        white-space: nowrap;
+        max-width: 240px;
+    }
+    .btn-sticky-primary span {
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
     }
     .btn-sticky-primary:active {
@@ -543,8 +576,9 @@
         border: 1px solid #cbd5e1;
         color: #334155;
         border-radius: 8px;
-        width: 38px;
-        height: 38px;
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -556,6 +590,29 @@
     .btn-options-menu:hover {
         background: #e2e8f0;
         border-color: #94a3b8;
+    }
+
+    @media (max-width: 390px) {
+        .sticky-footer-quote-bar {
+            padding: 8px 10px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        }
+        .sticky-footer-val {
+            font-size: 15px;
+        }
+        .sticky-footer-discount {
+            font-size: 10px;
+        }
+        .btn-sticky-primary {
+            padding: 8px 10px;
+            font-size: 12px;
+            max-width: 170px;
+        }
+        .btn-options-menu {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+        }
     }
     .options-menu-dropdown {
         position: absolute;
@@ -1232,12 +1289,21 @@
     function updateStickyFooterOffset() {
         const bar = document.getElementById("sticky-footer-bar");
         if (!bar) return;
+        const mobileContainer = document.querySelector(".mobile-container");
+        if (mobileContainer) {
+            // Em ambiente com contêiner mobile do representante, largura e alinhamento são geridos pelo CSS (.mobile-container .sticky-footer-quote-bar)
+            bar.style.left = "";
+            bar.style.right = "";
+            return;
+        }
         const sidebar = document.querySelector(".sidebar");
         if (!sidebar || window.innerWidth <= 768) {
             bar.style.left = "0px";
+            bar.style.right = "0px";
         } else {
             const isCollapsed = document.querySelector(".app-container")?.classList.contains("sidebar-collapsed");
             bar.style.left = isCollapsed ? "76px" : "260px";
+            bar.style.right = "0px";
         }
     }
     window.addEventListener("resize", updateStickyFooterOffset);
