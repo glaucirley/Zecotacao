@@ -1662,9 +1662,9 @@
                 } else if (quote.status === 'COM_DIRETOR') {
                     bannerText.innerHTML = "<strong>Cotação em análise com a Diretoria:</strong> Aguardando decisão superior. Os campos estão em modo somente leitura.";
                 } else if (quote.status === 'APROVADA') {
-                    bannerText.innerHTML = "<strong>Cotação Aprovada:</strong> Proposta comercial aprovada! Clique no botão <strong>'Gerar PDF'</strong> no rodapé para emitir o documento e habilitar a liberação de faturamento.";
+                    bannerText.innerHTML = "<strong>Cotação Aprovada:</strong> Proposta comercial aprovada! Clique no botão <strong>'Enviar ao Cliente'</strong> no rodapé para enviar via WhatsApp (o PDF é gerado automaticamente).";
                 } else if (quote.status === 'PDF_GERADO') {
-                    bannerText.innerHTML = "<strong>PDF Emitido:</strong> Documento gerado com sucesso. Clique no botão <strong>'Liberar para Faturamento'</strong> no rodapé para registrar o pedido no Sankhya.";
+                    bannerText.innerHTML = "<strong>PDF Emitido:</strong> Documento gerado com sucesso. Clique no botão <strong>'Enviar ao Cliente'</strong> no rodapé para enviar a proposta via WhatsApp.";
                 } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
                     bannerText.innerHTML = "<strong>Cotação Finalizada:</strong> Pedido externo já registrado para conferência e faturamento.";
                 } else if (quote.status === 'FATURADA') {
@@ -1921,10 +1921,11 @@
             const minEf = getItemEffectiveMin(item);
             const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
             const isRejected = item.status_item === 'recusado';
+            const isUnfound = Boolean(item.nao_encontrado);
 
             if (isRejected) {
                 countRejected++;
-            } else if (isBelowMin && item.status_item !== 'aprovado') {
+            } else if ((isBelowMin || isUnfound) && item.status_item !== 'aprovado') {
                 hasItemBelowMin = true;
                 countAttention++;
             } else {
@@ -1946,22 +1947,26 @@
 
         // Filter items for display
         const filtered = quote.itens.filter(item => {
+            const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || '');
+            const prodCode = item.produto ? item.produto.codigo_sankhya : '';
+
             if (currentSearchQuery) {
                 const q = currentSearchQuery;
-                const code = String(item.produto.codigo_sankhya).toLowerCase();
-                const desc = String(item.produto.descricao).toLowerCase();
+                const code = String(prodCode).toLowerCase();
+                const desc = String(prodDesc).toLowerCase();
                 if (!code.includes(q) && !desc.includes(q)) return false;
             }
 
             const minEf = getItemEffectiveMin(item);
             const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
             const isRejected = item.status_item === 'recusado';
+            const isUnfound = Boolean(item.nao_encontrado);
 
             if (currentFilterTab === 'attention') {
-                return isBelowMin && item.status_item !== 'aprovado' && !isRejected;
+                return (isBelowMin || isUnfound) && item.status_item !== 'aprovado' && !isRejected;
             }
             if (currentFilterTab === 'approved') {
-                return (!isBelowMin || item.status_item === 'aprovado') && !isRejected;
+                return (!isBelowMin && !isUnfound || item.status_item === 'aprovado') && !isRejected;
             }
             if (currentFilterTab === 'rejected') {
                 return isRejected;
@@ -2007,18 +2012,23 @@
                     : null;
                 const motivoTexto = justifItem ? justifItem.texto : '';
 
+                const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Produto sem cadastro');
+                const prodCode = item.produto ? item.produto.codigo_sankhya : 'S/C';
+                const prodUn = item.produto ? item.produto.unidade : 'UN';
+                const isUnfound = Boolean(item.nao_encontrado);
+
                 container.innerHTML += `
-                    <div class="compact-item-card ${rowClass} ${isBelowMin && !isRejected ? 'below-min-card' : ''}" id="card-item-${item.id}">
+                    <div class="compact-item-card ${rowClass} ${isUnfound || (isBelowMin && !isRejected) ? 'below-min-card' : ''}" id="card-item-${item.id}">
                         <!-- LINHA 1: descrição em destaque + código + unidade + etiqueta status + lixeira -->
                         <div class="item-line-1">
                             <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
-                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : ''}">${item.produto.descricao}</span>
-                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">#${item.produto.codigo_sankhya} · ${item.produto.unidade}</span>
+                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${prodDesc}</span>
+                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">#${prodCode} · ${prodUn}</span>
                                 ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
                                 ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
-                                ${item.nao_encontrado ? `
-                                    <span class="badge" style="background:#fff1f2; color:#be123c; font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:4px; border:1px solid #fecdd3; display:inline-flex; align-items:center; gap:3px;" title="${item.observacao_ia || 'Item não encontrado no catálogo pelo assistente IA'}">
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                ${isUnfound ? `
+                                    <span class="badge" style="background:#ffe4e6; color:#9f1239; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; border:1px solid #fecdd3; display:inline-flex; align-items:center; gap:4px;" title="${item.observacao_ia || 'Item não encontrado no catálogo pelo assistente IA'}">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                                         Não encontrado pela IA
                                     </span>
                                 ` : ''}
@@ -2033,14 +2043,15 @@
                                         Aprovado
                                     </span>
                                 ` : '')}
-                                ${item.descricao_original ? `
+                                ${isUnfound ? `
+                                    <div style="width:100%; margin-top:8px; padding:8px 12px; background:#fff1f2; border:1px dashed #fda4af; border-radius:8px; font-size:12px; color:#9f1239;">
+                                        <strong>⚠️ Item solicitado pelo cliente via WhatsApp:</strong> "${item.descricao_original || prodDesc}"
+                                        ${item.observacao_ia ? `<div style="font-size:11px; color:#be123c; margin-top:2px;">Obs IA: ${item.observacao_ia}</div>` : ''}
+                                        <div style="font-size:11px; color:#64748b; margin-top:4px;">💡 <em>Se necessário, remova este item ou selecione o produto correspondente na busca de produtos abaixo.</em></div>
+                                    </div>
+                                ` : (item.descricao_original ? `
                                     <div style="width:100%; font-size:11.5px; color:#64748b; margin-top:2px;">
                                         <span style="font-weight:600; color:#475569;">Pedido original:</span> "${item.descricao_original}"
-                                        ${item.observacao_ia ? `<span style="color:#be123c; margin-left:6px;">(${item.observacao_ia})</span>` : ''}
-                                    </div>
-                                ` : (item.observacao_ia ? `
-                                    <div style="width:100%; font-size:11.5px; color:#be123c; margin-top:2px;">
-                                        <em>${item.observacao_ia}</em>
                                     </div>
                                 ` : '')}
                             </div>

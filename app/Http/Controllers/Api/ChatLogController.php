@@ -139,51 +139,79 @@ class ChatLogController extends Controller
         foreach ($contacts as $c) {
             $digits = preg_replace('/\D/', '', $c->telefone_cliente);
             $last8 = substr($digits, -8);
+            $latestQuote = null;
 
-            // 1. Resolver cotação associada se nula
-            if (!$c->cotacao_id) {
-                $latestQuote = Cotacao::where(function($q) use ($last8) {
-                    $q->whereHas('parceiro', function($pq) use ($last8) {
-                        $pq->where('telefone', 'like', "%{$last8}%");
-                    });
-                })->orderByDesc('id')->first();
+            // 1. Tentar localizar cotação via cotacao_envios
+            if (Schema::hasTable('cotacao_envios')) {
+                $envio = \App\Models\CotacaoEnvio::with('cotacao.parceiro')
+                    ->where(function($q) use ($last8, $digits) {
+                        $q->where('telefone_destino', 'like', "%{$last8}%")
+                          ->orWhere('telefone_destino', $digits);
+                    })->orderByDesc('id')->first();
 
-                if ($latestQuote) {
-                    $c->cotacao_id = $latestQuote->id;
-                    $c->setRelation('cotacao', $latestQuote);
-                    ChatMensagem::where('telefone_cliente', $c->telefone_cliente)
-                        ->whereNull('cotacao_id')
-                        ->update(['cotacao_id' => $latestQuote->id]);
+                if ($envio && $envio->cotacao) {
+                    $latestQuote = $envio->cotacao;
+                    if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
+                        $c->nome_cliente = $envio->nome_contato_snapshot;
+                    }
                 }
             }
 
-            // 2. Resolver nome do cliente se nulo ou genérico
-            if (empty($c->nome_cliente) || $c->nome_cliente === 'Cliente' || $c->nome_cliente === 'Cliente WhatsApp') {
-                if ($c->cotacao && $c->cotacao->parceiro) {
-                    $c->nome_cliente = $c->cotacao->parceiro->nome_fantasia ?: $c->cotacao->parceiro->razao_social;
-                } elseif (\Illuminate\Support\Facades\Schema::hasTable('cliente_contatos')) {
-                    $contato = \App\Models\ClienteContato::where('telefone', 'like', "%{$last8}%")
-                        ->whereNotNull('nome_contato')
-                        ->first();
-                    if ($contato) {
+            // 2. Tentar localizar via cliente_contatos
+            if (!$latestQuote && Schema::hasTable('cliente_contatos')) {
+                $contato = \App\Models\ClienteContato::with('parceiro')
+                    ->where(function($q) use ($last8, $digits) {
+                        $q->where('telefone', 'like', "%{$last8}%")
+                          ->orWhere('telefone', $digits);
+                    })->first();
+
+                if ($contato) {
+                    if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
                         $c->nome_cliente = $contato->nome_contato;
                     }
-                }
-
-                if (empty($c->nome_cliente)) {
-                    $parc = Parceiro::where('telefone', 'like', "%{$last8}%")->first();
-                    if ($parc) {
-                        $c->nome_cliente = $parc->nome_fantasia ?: $parc->razao_social;
+                    if ($contato->parceiro_id) {
+                        $latestQuote = Cotacao::where('parceiro_id', $contato->parceiro_id)->orderByDesc('id')->first();
                     }
                 }
+            }
 
-                if (!empty($c->nome_cliente)) {
-                    ChatMensagem::where('telefone_cliente', $c->telefone_cliente)
-                        ->where(function($q) {
-                            $q->whereNull('nome_cliente')->orWhere('nome_cliente', '')->orWhere('nome_cliente', 'Cliente');
-                        })
-                        ->update(['nome_cliente' => $c->nome_cliente]);
+            // 3. Tentar localizar via telefone do parceiro (limpando caracteres especiais)
+            if ($last8) {
+                $parceiro = Parceiro::where(function($q) use ($last8) {
+                    $q->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '+', '') LIKE ?", ["%{$last8}%"])
+                      ->orWhere('telefone', 'like', "%{$last8}%");
+                })->first();
+
+                if ($parceiro) {
+                    if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
+                        $c->nome_cliente = $parceiro->nome_fantasia ?: $parceiro->razao_social;
+                    }
+                    if (!$latestQuote) {
+                        $latestQuote = Cotacao::where('parceiro_id', $parceiro->id)->orderByDesc('id')->first();
+                    }
                 }
+            }
+
+            // 4. Se encontrou cotação, associar ao contato e persistir
+            if ($latestQuote) {
+                $c->cotacao_id = $latestQuote->id;
+                $c->setRelation('cotacao', $latestQuote);
+                if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
+                    $c->nome_cliente = $latestQuote->parceiro?->nome_fantasia ?: $latestQuote->parceiro?->razao_social;
+                }
+            }
+
+            // Atualizar mensagens com dados enriquecidos
+            $updatePayload = [];
+            if ($c->cotacao_id) {
+                $updatePayload['cotacao_id'] = $c->cotacao_id;
+            }
+            if (!empty($c->nome_cliente) && !in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
+                $updatePayload['nome_cliente'] = $c->nome_cliente;
+            }
+            if (!empty($updatePayload)) {
+                ChatMensagem::where('telefone_cliente', $c->telefone_cliente)
+                    ->update($updatePayload);
             }
         }
 
@@ -258,11 +286,35 @@ class ChatLogController extends Controller
         $needsQuote = $history->contains(fn($m) => is_null($m->cotacao_id));
         if ($needsQuote) {
             $last8 = substr($phoneDigits, -8);
-            $latestQuote = Cotacao::where(function($q) use ($last8) {
-                $q->whereHas('parceiro', function($pq) use ($last8) {
-                    $pq->where('telefone', 'like', "%{$last8}%");
-                });
-            })->orderByDesc('id')->first();
+            $latestQuote = null;
+
+            if (Schema::hasTable('cotacao_envios')) {
+                $envio = \App\Models\CotacaoEnvio::with('cotacao')
+                    ->where(function($q) use ($last8, $phoneDigits) {
+                        $q->where('telefone_destino', 'like', "%{$last8}%")
+                          ->orWhere('telefone_destino', $phoneDigits);
+                    })->orderByDesc('id')->first();
+                if ($envio && $envio->cotacao) {
+                    $latestQuote = $envio->cotacao;
+                }
+            }
+
+            if (!$latestQuote && Schema::hasTable('cliente_contatos')) {
+                $contato = \App\Models\ClienteContato::where(function($q) use ($last8, $phoneDigits) {
+                    $q->where('telefone', 'like', "%{$last8}%")
+                      ->orWhere('telefone', $phoneDigits);
+                })->first();
+                if ($contato && $contato->parceiro_id) {
+                    $latestQuote = Cotacao::where('parceiro_id', $contato->parceiro_id)->orderByDesc('id')->first();
+                }
+            }
+
+            if (!$latestQuote && $last8) {
+                $latestQuote = Cotacao::whereHas('parceiro', function($pq) use ($last8) {
+                    $pq->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '+', '') LIKE ?", ["%{$last8}%"])
+                       ->orWhere('telefone', 'like', "%{$last8}%");
+                })->orderByDesc('id')->first();
+            }
 
             if ($latestQuote) {
                 foreach ($history as $m) {

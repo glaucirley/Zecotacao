@@ -197,9 +197,10 @@
             const friendlyTime = date.toDateString() === new Date().toDateString() ? timeStr : dateStr;
             
             const activeClass = selectedPhone === c.telefone_cliente ? 'active-contact' : '';
-            const dispName = c.nome_cliente || 'Cliente WhatsApp';
+            const dispName = c.nome_cliente || (c.cotacao && c.cotacao.parceiro ? (c.cotacao.parceiro.nome_fantasia || c.cotacao.parceiro.razao_social) : 'Cliente WhatsApp');
             const shortMsg = c.mensagem.length > 30 ? c.mensagem.substring(0, 30) + '...' : c.mensagem;
             const formattedPhone = formatPhone(c.telefone_cliente);
+            const quoteBadge = c.cotacao ? `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:700; border:1px solid #bae6fd;">${c.cotacao.numero}</span>` : '';
 
             container.innerHTML += `
                 <div class="contact-card ${activeClass}" onclick="selectContact('${c.telefone_cliente}', '${dispName.replace(/'/g, "\\'")}')">
@@ -207,7 +208,10 @@
                         <strong style="font-size: 13px; color: var(--color-text);">${dispName}</strong>
                         <span style="font-size: 10px; color: var(--color-text-muted);">${friendlyTime}</span>
                     </div>
-                    <span style="font-size: 11px; color: var(--color-text-muted);">${formattedPhone}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                        <span style="font-size: 11px; color: var(--color-text-muted);">${formattedPhone}</span>
+                        ${quoteBadge}
+                    </div>
                     <span style="font-size: 12px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
                         ${c.direcao === 'sent' ? '✓ ' : ''}${shortMsg}
                     </span>
@@ -349,6 +353,15 @@
 
         // Toggle quote header banner
         const banner = document.getElementById("quote-association-banner");
+        if (!hasQuoteLink) {
+            const currentContact = (contacts || []).find(c => c.telefone_cliente === selectedPhone);
+            if (currentContact && currentContact.cotacao) {
+                hasQuoteLink = true;
+                quoteNumber = currentContact.cotacao.numero;
+                quoteToken = currentContact.cotacao.id;
+            }
+        }
+
         if (hasQuoteLink) {
             banner.style.display = "flex";
             document.getElementById("associated-quote-num").innerText = quoteNumber;

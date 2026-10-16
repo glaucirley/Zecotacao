@@ -23,25 +23,47 @@ class PartnerController extends Controller
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
+            $cleanDigits = preg_replace('/[^0-9]/', '', $search);
             $terms = array_filter(explode(' ', $search));
-            if (!empty($terms)) {
-                $query->where(function ($q) use ($terms) {
-                    foreach ($terms as $term) {
-                        $q->where(function ($subQ) use ($term) {
-                            $subQ->where('codigo_sankhya', 'like', "%{$term}%")
-                                 ->orWhere('razao_social', 'like', "%{$term}%")
-                                 ->orWhere('nome_fantasia', 'like', "%{$term}%")
-                                 ->orWhere('cnpj', 'like', "%{$term}%")
-                                 ->orWhere('cidade', 'like', "%{$term}%")
-                                 ->orWhere('bairro', 'like', "%{$term}%");
 
-                            $cleanDigits = preg_replace('/[^0-9]/', '', $term);
-                            if (strlen($cleanDigits) >= 3) {
-                                $subQ->orWhere('cnpj', 'like', "%{$cleanDigits}%");
-                            }
-                        });
+            if (!empty($terms)) {
+                $query->where(function ($q) use ($terms, $search, $cleanDigits) {
+                    // Match full phrase
+                    $q->where('razao_social', 'like', "%{$search}%")
+                      ->orWhere('nome_fantasia', 'like', "%{$search}%")
+                      ->orWhere('codigo_sankhya', 'like', "%{$search}%");
+
+                    if (strlen($cleanDigits) >= 3) {
+                        $q->orWhere('cnpj', 'like', "%{$cleanDigits}%");
                     }
+
+                    // Match all terms
+                    $q->orWhere(function ($allTermsQ) use ($terms) {
+                        foreach ($terms as $term) {
+                            $allTermsQ->where(function ($subQ) use ($term) {
+                                $subQ->where('codigo_sankhya', 'like', "%{$term}%")
+                                     ->orWhere('razao_social', 'like', "%{$term}%")
+                                     ->orWhere('nome_fantasia', 'like', "%{$term}%")
+                                     ->orWhere('cnpj', 'like', "%{$term}%")
+                                     ->orWhere('cidade', 'like', "%{$term}%");
+                            });
+                        }
+                    });
                 });
+
+                // Prioritise results by relevance: exact match > prefix match > contains phrase
+                $safeSearch = addslashes($search);
+                $query->orderByRaw("
+                    CASE 
+                        WHEN LOWER(nome_fantasia) = LOWER('{$safeSearch}') THEN 1
+                        WHEN LOWER(razao_social) = LOWER('{$safeSearch}') THEN 2
+                        WHEN LOWER(nome_fantasia) LIKE LOWER('{$safeSearch}%') THEN 3
+                        WHEN LOWER(razao_social) LIKE LOWER('{$safeSearch}%') THEN 4
+                        WHEN LOWER(nome_fantasia) LIKE LOWER('%{$safeSearch}%') THEN 5
+                        WHEN LOWER(razao_social) LIKE LOWER('%{$safeSearch}%') THEN 6
+                        ELSE 7
+                    END ASC
+                ");
             }
         }
 

@@ -1925,16 +1925,34 @@
         }
 
         const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-        const localMatches = (adminPartnersList || []).filter(p => {
+        let localMatches = (adminPartnersList || []).filter(p => {
             const key = p._searchKey || preparePartnerSearchKey(p);
             return terms.every(term => key.includes(term));
         });
+
+        // Sort by relevance (exact match > prefix match > contains phrase)
+        localMatches = sortPartnersByRelevance(localMatches, normalizedQuery);
 
         renderAdminPartnerOptions(localMatches, true);
 
         adminPartnerSearchTimer = setTimeout(() => {
             executeAdminServerPartnerSearch(rawQuery.trim());
         }, 300);
+    }
+
+    function sortPartnersByRelevance(items, qNorm) {
+        return items.slice().sort((a, b) => {
+            const aFantasia = normalizeStr(a.nome_fantasia || '');
+            const bFantasia = normalizeStr(b.nome_fantasia || '');
+            const aRazao = normalizeStr(a.razao_social || '');
+            const bRazao = normalizeStr(b.razao_social || '');
+
+            const aScore = (aFantasia === qNorm ? 1 : (aRazao === qNorm ? 2 : (aFantasia.startsWith(qNorm) ? 3 : (aRazao.startsWith(qNorm) ? 4 : (aFantasia.includes(qNorm) ? 5 : (aRazao.includes(qNorm) ? 6 : 7))))));
+            const bScore = (bFantasia === qNorm ? 1 : (bRazao === qNorm ? 2 : (bFantasia.startsWith(qNorm) ? 3 : (bRazao.startsWith(qNorm) ? 4 : (bFantasia.includes(qNorm) ? 5 : (bRazao.includes(qNorm) ? 6 : 7))))));
+
+            if (aScore !== bScore) return aScore - bScore;
+            return aRazao.localeCompare(bRazao);
+        });
     }
 
     let adminPartnerSearchReqId = 0;
@@ -1969,7 +1987,9 @@
                         adminPartnersList.push(partner);
                     }
                 });
-                renderAdminPartnerOptions(results, false);
+                const qNorm = normalizeStr(trimmedQuery);
+                const sortedResults = sortPartnersByRelevance(results, qNorm);
+                renderAdminPartnerOptions(sortedResults, false);
             }
         } catch(e) {
             console.error("Error searching admin partners:", e);

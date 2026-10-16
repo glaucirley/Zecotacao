@@ -29,6 +29,35 @@ class IntegrationController extends Controller
 
         if (isset($rawInput['itens']) && is_array($rawInput['itens'])) {
             foreach ($rawInput['itens'] as $idx => $item) {
+                $isNaoEncontrado = !empty($item['nao_encontrado']) || !empty($item['item_nao_encontrado']) || !empty($item['produto_nao_encontrado']) || !empty($item['nao_localizado']);
+                if ($isNaoEncontrado || empty($item['codigo_sankhya'])) {
+                    $rawInput['itens'][$idx]['nao_encontrado'] = true;
+                    if (empty($rawInput['itens'][$idx]['codigo_sankhya'])) {
+                        $rawInput['itens'][$idx]['codigo_sankhya'] = 'SEM_CODIGO_' . substr(md5($item['descricao'] ?? Str::random(8)), 0, 8);
+                    }
+                    if (empty($rawInput['itens'][$idx]['unidade'])) {
+                        $rawInput['itens'][$idx]['unidade'] = 'UN';
+                    }
+                    if (!isset($rawInput['itens'][$idx]['preco_unit_sugerido'])) {
+                        $rawInput['itens'][$idx]['preco_unit_sugerido'] = 0.00;
+                    }
+                    if (!isset($rawInput['itens'][$idx]['preco_minimo'])) {
+                        $rawInput['itens'][$idx]['preco_minimo'] = 0.00;
+                    }
+                    if (!isset($rawInput['itens'][$idx]['preco_unit_proposto'])) {
+                        $rawInput['itens'][$idx]['preco_unit_proposto'] = 0.00;
+                    }
+                    if (!isset($rawInput['itens'][$idx]['subtotal'])) {
+                        $rawInput['itens'][$idx]['subtotal'] = 0.00;
+                    }
+                    if (empty($rawInput['itens'][$idx]['descricao_original'])) {
+                        $rawInput['itens'][$idx]['descricao_original'] = $item['descricao'] ?? 'Item solicitado pelo cliente';
+                    }
+                    if (empty($rawInput['itens'][$idx]['observacao_ia'])) {
+                        $rawInput['itens'][$idx]['observacao_ia'] = 'Item não identificado automaticamente no catálogo pela IA';
+                    }
+                }
+
                 if (array_key_exists('qtd', $item))                  $rawInput['itens'][$idx]['qtd']                  = (int)$this->sanitizeFloat($item['qtd']);
                 if (array_key_exists('preco_unit_sugerido', $item)) $rawInput['itens'][$idx]['preco_unit_sugerido'] = $this->sanitizeFloat($item['preco_unit_sugerido']);
                 if (array_key_exists('preco_minimo', $item))        $rawInput['itens'][$idx]['preco_minimo']        = $this->sanitizeFloat($item['preco_minimo']);
@@ -78,15 +107,15 @@ class IntegrationController extends Controller
 
             // Items
             'itens' => 'required|array|min:1',
-            'itens.*.codigo_sankhya' => 'required|string',
+            'itens.*.codigo_sankhya' => 'nullable|string',
             'itens.*.descricao' => 'required|string',
-            'itens.*.unidade' => 'required|string',
-            'itens.*.qtd' => 'required|integer|min:1',
-            'itens.*.preco_unit_sugerido' => 'required|numeric',
-            'itens.*.preco_minimo' => 'required|numeric',
-            'itens.*.preco_unit_proposto' => 'required|numeric',
+            'itens.*.unidade' => 'nullable|string',
+            'itens.*.qtd' => 'required|numeric|min:1',
+            'itens.*.preco_unit_sugerido' => 'nullable|numeric',
+            'itens.*.preco_minimo' => 'nullable|numeric',
+            'itens.*.preco_unit_proposto' => 'nullable|numeric',
             'itens.*.ajuste_percentual' => 'nullable|numeric',
-            'itens.*.subtotal' => 'required|numeric',
+            'itens.*.subtotal' => 'nullable|numeric',
             'itens.*.margem_calculada' => 'nullable|numeric',
             'itens.*.custo' => 'nullable|numeric',
             'itens.*.imposto' => 'nullable|numeric',
@@ -192,32 +221,41 @@ class IntegrationController extends Controller
                 $productIdsMap = [];
                 $resolvedProductsCache = [];
                 $registeredMissingCodes = [];
+                $unfoundItemCodes = [];
 
                 foreach ($data['itens'] as $item) {
-                    $itemCode = (string)$item['codigo_sankhya'];
+                    $itemCode = (string)($item['codigo_sankhya'] ?? '');
+                    if (empty($itemCode) || str_starts_with($itemCode, 'SEM_CODIGO')) {
+                        $itemCode = 'SEM_CODIGO_' . substr(md5($item['descricao'] ?? Str::random(8)), 0, 8);
+                    }
 
                     if (isset($resolvedProductsCache[$itemCode])) {
                         $product = $resolvedProductsCache[$itemCode];
                     } else {
-                        // A. Check local DB first for instant response
-                        $product = $localProducts[$itemCode] ?? null;
+                        $product = null;
 
-                        // B. If not in local DB, attempt Sankhya sync
-                        if (!$product) {
-                            try {
-                                $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                                $product = $sankhyaDb->syncProductByCode($itemCode);
-                            } catch (\Throwable $e) {
-                                $product = null;
+                        // A. Check local DB first if not explicitly marked as not found
+                        if (empty($item['nao_encontrado'])) {
+                            $product = $localProducts[$itemCode] ?? null;
+
+                            // B. If not in local DB, attempt Sankhya sync
+                            if (!$product) {
+                                try {
+                                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                                    $product = $sankhyaDb->syncProductByCode($itemCode);
+                                } catch (\Throwable $e) {
+                                    $product = null;
+                                }
                             }
                         }
 
                         // C. If product code does NOT exist anywhere, register in ProdutoNaoEncontrado and create local fallback
                         if (!$product) {
+                            $unfoundItemCodes[$itemCode] = true;
                             if (!isset($registeredMissingCodes[$itemCode])) {
                                 \App\Models\ProdutoNaoEncontrado::registrar(
                                     $itemCode,
-                                    $item['descricao'] ?? ('Produto ' . $itemCode),
+                                    $item['descricao_original'] ?? ($item['descricao'] ?? ('Produto ' . $itemCode)),
                                     ($partner ? $partner->razao_social : 'Cliente Desconhecido')
                                 );
                                 $registeredMissingCodes[$itemCode] = true;
@@ -232,7 +270,7 @@ class IntegrationController extends Controller
                             if (\Illuminate\Support\Facades\Schema::hasColumn('produtos', 'custo_variavel')) {
                                 $productData['custo_variavel'] = (float)($item['custo'] ?? 0);
                             }
-                            $product = Produto::create($productData);
+                            $product = Produto::firstOrCreate(['codigo_sankhya' => $itemCode], $productData);
                         }
 
                         $resolvedProductsCache[$itemCode] = $product;
@@ -301,15 +339,22 @@ class IntegrationController extends Controller
 
                 // 6. Recreate Quote Items
                 foreach ($data['itens'] as $item) {
+                    $itemCode = (string)($item['codigo_sankhya'] ?? '');
+                    if (empty($itemCode) || !isset($productIdsMap[$itemCode])) {
+                        $itemCode = 'SEM_CODIGO_' . substr(md5($item['descricao'] ?? Str::random(8)), 0, 8);
+                    }
+
+                    $isUnfound = !empty($item['nao_encontrado']) || isset($unfoundItemCodes[$itemCode]) || str_starts_with($itemCode, 'SEM_CODIGO');
+
                     CotacaoItem::create([
                         'cotacao_id' => $quote->id,
-                        'produto_id' => $productIdsMap[$item['codigo_sankhya']],
+                        'produto_id' => $productIdsMap[$itemCode],
                         'qtd' => $item['qtd'],
-                        'preco_unit_sugerido' => $item['preco_unit_sugerido'],
-                        'preco_minimo' => $item['preco_minimo'],
-                        'preco_unit_proposto' => $item['preco_unit_proposto'],
+                        'preco_unit_sugerido' => $item['preco_unit_sugerido'] ?? 0.00,
+                        'preco_minimo' => $item['preco_minimo'] ?? 0.00,
+                        'preco_unit_proposto' => $item['preco_unit_proposto'] ?? 0.00,
                         'ajuste_percentual' => $item['ajuste_percentual'] ?? 0.00,
-                        'subtotal' => $item['subtotal'],
+                        'subtotal' => $item['subtotal'] ?? 0.00,
                         'status_item' => 'pendente',
                         'margem_calculada' => $item['margem_calculada'] ?? null,
                         'custo' => $item['custo'] ?? null,
@@ -317,9 +362,9 @@ class IntegrationController extends Controller
                         'campanha_id' => $item['campanha_id'] ?? null,
                         'mostrar_selo_campanha' => $item['mostrar_selo_campanha'] ?? false,
                         'ordem_exibicao' => $item['ordem_exibicao'] ?? 0,
-                        'nao_encontrado' => (bool)($item['nao_encontrado'] ?? false),
-                        'descricao_original' => $item['descricao_original'] ?? null,
-                        'observacao_ia' => $item['observacao_ia'] ?? null,
+                        'nao_encontrado' => $isUnfound,
+                        'descricao_original' => $item['descricao_original'] ?? ($isUnfound ? ($item['descricao'] ?? null) : null),
+                        'observacao_ia' => $item['observacao_ia'] ?? ($isUnfound ? 'Item não identificado automaticamente no catálogo Sankhya' : null),
                     ]);
                 }
 
