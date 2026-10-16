@@ -6,6 +6,7 @@ use App\Models\CotacaoEnvio;
 use App\Models\CotacaoHistorico;
 use App\Services\PdfService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class PublicProposalController extends Controller
@@ -75,6 +76,7 @@ class PublicProposalController extends Controller
                 'items' => $items,
                 'repWhatsappUrl' => $repWhatsappUrl,
                 'token' => $token,
+                'isInternalUser' => Auth::check(),
             ])
             ->header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet')
             ->header('Referrer-Policy', 'no-referrer');
@@ -82,13 +84,23 @@ class PublicProposalController extends Controller
 
     /**
      * Registra a abertura real da proposta quando executada via JavaScript
-     * no navegador do cliente, filtrando estritamente bots de mensageiros.
+     * no navegador do cliente, filtrando estritamente bots de mensageiros
+     * e acessos feitos por usuários autenticados do sistema (admin, vendedor).
      */
     public function track(Request $request, string $token)
     {
+        // 1. Ignorar aberturas feitas por usuários do sistema autenticados (admin, gestor, representante, diretor)
+        if (Auth::check() || auth()->check() || auth('web')->check()) {
+            return response()->json([
+                'tracked' => false,
+                'reason' => 'internal_user_ignored',
+                'message' => 'Visualização por usuário autenticado do sistema não contabilizada.'
+            ]);
+        }
+
         $userAgent = $request->userAgent() ?? '';
 
-        // Ignorar crawlers e geradores de preview de mensagens
+        // 2. Ignorar crawlers e geradores de preview de mensagens
         $botPatterns = '/bot|crawl|spider|slurp|whatsapp|facebookexternalhit|facebot|twitterbot|telegrambot|slackbot|discordbot|preview|google|bing|yahoo|duckduck/i';
         if (preg_match($botPatterns, $userAgent)) {
             return response()->json(['tracked' => false, 'reason' => 'bot_ignored']);

@@ -367,6 +367,16 @@
 
     <div class="container">
 
+        @if(!empty($isInternalUser))
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; color: #1e40af; font-size: 12.5px; font-weight: 600; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow-sm);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <div>
+                    <div><strong>Modo de Pré-visualização Interna:</strong> Você está conectado como {{ Auth::user()->nome }} ({{ Auth::user()->papel }}).</div>
+                    <div style="font-size: 11.5px; color: #3b82f6; font-weight: 500; margin-top: 2px;">Esta visualização não conta no rastreamento e não confirma o contato do cliente.</div>
+                </div>
+            </div>
+        @endif
+
         <!-- Header da Marca -->
         <header class="brand-header">
             <div class="brand-logo-area">
@@ -541,10 +551,11 @@
         @endif
     </div>
 
-    <!-- Rastreamento de visualização real pelo navegador do cliente (ignora crawlers) -->
+    <!-- Rastreamento de visualização real pelo navegador do cliente (ignora crawlers e usuários internos) -->
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            if (navigator.webdriver) return;
+            const isInternal = @json(!empty($isInternalUser));
+            if (isInternal || navigator.webdriver) return;
             try {
                 fetch('/p/{{ $token }}/track', {
                     method: 'POST',
