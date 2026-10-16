@@ -9,6 +9,9 @@ use App\Models\ParametroSistema;
 use App\Services\QuoteDeliveryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 
 class QuoteDeliveryController extends Controller
 {
@@ -19,9 +22,30 @@ class QuoteDeliveryController extends Controller
         $this->deliveryService = $deliveryService;
     }
 
+    /**
+     * Tenta auto-executar a migration pendente caso as tabelas de envio ainda não existam no ambiente.
+     */
+    protected function ensureDeliveryTablesExist(): void
+    {
+        if (!Schema::hasTable('cotacao_envios') || !Schema::hasTable('cliente_contatos')) {
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+            } catch (\Throwable $e) {
+                Log::warning('Falha ao auto-executar migrate de tabelas de envio: ' . $e->getMessage());
+            }
+        }
+    }
+
     protected function findQuote($idOrToken): Cotacao
     {
-        return Cotacao::with(['parceiro', 'representante', 'ultimoEnvio.contato'])
+        $this->ensureDeliveryTablesExist();
+
+        $relations = ['parceiro', 'representante'];
+        if (Schema::hasTable('cotacao_envios')) {
+            $relations[] = 'ultimoEnvio.contato';
+        }
+
+        return Cotacao::with($relations)
             ->where(function ($q) use ($idOrToken) {
                 if (is_numeric($idOrToken)) {
                     $q->where('id', $idOrToken);
@@ -46,11 +70,17 @@ class QuoteDeliveryController extends Controller
             return response()->json(['error' => 'Acesso não autorizado para esta cotação.'], 403);
         }
 
+        if (!Schema::hasTable('cotacao_envios') || !Schema::hasTable('cliente_contatos')) {
+            return response()->json([
+                'error' => 'As tabelas do recurso de envio pelo WhatsApp não foram encontradas no banco de dados. Por favor, execute "php artisan migrate" no terminal do servidor.',
+            ], 500);
+        }
+
         $rankedContacts = $this->deliveryService->getRankedContacts($quote->parceiro_id);
 
         // Informações sobre o último envio realizado
         $ultimoEnvio = null;
-        if ($quote->ultimoEnvio) {
+        if (Schema::hasTable('cotacao_envios') && $quote->ultimoEnvio) {
             $env = $quote->ultimoEnvio;
             $ultimoEnvio = [
                 'id' => $env->id,
@@ -116,6 +146,13 @@ class QuoteDeliveryController extends Controller
 
         if (!$user) {
             return response()->json(['error' => 'Usuário remetente não identificado.'], 401);
+        }
+
+        if (!Schema::hasTable('cotacao_envios') || !Schema::hasTable('cliente_contatos')) {
+            return response()->json([
+                'success' => false,
+                'error' => 'As tabelas do recurso de envio pelo WhatsApp não foram encontradas no banco de dados. Por favor, execute "php artisan migrate" no terminal do servidor.',
+            ], 500);
         }
 
         $validated = $request->validate([

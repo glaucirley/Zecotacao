@@ -9,6 +9,7 @@ use App\Models\CotacaoHistorico;
 use App\Models\ParametroSistema;
 use App\Models\Parceiro;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class QuoteDeliveryService
@@ -38,6 +39,10 @@ class QuoteDeliveryService
             return [];
         }
 
+        if (!Schema::hasTable('cliente_contatos')) {
+            return [];
+        }
+
         $contatos = ClienteContato::where('parceiro_id', $parceiroId)
             ->where('status', 'ATIVO')
             ->get();
@@ -47,10 +52,13 @@ class QuoteDeliveryService
         foreach ($contatos as $c) {
             if ($c->confirmado && $c->ultimo_envio_em && $c->ultimo_envio_em >= $seteDiasAtras) {
                 // Contar envios nos últimos 7 dias após a última abertura
-                $enviosRecentesSemAbertura = CotacaoEnvio::where('contato_id', $c->id)
-                    ->where('enviado_em', '>=', $seteDiasAtras)
-                    ->whereNull('aberto_em')
-                    ->count();
+                $enviosRecentesSemAbertura = 0;
+                if (Schema::hasTable('cotacao_envios')) {
+                    $enviosRecentesSemAbertura = CotacaoEnvio::where('contato_id', $c->id)
+                        ->where('enviado_em', '>=', $seteDiasAtras)
+                        ->whereNull('aberto_em')
+                        ->count();
+                }
 
                 if ($enviosRecentesSemAbertura >= 3 && (!$c->ultima_abertura_em || $c->ultima_abertura_em < $seteDiasAtras)) {
                     $c->confirmado = false;
