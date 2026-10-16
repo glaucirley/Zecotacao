@@ -197,7 +197,10 @@
             const friendlyTime = date.toDateString() === new Date().toDateString() ? timeStr : dateStr;
             
             const activeClass = selectedPhone === c.telefone_cliente ? 'active-contact' : '';
-            const dispName = c.nome_cliente || (c.cotacao && c.cotacao.parceiro ? (c.cotacao.parceiro.nome_fantasia || c.cotacao.parceiro.razao_social) : 'Cliente WhatsApp');
+            const dispName = (c.nome_cliente && c.nome_cliente !== 'Cliente' && c.nome_cliente !== 'Cliente WhatsApp')
+                ? c.nome_cliente
+                : ((c.cotacao && c.cotacao.parceiro ? (c.cotacao.parceiro.nome_fantasia || c.cotacao.parceiro.razao_social) : '') 
+                   || (c.cotacao ? ('Cotação ' + c.cotacao.numero) : (formatPhone(c.telefone_cliente) || 'Cliente WhatsApp')));
             const shortMsg = c.mensagem.length > 30 ? c.mensagem.substring(0, 30) + '...' : c.mensagem;
             const formattedPhone = formatPhone(c.telefone_cliente);
             const quoteBadge = c.cotacao ? `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:700; border:1px solid #bae6fd;">${c.cotacao.numero}</span>` : '';
@@ -365,8 +368,8 @@
         if (hasQuoteLink) {
             banner.style.display = "flex";
             document.getElementById("associated-quote-num").innerText = quoteNumber;
-            // Admin detail redirect URL depending on role, let's redirect to approval detail or token
-            document.getElementById("associated-quote-link").href = `${PUBLIC_URL}/aprovacoes/${quoteToken}`;
+            // Redirect URL accessible to all roles (admin, manager, representative)
+            document.getElementById("associated-quote-link").href = `${PUBLIC_URL}/cotacoes/id/${quoteToken}`;
         } else {
             banner.style.display = "none";
         }

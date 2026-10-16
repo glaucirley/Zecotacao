@@ -41,31 +41,23 @@ class ChatLogController extends Controller
         // Clean phone number (leave digits only)
         $phoneDigits = preg_replace('/\D/', '', $request->input('telefone_cliente'));
 
-        // Resolve cotacao_id if not explicitly provided
-        $cotacaoId = $request->input('cotacao_id');
-        if (!$cotacaoId) {
-            // Find partner by phone
-            // We search for partners whose phone matches the end of the clean phone number (e.g. last 8 or 9 digits) to handle formatting differences
-            $lastDigits = substr($phoneDigits, -8);
-            if ($lastDigits) {
-                $partner = Parceiro::where('telefone', 'like', '%' . $lastDigits . '%')->first();
-                if ($partner) {
-                    // Find latest quote in the last 24 hours
-                    $latestQuote = Cotacao::where('parceiro_id', $partner->id)
-                        ->where('created_at', '>=', now()->subHours(24))
-                        ->orderBy('created_at', 'desc')
-                        ->first();
-                    if ($latestQuote) {
-                        $cotacaoId = $latestQuote->id;
-                    }
-                }
-            }
-        }
+        // Resolve cotacao_id and customer name intelligently
+        $resolution = $this->resolveQuoteAndNameForChat(
+            $phoneDigits,
+            $request->input('mensagem'),
+            $request->input('cotacao_id'),
+            $request->input('nome_cliente')
+        );
+
+        $cotacaoId = $resolution['cotacao_id'];
+        $nomeCliente = (!empty($resolution['nome_cliente']) && $resolution['nome_cliente'] !== 'Cliente WhatsApp') 
+            ? $resolution['nome_cliente'] 
+            : ($request->input('nome_cliente') ?: null);
 
         try {
             $log = ChatMensagem::create([
                 'telefone_cliente' => $phoneDigits,
-                'nome_cliente' => $request->input('nome_cliente'),
+                'nome_cliente' => $nomeCliente,
                 'direcao' => $request->input('direcao'),
                 'mensagem' => $request->input('mensagem'),
                 'tipo' => $request->input('tipo', 'texto'),
@@ -121,7 +113,7 @@ class ChatLogController extends Controller
                     $eq->select(DB::raw(1))
                        ->from('cotacoes')
                        ->join('parceiros', 'cotacoes.parceiro_id', '=', 'parceiros.id')
-                       ->whereColumn('parceiros.telefone', 'like', DB::raw("CONCAT('%', SUBSTRING(chat_mensagens.telefone_cliente, -8))"))
+                       ->whereRaw("REGEXP_REPLACE(parceiros.telefone, '[^0-9]', '') LIKE CONCAT('%', RIGHT(chat_mensagens.telefone_cliente, 8))")
                        ->where('cotacoes.representante_id', $user->id);
                 });
             });
@@ -140,68 +132,19 @@ class ChatLogController extends Controller
         }, 'cotacao.parceiro'])->get();
 
         foreach ($contacts as $c) {
-            $digits = preg_replace('/\D/', '', $c->telefone_cliente);
-            $last8 = substr($digits, -8);
-            $latestQuote = null;
+            $resolution = $this->resolveQuoteAndNameForChat(
+                $c->telefone_cliente,
+                $c->mensagem,
+                $c->cotacao_id,
+                $c->nome_cliente
+            );
 
-            // 1. Tentar localizar cotação via cotacao_envios
-            if (Schema::hasTable('cotacao_envios')) {
-                $envio = \App\Models\CotacaoEnvio::with('cotacao.parceiro')
-                    ->where(function($q) use ($last8, $digits) {
-                        $q->where('telefone_destino', 'like', "%{$last8}%")
-                          ->orWhere('telefone_destino', $digits);
-                    })->orderByDesc('id')->first();
-
-                if ($envio && $envio->cotacao) {
-                    $latestQuote = $envio->cotacao;
-                    if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
-                        $c->nome_cliente = $envio->nome_contato_snapshot;
-                    }
-                }
+            if ($resolution['cotacao']) {
+                $c->cotacao_id = $resolution['cotacao']->id;
+                $c->setRelation('cotacao', $resolution['cotacao']);
             }
-
-            // 2. Tentar localizar via cliente_contatos
-            if (!$latestQuote && Schema::hasTable('cliente_contatos')) {
-                $contato = \App\Models\ClienteContato::with('parceiro')
-                    ->where(function($q) use ($last8, $digits) {
-                        $q->where('telefone', 'like', "%{$last8}%")
-                          ->orWhere('telefone', $digits);
-                    })->first();
-
-                if ($contato) {
-                    if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
-                        $c->nome_cliente = $contato->nome_contato;
-                    }
-                    if ($contato->parceiro_id) {
-                        $latestQuote = Cotacao::where('parceiro_id', $contato->parceiro_id)->orderByDesc('id')->first();
-                    }
-                }
-            }
-
-            // 3. Tentar localizar via telefone do parceiro (limpando caracteres especiais)
-            if ($last8) {
-                $parceiro = Parceiro::where(function($q) use ($last8) {
-                    $q->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '+', '') LIKE ?", ["%{$last8}%"])
-                      ->orWhere('telefone', 'like', "%{$last8}%");
-                })->first();
-
-                if ($parceiro) {
-                    if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
-                        $c->nome_cliente = $parceiro->nome_fantasia ?: $parceiro->razao_social;
-                    }
-                    if (!$latestQuote) {
-                        $latestQuote = Cotacao::where('parceiro_id', $parceiro->id)->orderByDesc('id')->first();
-                    }
-                }
-            }
-
-            // 4. Se encontrou cotação, associar ao contato e persistir
-            if ($latestQuote) {
-                $c->cotacao_id = $latestQuote->id;
-                $c->setRelation('cotacao', $latestQuote);
-                if (empty($c->nome_cliente) || in_array($c->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
-                    $c->nome_cliente = $latestQuote->parceiro?->nome_fantasia ?: $latestQuote->parceiro?->razao_social;
-                }
+            if (!empty($resolution['nome_cliente']) && $resolution['nome_cliente'] !== 'Cliente WhatsApp') {
+                $c->nome_cliente = $resolution['nome_cliente'];
             }
 
             // Atualizar mensagens com dados enriquecidos
@@ -245,13 +188,14 @@ class ChatLogController extends Controller
 
         try {
             $phoneDigits = preg_replace('/\D/', '', $telefone);
+            $last8 = strlen($phoneDigits) >= 8 ? substr($phoneDigits, -8) : $phoneDigits;
 
         // Security check for Representative
         if ($user->isRepresentante()) {
             $hasAccess = Cotacao::where('representante_id', $user->id)
-                ->where(function($q) use ($phoneDigits) {
-                    $q->whereHas('parceiro', function($pq) use ($phoneDigits) {
-                        $pq->where('telefone', 'like', '%' . substr($phoneDigits, -8) . '%');
+                ->where(function($q) use ($last8) {
+                    $q->whereHas('parceiro', function($pq) use ($last8) {
+                        $pq->whereRaw("REGEXP_REPLACE(telefone, '[^0-9]', '') LIKE ?", ['%' . $last8]);
                     });
                 })->exists();
 
@@ -269,9 +213,9 @@ class ChatLogController extends Controller
             $teamIds = $user->equipesGerenciadas->pluck('id');
             $hasAccess = Cotacao::whereHas('representante', function($uq) use ($teamIds) {
                 $uq->whereIn('equipe_id', $teamIds);
-            })->where(function($q) use ($phoneDigits) {
-                $q->whereHas('parceiro', function($pq) use ($phoneDigits) {
-                    $pq->where('telefone', 'like', '%' . substr($phoneDigits, -8) . '%');
+            })->where(function($q) use ($last8) {
+                $q->whereHas('parceiro', function($pq) use ($last8) {
+                    $pq->whereRaw("REGEXP_REPLACE(telefone, '[^0-9]', '') LIKE ?", ['%' . $last8]);
                 });
             })->exists();
 
@@ -289,55 +233,41 @@ class ChatLogController extends Controller
 
         $history = ChatMensagem::where('telefone_cliente', $phoneDigits)
             ->with(['cotacao' => function($q) {
-                $q->select('id', 'numero');
-            }])
+                $q->select('id', 'numero', 'parceiro_id');
+            }, 'cotacao.parceiro'])
             ->orderBy('created_at', 'asc')
             ->get();
 
-        // Se houver mensagens sem cotação vinculada, auto-resolver pela última cotação
-        $needsQuote = $history->contains(fn($m) => is_null($m->cotacao_id));
-        if ($needsQuote) {
-            $last8 = substr($phoneDigits, -8);
-            $latestQuote = null;
+        // Auto-resolver cotação e nome para o histórico do contato
+        $firstMsg = $history->first();
+        $sampleText = $history->pluck('mensagem')->filter()->implode(' ');
+        $resolution = $this->resolveQuoteAndNameForChat(
+            $phoneDigits,
+            $sampleText,
+            $firstMsg?->cotacao_id,
+            $firstMsg?->nome_cliente
+        );
 
-            if (Schema::hasTable('cotacao_envios')) {
-                $envio = \App\Models\CotacaoEnvio::with('cotacao')
-                    ->where(function($q) use ($last8, $phoneDigits) {
-                        $q->where('telefone_destino', 'like', "%{$last8}%")
-                          ->orWhere('telefone_destino', $phoneDigits);
-                    })->orderByDesc('id')->first();
-                if ($envio && $envio->cotacao) {
-                    $latestQuote = $envio->cotacao;
+        if ($resolution['cotacao'] || !empty($resolution['nome_cliente'])) {
+            foreach ($history as $m) {
+                if (!$m->cotacao_id && $resolution['cotacao']) {
+                    $m->cotacao_id = $resolution['cotacao']->id;
+                    $m->setRelation('cotacao', $resolution['cotacao']);
+                }
+                if (empty($m->nome_cliente) || in_array($m->nome_cliente, ['Cliente', 'Cliente WhatsApp'])) {
+                    $m->nome_cliente = $resolution['nome_cliente'];
                 }
             }
 
-            if (!$latestQuote && Schema::hasTable('cliente_contatos')) {
-                $contato = \App\Models\ClienteContato::where(function($q) use ($last8, $phoneDigits) {
-                    $q->where('telefone', 'like', "%{$last8}%")
-                      ->orWhere('telefone', $phoneDigits);
-                })->first();
-                if ($contato && $contato->parceiro_id) {
-                    $latestQuote = Cotacao::where('parceiro_id', $contato->parceiro_id)->orderByDesc('id')->first();
-                }
+            $updatePayload = [];
+            if ($resolution['cotacao']) {
+                $updatePayload['cotacao_id'] = $resolution['cotacao']->id;
             }
-
-            if (!$latestQuote && $last8) {
-                $latestQuote = Cotacao::whereHas('parceiro', function($pq) use ($last8) {
-                    $pq->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '+', '') LIKE ?", ["%{$last8}%"])
-                       ->orWhere('telefone', 'like', "%{$last8}%");
-                })->orderByDesc('id')->first();
+            if (!empty($resolution['nome_cliente']) && !in_array($resolution['nome_cliente'], ['Cliente', 'Cliente WhatsApp'])) {
+                $updatePayload['nome_cliente'] = $resolution['nome_cliente'];
             }
-
-            if ($latestQuote) {
-                foreach ($history as $m) {
-                    if (!$m->cotacao_id) {
-                        $m->cotacao_id = $latestQuote->id;
-                        $m->setRelation('cotacao', $latestQuote);
-                    }
-                }
-                ChatMensagem::where('telefone_cliente', $phoneDigits)
-                    ->whereNull('cotacao_id')
-                    ->update(['cotacao_id' => $latestQuote->id]);
+            if (!empty($updatePayload)) {
+                ChatMensagem::where('telefone_cliente', $phoneDigits)->update($updatePayload);
             }
         }
 
@@ -353,5 +283,146 @@ class ChatLogController extends Controller
                 'message' => config('app.debug') ? $e->getMessage() : 'Ocorreu um erro interno ao carregar as mensagens.'
             ], 500);
         }
+    }
+
+    /**
+     * Resolve de forma inteligente a cotação vinculada e o nome do cliente para mensagens de chat.
+     */
+    protected function resolveQuoteAndNameForChat(string $telefoneCliente, ?string $mensagem = null, ?int $existingCotacaoId = null, ?string $existingNome = null): array
+    {
+        $digits = preg_replace('/\D/', '', $telefoneCliente);
+        $cleanPhone = (str_starts_with($digits, '55') && strlen($digits) >= 12) ? substr($digits, 2) : $digits;
+        $last8 = strlen($digits) >= 8 ? substr($digits, -8) : $digits;
+        $last9 = strlen($digits) >= 9 ? substr($digits, -9) : null;
+
+        $resolvedQuote = null;
+        $resolvedName = (!empty($existingNome) && !in_array($existingNome, ['Cliente', 'Cliente WhatsApp'])) ? $existingNome : null;
+
+        // 0. Se já possui cotacao_id existente
+        if ($existingCotacaoId) {
+            $resolvedQuote = Cotacao::with('parceiro')->find($existingCotacaoId);
+            if ($resolvedQuote && empty($resolvedName)) {
+                $resolvedName = $resolvedQuote->parceiro?->nome_fantasia ?: $resolvedQuote->parceiro?->razao_social;
+            }
+        }
+
+        // 1. Tentar localizar via número da cotação mencionado no texto da mensagem
+        if (!$resolvedQuote && !empty($mensagem)) {
+            if (preg_match('/(COT[A-Za-z0-9\-_]+)/i', $mensagem, $mQuote)) {
+                $resolvedQuote = Cotacao::with('parceiro')
+                    ->where('numero', 'like', "%{$mQuote[1]}%")
+                    ->first();
+                if ($resolvedQuote && empty($resolvedName)) {
+                    $resolvedName = $resolvedQuote->parceiro?->nome_fantasia ?: $resolvedQuote->parceiro?->razao_social;
+                }
+            }
+        }
+
+        // 2. Tentar localizar via cotacao_envios
+        if (Schema::hasTable('cotacao_envios')) {
+            $envio = \App\Models\CotacaoEnvio::with('cotacao.parceiro', 'contato.parceiro')
+                ->where(function($q) use ($digits, $cleanPhone, $last8, $last9) {
+                    $q->where('telefone_destino', $digits)
+                      ->orWhere('telefone_destino', $cleanPhone);
+                    if ($last9) $q->orWhere('telefone_destino', 'like', "%{$last9}%");
+                    if ($last8) {
+                        $q->orWhere('telefone_destino', 'like', "%{$last8}%")
+                          ->orWhereRaw("REGEXP_REPLACE(telefone_destino, '[^0-9]', '') LIKE ?", ["%{$last8}%"]);
+                    }
+                })->orderByDesc('id')->first();
+
+            if ($envio) {
+                if (!$resolvedQuote && $envio->cotacao) {
+                    $resolvedQuote = $envio->cotacao;
+                }
+                if (empty($resolvedName)) {
+                    $resolvedName = $envio->nome_contato_snapshot 
+                        ?: ($envio->contato?->nome_contato ?: ($envio->cotacao?->parceiro?->nome_fantasia ?: $envio->cotacao?->parceiro?->razao_social));
+                }
+            }
+        }
+
+        // 3. Tentar localizar via cliente_contatos
+        if (Schema::hasTable('cliente_contatos')) {
+            $contato = \App\Models\ClienteContato::with('parceiro')
+                ->where(function($q) use ($digits, $cleanPhone, $last8, $last9) {
+                    $q->where('telefone', $digits)
+                      ->orWhere('telefone', $cleanPhone);
+                    if ($last9) $q->orWhere('telefone', 'like', "%{$last9}%");
+                    if ($last8) {
+                        $q->orWhere('telefone', 'like', "%{$last8}%")
+                          ->orWhereRaw("REGEXP_REPLACE(telefone, '[^0-9]', '') LIKE ?", ["%{$last8}%"]);
+                    }
+                })->first();
+
+            if ($contato) {
+                if (empty($resolvedName)) {
+                    $resolvedName = $contato->nome_contato ?: ($contato->parceiro?->nome_fantasia ?: $contato->parceiro?->razao_social);
+                }
+                if (!$resolvedQuote && $contato->parceiro_id) {
+                    $resolvedQuote = Cotacao::with('parceiro')->where('parceiro_id', $contato->parceiro_id)->orderByDesc('id')->first();
+                }
+            }
+        }
+
+        // 4. Tentar localizar via telefone do parceiro (limpando caracteres não-numéricos)
+        if ($last8) {
+            $parceiro = Parceiro::where(function($q) use ($cleanPhone, $last8, $last9) {
+                if ($cleanPhone) $q->where('telefone', 'like', "%{$cleanPhone}%");
+                if ($last9) $q->orWhere('telefone', 'like', "%{$last9}%");
+                $q->orWhere('telefone', 'like', "%{$last8}%")
+                  ->orWhereRaw("REGEXP_REPLACE(telefone, '[^0-9]', '') LIKE ?", ["%{$last8}%"]);
+            })->first();
+
+            if ($parceiro) {
+                if (empty($resolvedName)) {
+                    $resolvedName = $parceiro->nome_fantasia ?: $parceiro->razao_social;
+                }
+                if (!$resolvedQuote) {
+                    $resolvedQuote = Cotacao::with('parceiro')->where('parceiro_id', $parceiro->id)->orderByDesc('id')->first();
+                }
+            }
+        }
+
+        // 5. Tentar localizar via observações da cotação
+        if (!$resolvedQuote && $last8) {
+            $cotacaoObs = Cotacao::with('parceiro')
+                ->where(function($q) use ($last8, $digits) {
+                    $q->where('observacao_interna', 'like', "%{$last8}%")
+                      ->orWhere('observacao_cliente', 'like', "%{$last8}%");
+                })->orderByDesc('id')->first();
+
+            if ($cotacaoObs) {
+                $resolvedQuote = $cotacaoObs;
+                if (empty($resolvedName)) {
+                    $resolvedName = $cotacaoObs->parceiro?->nome_fantasia ?: $cotacaoObs->parceiro?->razao_social;
+                }
+            }
+        }
+
+        // 6. Se ainda não achou cotação, mas o nome do cliente foi localizado, buscar cotação desse cliente
+        if (!$resolvedQuote && !empty($resolvedName)) {
+            $resolvedQuote = Cotacao::with('parceiro')
+                ->whereHas('parceiro', function($pq) use ($resolvedName) {
+                    $pq->where('nome_fantasia', 'like', "%{$resolvedName}%")
+                       ->orWhere('razao_social', 'like', "%{$resolvedName}%");
+                })->orderByDesc('id')->first();
+        }
+
+        // Fallback final: se houver cotação, garantir que parceiro está carregado
+        if ($resolvedQuote) {
+            if (!$resolvedQuote->relationLoaded('parceiro')) {
+                $resolvedQuote->load('parceiro');
+            }
+            if (empty($resolvedName)) {
+                $resolvedName = $resolvedQuote->parceiro?->nome_fantasia ?: $resolvedQuote->parceiro?->razao_social;
+            }
+        }
+
+        return [
+            'cotacao' => $resolvedQuote,
+            'cotacao_id' => $resolvedQuote?->id ?? $existingCotacaoId,
+            'nome_cliente' => $resolvedName ?: ($resolvedQuote ? ('Cotação #' . $resolvedQuote->numero) : 'Cliente WhatsApp')
+        ];
     }
 }
