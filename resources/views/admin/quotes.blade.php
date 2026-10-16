@@ -963,7 +963,7 @@
 
 @section('scripts')
 <script>
-    const API_URL = "/api/v1";
+    const API_URL = "{{ url('/api/v1') }}";
     const CURRENT_USER = @json(auth()->user());
     let rawQuotes = [];
     let metaProducts = [];

@@ -1490,8 +1490,8 @@
             showToast(msg, 'warning');
         };
 
-        const API_URL = "/api/v1";
-        const PUBLIC_URL = "";
+        const API_URL = "{{ url('/api/v1') }}";
+        const PUBLIC_URL = "{{ url('/') }}";
         let quotes = [];
         let filteredQuotesList = [];
         let notifications = [];

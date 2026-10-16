@@ -208,7 +208,10 @@ Route::middleware([
 
         // Authenticated View/Edit Quote by ID
         Route::get('/cotacoes/id/{id}', function ($id) {
-            $quote = \App\Models\Cotacao::findOrFail($id);
+            $quote = is_numeric($id) ? \App\Models\Cotacao::find($id) : \App\Models\Cotacao::where('numero', $id)->first();
+            if (!$quote) {
+                abort(404, 'Cotação não encontrada.');
+            }
             if (!auth()->user()->canAccessQuote($quote)) {
                 abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
             }

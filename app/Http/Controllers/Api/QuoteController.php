@@ -377,15 +377,33 @@ class QuoteController extends Controller
     public function show(Request $request)
     {
         $quote = $request->cotacao;
-        $quote->load([
-            'parceiro',
-            'representante.equipe',
-            'itens.produto',
-            'justificativas.anexos',
-            'anexos',
-            'historico.usuario',
-            'ultimoEnvio.contato'
-        ]);
+
+        try {
+            $quote->load([
+                'parceiro',
+                'representante.equipe',
+                'itens.produto',
+                'justificativas.anexos',
+                'anexos',
+                'historico.usuario',
+                'ultimoEnvio.contato'
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Erro ao carregar relações completas da cotação ID {$quote->id}: " . $e->getMessage());
+            try {
+                $quote->load([
+                    'parceiro',
+                    'representante.equipe',
+                    'itens.produto'
+                ]);
+            } catch (\Throwable $e2) {
+                \Illuminate\Support\Facades\Log::error("Erro crítico ao carregar cotação ID {$quote->id}: " . $e2->getMessage());
+                return response()->json([
+                    'error' => 'Erro ao carregar cotação',
+                    'message' => config('app.debug') ? $e2->getMessage() : 'Não foi possível carregar os dados da cotação. Tente novamente mais tarde.'
+                ], 500);
+            }
+        }
 
         return response()->json([
             'success' => true,

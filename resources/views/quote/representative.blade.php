@@ -1244,7 +1244,7 @@
 
     const QUOTE_ID = {{ isset($quoteId) ? (int)$quoteId : 'null' }};
     const TOKEN = "{{ $token ?? '' }}";
-    const API_URL = "/api/v1";
+    const API_URL = "{{ url('/api/v1') }}";
     const QUOTE_BASE_URL = TOKEN ? `${API_URL}/cotacoes/token/${encodeURIComponent(TOKEN)}` : `${API_URL}/cotacoes/${QUOTE_ID}`;
     let quote = null;
     let productsList = [];
@@ -1283,7 +1283,11 @@
                 let errMsg = "Erro HTTP " + quoteRes.status;
                 try {
                     const parsed = JSON.parse(errText);
-                    if (parsed.error || parsed.message) errMsg = parsed.error || parsed.message;
+                    if (parsed.message && parsed.error && parsed.error !== parsed.message) {
+                        errMsg = `${parsed.error}: ${parsed.message}`;
+                    } else {
+                        errMsg = parsed.message || parsed.error || errMsg;
+                    }
                 } catch(e) {}
                 showToast("Erro ao carregar a cotação: " + errMsg, 'error');
                 return;
@@ -1291,7 +1295,10 @@
 
             const quoteData = await quoteRes.json();
             if (!quoteData.success) {
-                showToast("Erro ao carregar a cotação: " + (quoteData.error || quoteData.message || "Cotação não encontrada"), 'error');
+                const failMsg = (quoteData.message && quoteData.error && quoteData.error !== quoteData.message)
+                    ? `${quoteData.error}: ${quoteData.message}`
+                    : (quoteData.message || quoteData.error || "Cotação não encontrada");
+                showToast("Erro ao carregar a cotação: " + failMsg, 'error');
                 return;
             }
             quote = quoteData.data;
