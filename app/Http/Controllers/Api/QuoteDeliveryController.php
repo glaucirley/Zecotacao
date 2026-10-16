@@ -43,6 +43,9 @@ class QuoteDeliveryController extends Controller
         $relations = ['parceiro', 'representante'];
         if (Schema::hasTable('cotacao_envios')) {
             $relations[] = 'ultimoEnvio.contato';
+            $relations[] = 'ultimoEnvioAberto.contato';
+            $relations[] = 'ultimoEnvioWhatsApp.contato';
+            $relations[] = 'envios.contato';
         }
 
         return Cotacao::with($relations)
@@ -94,6 +97,21 @@ class QuoteDeliveryController extends Controller
             ];
         }
 
+        $ultimoEnvioAberto = null;
+        if (Schema::hasTable('cotacao_envios') && $quote->ultimoEnvioAberto) {
+            $envAb = $quote->ultimoEnvioAberto;
+            $ultimoEnvioAberto = [
+                'id' => $envAb->id,
+                'canal' => $envAb->canal,
+                'nome_contato' => $envAb->nome_contato_snapshot ?: $envAb->contato?->nome_contato ?: 'Cliente',
+                'telefone' => $envAb->telefone_destino,
+                'telefone_formatado' => $envAb->contato?->telefone_formatado,
+                'enviado_em' => $envAb->enviado_em?->format('d/m/Y H:i'),
+                'aberto_em' => $envAb->aberto_em?->format('d/m/Y H:i'),
+                'is_aberto' => true,
+            ];
+        }
+
         // Modelo de mensagem padrão
         $template = ParametroSistema::where('chave', 'WA_MSG_PROPOSTA')->value('valor')
             ?: "Olá {nome_contato}, aqui é {nome_representante} da Central Veterinária.\nSegue sua proposta {numero_cotacao}, no valor de R$ {total}, válida até {validade}:\n{link}";
@@ -131,6 +149,7 @@ class QuoteDeliveryController extends Controller
             ],
             'contatos' => $rankedContacts,
             'ultimo_envio' => $ultimoEnvio,
+            'ultimo_envio_aberto' => $ultimoEnvioAberto,
             'template_mensagem' => $template,
             'previa_mensagem' => $previewMsg,
         ]);

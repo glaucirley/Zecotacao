@@ -95,6 +95,22 @@ class Cotacao extends Model
         return $this->hasOne(CotacaoEnvio::class, 'cotacao_id')->latestOfMany();
     }
 
+    public function ultimoEnvioAberto()
+    {
+        return $this->hasOne(CotacaoEnvio::class, 'cotacao_id')
+            ->ofMany(['id' => 'max'], function ($query) {
+                $query->whereNotNull('aberto_em');
+            });
+    }
+
+    public function ultimoEnvioWhatsApp()
+    {
+        return $this->hasOne(CotacaoEnvio::class, 'cotacao_id')
+            ->ofMany(['id' => 'max'], function ($query) {
+                $query->where('canal', 'WHATSAPP');
+            });
+    }
+
     /**
      * Generate the next short sequential quotation number: COT-YYYY-XXXXXX
      */

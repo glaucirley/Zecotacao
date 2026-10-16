@@ -2922,26 +2922,32 @@
         if (!banner || !iconEl || !textEl) return;
 
         const env = quote.ultimo_envio;
-        if (!env) {
+        const envAberto = quote.ultimo_envio_aberto 
+            || (env && env.aberto_em ? env : null)
+            || (Array.isArray(quote.envios) ? quote.envios.find(e => e.aberto_em) : null);
+
+        if (!env && !envAberto) {
             banner.style.display = "none";
             return;
         }
 
         banner.style.display = "flex";
 
-        if (env.aberto_em) {
+        // Prioridade 1: Proposta já foi visualizada pelo cliente (seja neste ou em envio anterior)
+        if (envAberto && envAberto.aberto_em) {
             banner.style.background = "#ecfdf5";
             banner.style.border = "1px solid #a7f3d0";
             banner.style.color = "#065f46";
             iconEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
             
-            const openDate = new Date(env.aberto_em);
+            const openDate = new Date(envAberto.aberto_em);
             const dateStr = openDate.toLocaleDateString('pt-BR');
             const timeStr = openDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            const contactName = env.nome_contato_snapshot || (env.contato ? env.contato.nome_contato : 'Cliente');
+            const contactName = envAberto.nome_contato_snapshot || (envAberto.contato ? envAberto.contato.nome_contato : 'Cliente');
             
             textEl.innerHTML = `<strong>Visualizada pelo cliente em ${dateStr} às ${timeStr}</strong> · Contato Confirmado (${contactName})`;
-        } else {
+        } else if (env && env.canal === 'WHATSAPP') {
+            // Prioridade 2: Enviada via WhatsApp e aguardando primeira abertura
             banner.style.background = "#eff6ff";
             banner.style.border = "1px solid #bfdbfe";
             banner.style.color = "#1e40af";
@@ -2951,6 +2957,18 @@
             const tel = (env.contato && env.contato.telefone_formatado) ? env.contato.telefone_formatado : (env.telefone_destino || '');
             
             textEl.innerHTML = `Enviada para <strong>${contactName}</strong> · ${tel} · <em>aguardando abertura</em>`;
+        } else if (env) {
+            // Prioridade 3: Compartilhado nativamente como arquivo PDF
+            banner.style.background = "#f1f5f9";
+            banner.style.border = "1px solid #cbd5e1";
+            banner.style.color = "#334155";
+            iconEl.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
+
+            const sendDate = env.enviado_em ? new Date(env.enviado_em) : new Date();
+            const dateStr = sendDate.toLocaleDateString('pt-BR');
+            const timeStr = sendDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            textEl.innerHTML = `<strong>PDF da proposta compartilhado</strong> em ${dateStr} às ${timeStr}`;
         }
 
         if (reopenBtn) {

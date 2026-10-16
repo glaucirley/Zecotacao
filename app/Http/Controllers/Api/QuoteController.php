@@ -386,7 +386,10 @@ class QuoteController extends Controller
                 'justificativas.anexos',
                 'anexos',
                 'historico.usuario',
-                'ultimoEnvio.contato'
+                'ultimoEnvio.contato',
+                'ultimoEnvioAberto.contato',
+                'ultimoEnvioWhatsApp.contato',
+                'envios.contato'
             ]);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning("Erro ao carregar relações completas da cotação ID {$quote->id}: " . $e->getMessage());
