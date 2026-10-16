@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 class ChatLogController extends Controller
 {
@@ -98,9 +100,10 @@ class ChatLogController extends Controller
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
-        // We select the latest message for each telefone_cliente.
-        $subQuery = ChatMensagem::select('telefone_cliente', DB::raw('MAX(created_at) as last_msg_time'))
-            ->groupBy('telefone_cliente');
+        try {
+            // We select the latest message for each telefone_cliente.
+            $subQuery = ChatMensagem::select('telefone_cliente', DB::raw('MAX(created_at) as last_msg_time'))
+                ->groupBy('telefone_cliente');
 
         $query = ChatMensagem::joinSub($subQuery, 'latest', function ($join) {
                 $join->on('chat_mensagens.telefone_cliente', '=', 'latest.telefone_cliente')
@@ -219,6 +222,14 @@ class ChatLogController extends Controller
             'success' => true,
             'data' => $contacts
         ]);
+        } catch (\Throwable $e) {
+            Log::error('Erro ao listar contatos de chat: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Falha ao carregar contatos de chat.',
+                'message' => config('app.debug') ? $e->getMessage() : 'Ocorreu um erro interno ao carregar a lista de contatos.'
+            ], 500);
+        }
     }
 
     /**
@@ -232,7 +243,8 @@ class ChatLogController extends Controller
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
-        $phoneDigits = preg_replace('/\D/', '', $telefone);
+        try {
+            $phoneDigits = preg_replace('/\D/', '', $telefone);
 
         // Security check for Representative
         if ($user->isRepresentante()) {
@@ -333,5 +345,13 @@ class ChatLogController extends Controller
             'success' => true,
             'data' => $history
         ]);
+        } catch (\Throwable $e) {
+            Log::error('Erro ao carregar histórico de chat: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Falha ao carregar mensagens do chat.',
+                'message' => config('app.debug') ? $e->getMessage() : 'Ocorreu um erro interno ao carregar as mensagens.'
+            ], 500);
+        }
     }
 }

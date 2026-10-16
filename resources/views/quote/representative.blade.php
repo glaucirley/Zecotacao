@@ -3005,7 +3005,7 @@
         if (!container) return;
         container.innerHTML = "";
 
-        if (contatos.length === 0) {
+        if (!contatos || contatos.length === 0) {
             selectedContactId = "outro";
             container.innerHTML = `
                 <div style="font-size: 12.5px; color: #64748b; background: #fffbeb; border: 1px solid #fef3c7; padding: 10px 12px; border-radius: 8px;">
@@ -3019,15 +3019,18 @@
         let hasSuggested = false;
 
         contatos.forEach((c, idx) => {
+            const contactKey = (c.id !== null && c.id !== undefined) ? String(c.id) : ('sankhya_' + idx);
+            c._key = contactKey;
+
             const isChecked = c.is_sugerido || (idx === 0 && !hasSuggested);
             if (isChecked) {
-                selectedContactId = c.id;
+                selectedContactId = contactKey;
                 hasSuggested = true;
             }
 
             const itemDiv = document.createElement("label");
             itemDiv.style.cssText = `display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1.5px solid ${isChecked ? '#22c55e' : '#e2e8f0'}; background: ${isChecked ? '#f0fdf4' : '#ffffff'}; border-radius: 10px; cursor: pointer; transition: all 0.15s ease;`;
-            itemDiv.id = `contact-card-${c.id}`;
+            itemDiv.id = `contact-card-${contactKey}`;
 
             const badgeConfirmado = c.confirmado
                 ? `<span style="background: #dcfce7; color: #166534; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 12px; border: 1px solid #bbf7d0;">✓ Confirmado</span>`
@@ -3039,7 +3042,7 @@
 
             itemDiv.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="radio" name="delivery_contact_choice" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="onContactSelectionChange(this.value)">
+                    <input type="radio" name="delivery_contact_choice" value="${contactKey}" ${isChecked ? 'checked' : ''} onchange="onContactSelectionChange(this.value)">
                     <div>
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <strong style="font-size: 13.5px; color: #0f172a;">${c.nome_contato}</strong>
@@ -3145,7 +3148,10 @@
         };
 
         if (canal === 'WHATSAPP') {
-            if (selectedContactId === 'outro' || !selectedContactId) {
+            const checkedRadio = document.querySelector('input[name="delivery_contact_choice"]:checked');
+            const activeChoice = checkedRadio ? checkedRadio.value : (selectedContactId || (sendDeliveryContacts.length ? (sendDeliveryContacts[0]._key || sendDeliveryContacts[0].id) : 'outro'));
+
+            if (activeChoice === 'outro' || !sendDeliveryContacts || sendDeliveryContacts.length === 0) {
                 const rawPhone = document.getElementById("send-custom-phone")?.value || '';
                 const fallbackName = (quote?.parceiro?.nome_fantasia || quote?.parceiro?.razao_social || 'Cliente');
                 const contactName = document.getElementById("send-custom-name")?.value?.trim() || fallbackName;
@@ -3165,9 +3171,13 @@
                 payload.telefone = digits;
                 payload.nome_contato = contactName;
             } else {
-                const c = sendDeliveryContacts.find(x => String(x.id) === String(selectedContactId));
+                const c = sendDeliveryContacts.find(x => String(x._key || x.id) === String(activeChoice)) 
+                       || sendDeliveryContacts.find(x => String(x.id) === String(activeChoice)) 
+                       || sendDeliveryContacts[0];
                 if (c) {
-                    payload.contato_id = c.id;
+                    if (c.id && !isNaN(Number(c.id))) {
+                        payload.contato_id = Number(c.id);
+                    }
                     payload.telefone = c.telefone;
                     payload.nome_contato = c.nome_contato;
                 }

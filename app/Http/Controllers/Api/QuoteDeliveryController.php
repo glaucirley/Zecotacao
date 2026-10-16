@@ -167,9 +167,26 @@ class QuoteDeliveryController extends Controller
             $result = $this->deliveryService->prepareSend($quote, $user, $validated);
             return response()->json($result);
         } catch (\Throwable $e) {
+            Log::error('Erro ao enviar proposta via WhatsApp: ' . $e->getMessage(), [
+                'exception' => $e,
+                'quote_id' => $quote->id,
+                'user_id' => $user->id,
+            ]);
+
+            $msg = $e->getMessage();
+            $isBusinessMessage = (
+                str_contains($msg, 'permissão') ||
+                str_contains($msg, 'não permitido') ||
+                str_contains($msg, 'válido') ||
+                str_contains($msg, 'fixo') ||
+                str_contains($msg, 'WhatsApp') ||
+                str_contains($msg, 'celular') ||
+                str_contains($msg, 'DDD')
+            );
+
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => $isBusinessMessage ? $msg : 'Não foi possível preparar o envio da proposta no momento. Por favor, tente novamente.',
             ], 422);
         }
     }

@@ -10,6 +10,8 @@ use App\Models\ParametroSistema;
 use App\Models\Parceiro;
 use App\Models\User;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class QuoteDeliveryService
@@ -123,8 +125,26 @@ class QuoteDeliveryService
         if (empty($result) && !empty($parceiro->telefone)) {
             $validation = $this->validator->validate($parceiro->telefone, $parceiroId);
             if ($validation['valid']) {
+                $novoContato = null;
+                try {
+                    $novoContato = ClienteContato::create([
+                        'parceiro_id' => $parceiroId,
+                        'codigo_sankhya_parc' => $parceiro->codigo_sankhya,
+                        'nome_contato' => $parceiro->nome_fantasia ?: $parceiro->razao_social,
+                        'cargo' => 'Cadastro Geral',
+                        'telefone' => $validation['normalized'],
+                        'origem' => 'SANKHYA',
+                        'confirmado' => false,
+                        'status' => 'ATIVO',
+                        'qtd_envios' => 0,
+                        'qtd_aberturas' => 0,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::warning('Não foi possível auto-persistir contato inicial Sankhya: ' . $e->getMessage());
+                }
+
                 $result[] = [
-                    'id' => null,
+                    'id' => $novoContato?->id,
                     'nome_contato' => $parceiro->nome_fantasia ?: $parceiro->razao_social,
                     'cargo' => 'Cadastro Geral',
                     'telefone' => $validation['normalized'],
@@ -194,51 +214,6 @@ class QuoteDeliveryService
             }
             $normalizedPhone = $validation['normalized'];
             $warning = $validation['warning'];
-
-            // Localizar ou registrar o contato
-            if (!empty($data['contato_id'])) {
-                $contato = ClienteContato::where('id', $data['contato_id'])
-                    ->where('parceiro_id', $quote->parceiro_id)
-                    ->first();
-            }
-
-            if (!$contato) {
-                $contato = ClienteContato::firstOrNew([
-                    'parceiro_id' => $quote->parceiro_id,
-                    'telefone' => $normalizedPhone,
-                ]);
-            }
-
-            // Se o nome não foi informado pelo representante, usar nome do parceiro como fallback
-            if (empty($contactName)) {
-                $contactName = $contato->nome_contato ?: ($partnerDefaultName ?: 'Cliente');
-            }
-            if (empty($contato->nome_contato) && !empty($contactName)) {
-                $contato->nome_contato = $contactName;
-            }
-
-            if (!$contato->exists) {
-                $contato->codigo_sankhya_parc = $quote->parceiro?->codigo_sankhya;
-                $contato->origem = 'REPRESENTANTE';
-                $contato->criado_por = $user->id;
-                $contato->status = 'ATIVO';
-            }
-
-            $contato->qtd_envios = ($contato->qtd_envios ?? 0) + 1;
-            $contato->ultimo_envio_em = now();
-            $contato->save();
-        } else {
-            // No Web Share o contato é opcional
-            if (!empty($data['contato_id'])) {
-                $contato = ClienteContato::find($data['contato_id']);
-                if ($contato) {
-                    $contato->increment('qtd_envios');
-                    $contato->update(['ultimo_envio_em' => now()]);
-                }
-            }
-            if (empty($contactName)) {
-                $contactName = $contato?->nome_contato ?: ($partnerDefaultName ?: 'Cliente');
-            }
         }
 
         // 5. Gerar token criptográfico único para rastreamento de abertura (armazenando apenas o hash SHA-256 no banco)
@@ -281,50 +256,98 @@ class QuoteDeliveryService
             $mensagemFinal = str_replace(array_keys($replacements), array_values($replacements), $template);
         }
 
-        // 7. Gravar registro em cotacao_envios guardando apenas o hash SHA-256 do token
-        $envio = CotacaoEnvio::create([
-            'cotacao_id' => $quote->id,
-            'contato_id' => $contato?->id,
-            'token_acesso' => $tokenHash,
-            'canal' => $canal,
-            'telefone_destino' => $normalizedPhone,
-            'nome_contato_snapshot' => $contactName,
-            'mensagem_enviada' => $mensagemFinal,
-            'enviado_por' => $user->id,
-            'enviado_em' => now(),
-            'expiracao_em' => $quote->data_validade ?? now()->addHours($quote->validade_horas ?: 24),
-        ]);
-
-        // 8. Gravar histórico da cotação
-        $eventoHistorico = $canal === 'WHATSAPP' ? 'PROPOSTA_ENVIADA_WHATSAPP' : 'PROPOSTA_COMPARTILHADA_PDF';
-        $telFormatado = $contato ? $contato->telefone_formatado : $normalizedPhone;
-        CotacaoHistorico::create([
-            'cotacao_id' => $quote->id,
-            'evento' => $eventoHistorico,
-            'usuario_id' => $user->id,
-            'papel' => $user->papel,
-            'condicao' => $canal === 'WHATSAPP'
-                ? "Proposta enviada para {$contactName} ({$telFormatado}) via WhatsApp por {$user->nome}."
-                : "Proposta compartilhada via menu nativo do aparelho por {$user->nome}.",
-        ]);
-
-        // 9. Construir URL wa.me
+        // Construir URL wa.me
         $urlWhatsapp = null;
         if ($canal === 'WHATSAPP' && $normalizedPhone) {
             $urlWhatsapp = 'https://wa.me/' . $normalizedPhone . '?text=' . rawurlencode($mensagemFinal);
         }
 
-        return [
-            'success' => true,
-            'envio_id' => $envio->id,
-            'token_acesso' => $token,
-            'link_proposta' => $linkProposta,
-            'url_whatsapp' => $urlWhatsapp,
-            'mensagem' => $mensagemFinal,
-            'telefone_formatado' => $contato?->telefone_formatado,
-            'nome_contato' => $contactName,
-            'contato_confirmado' => (bool)$contato?->confirmado,
-            'warning' => $warning,
-        ];
+        // 7. Gravar envio, atualizar contato e registrar histórico dentro de transação atômica
+        return DB::transaction(function () use (
+            $quote, $user, $data, $canal, $normalizedPhone, $contactName, $partnerDefaultName,
+            $tokenHash, $linkProposta, $mensagemFinal, $urlWhatsapp, $warning
+        ) {
+            $contato = null;
+
+            if ($canal === 'WHATSAPP') {
+                if (!empty($data['contato_id'])) {
+                    $contato = ClienteContato::where('id', $data['contato_id'])
+                        ->where('parceiro_id', $quote->parceiro_id)
+                        ->first();
+                }
+
+                if (!$contato) {
+                    $contato = ClienteContato::firstOrNew([
+                        'parceiro_id' => $quote->parceiro_id,
+                        'telefone' => $normalizedPhone,
+                    ]);
+                }
+
+                $effectiveName = $contactName ?: ($contato->nome_contato ?: ($partnerDefaultName ?: 'Cliente'));
+                if (empty($contato->nome_contato) && !empty($effectiveName)) {
+                    $contato->nome_contato = $effectiveName;
+                }
+
+                if (!$contato->exists) {
+                    $contato->codigo_sankhya_parc = $quote->parceiro?->codigo_sankhya;
+                    $contato->origem = 'REPRESENTANTE';
+                    $contato->criado_por = $user->id;
+                    $contato->status = 'ATIVO';
+                }
+
+                $contato->qtd_envios = ($contato->qtd_envios ?? 0) + 1;
+                $contato->ultimo_envio_em = now();
+                $contato->save();
+            } else {
+                if (!empty($data['contato_id'])) {
+                    $contato = ClienteContato::find($data['contato_id']);
+                    if ($contato) {
+                        $contato->increment('qtd_envios');
+                        $contato->update(['ultimo_envio_em' => now()]);
+                    }
+                }
+            }
+
+            // Gravar registro em cotacao_envios guardando apenas o hash SHA-256 do token
+            $envio = CotacaoEnvio::create([
+                'cotacao_id' => $quote->id,
+                'contato_id' => $contato?->id,
+                'token_acesso' => $tokenHash,
+                'canal' => $canal,
+                'telefone_destino' => $normalizedPhone,
+                'nome_contato_snapshot' => $contactName ?: ($contato?->nome_contato ?: ($partnerDefaultName ?: 'Cliente')),
+                'mensagem_enviada' => $mensagemFinal,
+                'enviado_por' => $user->id,
+                'enviado_em' => now(),
+                'expiracao_em' => $quote->data_validade ?? now()->addHours($quote->validade_horas ?: 24),
+            ]);
+
+            // Gravar histórico da cotação
+            $eventoHistorico = $canal === 'WHATSAPP' ? 'PROPOSTA_ENVIADA_WHATSAPP' : 'PROPOSTA_COMPARTILHADA_PDF';
+            $telFormatado = $contato ? $contato->telefone_formatado : $normalizedPhone;
+            $histName = $envio->nome_contato_snapshot;
+
+            CotacaoHistorico::create([
+                'cotacao_id' => $quote->id,
+                'evento' => $eventoHistorico,
+                'usuario_id' => $user->id,
+                'papel' => $user->papel,
+                'condicao' => $canal === 'WHATSAPP'
+                    ? "Proposta enviada para {$histName} ({$telFormatado}) via WhatsApp por {$user->nome}."
+                    : "Proposta compartilhada via menu nativo do aparelho por {$user->nome}.",
+            ]);
+
+            return [
+                'success' => true,
+                'envio_id' => $envio->id,
+                'link_proposta' => $linkProposta,
+                'url_whatsapp' => $urlWhatsapp,
+                'mensagem' => $mensagemFinal,
+                'telefone_formatado' => $contato?->telefone_formatado ?? $normalizedPhone,
+                'nome_contato' => $histName,
+                'contato_confirmado' => (bool)$contato?->confirmado,
+                'warning' => $warning,
+            ];
+        });
     }
 }
