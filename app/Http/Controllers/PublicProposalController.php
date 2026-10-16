@@ -18,48 +18,37 @@ class PublicProposalController extends Controller
     }
 
     /**
-     * Exibe a proposta comercial responsiva pública para o cliente final
-     * e registra a visualização / confirmação de contato.
+     * Localiza o registro de envio suportando tanto o hash seguro SHA-256
+     * quanto o token legado direto.
+     */
+    protected function findEnvio(string $token, array $relations = [])
+    {
+        $hash = hash('sha256', $token);
+        return CotacaoEnvio::where('token_acesso', $hash)
+            ->orWhere('token_acesso', $token)
+            ->with($relations)
+            ->first();
+    }
+
+    /**
+     * Exibe a proposta comercial responsiva pública para o cliente final.
+     * Não registra abertura síncrona aqui para evitar falsos positivos de robôs
+     * de prévia de links (ex: WhatsApp, Facebook, Telegram).
      */
     public function show(Request $request, string $token)
     {
-        $envio = CotacaoEnvio::where('token_acesso', $token)
-            ->with([
-                'cotacao.parceiro',
-                'cotacao.representante.equipe',
-                'cotacao.itens.produto',
-                'contato',
-            ])
-            ->first();
+        $envio = $this->findEnvio($token, [
+            'cotacao.parceiro',
+            'cotacao.representante.equipe',
+            'cotacao.itens.produto',
+            'contato',
+        ]);
 
         if (!$envio || !$envio->cotacao) {
             abort(404, 'Proposta comercial não encontrada ou link inválido.');
         }
 
         $quote = $envio->cotacao;
-
-        // Se for a primeira visualização, registrar abertura e confirmar contato
-        if (is_null($envio->aberto_em)) {
-            $envio->aberto_em = now();
-            $envio->ip_abertura = $request->ip();
-            $envio->user_agent_abertura = Str::limit($request->userAgent() ?? '', 500);
-            $envio->save();
-
-            if ($envio->contato) {
-                $envio->contato->confirmado = true;
-                $envio->contato->increment('qtd_aberturas');
-                $envio->contato->ultima_abertura_em = now();
-                $envio->contato->save();
-            }
-
-            CotacaoHistorico::create([
-                'cotacao_id' => $quote->id,
-                'evento' => 'PROPOSTA_VISUALIZADA_CLIENTE',
-                'usuario_id' => null,
-                'papel' => 'cliente',
-                'condicao' => 'Proposta comercial aberta pelo cliente (' . ($envio->nome_contato_snapshot ?: 'Cliente') . ') a partir do link do WhatsApp.',
-            ]);
-        }
 
         // Itens aprovados para a exibição oficial ao cliente
         $items = $quote->itens->where('status_item', 'aprovado');
@@ -79,12 +68,66 @@ class PublicProposalController extends Controller
             $repWhatsappUrl = "https://wa.me/{$digits}?text=" . rawurlencode($msgRetorno);
         }
 
-        return view('public.proposal', [
-            'envio' => $envio,
-            'quote' => $quote,
-            'items' => $items,
-            'repWhatsappUrl' => $repWhatsappUrl,
-            'token' => $token,
+        return response()
+            ->view('public.proposal', [
+                'envio' => $envio,
+                'quote' => $quote,
+                'items' => $items,
+                'repWhatsappUrl' => $repWhatsappUrl,
+                'token' => $token,
+            ])
+            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet')
+            ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /**
+     * Registra a abertura real da proposta quando executada via JavaScript
+     * no navegador do cliente, filtrando estritamente bots de mensageiros.
+     */
+    public function track(Request $request, string $token)
+    {
+        $userAgent = $request->userAgent() ?? '';
+
+        // Ignorar crawlers e geradores de preview de mensagens
+        $botPatterns = '/bot|crawl|spider|slurp|whatsapp|facebookexternalhit|facebot|twitterbot|telegrambot|slackbot|discordbot|preview|google|bing|yahoo|duckduck/i';
+        if (preg_match($botPatterns, $userAgent)) {
+            return response()->json(['tracked' => false, 'reason' => 'bot_ignored']);
+        }
+
+        $envio = $this->findEnvio($token, ['cotacao', 'contato']);
+        if (!$envio || !$envio->cotacao) {
+            return response()->json(['error' => 'Not found'], 404);
+        }
+
+        // Se for a primeira visualização real
+        if (is_null($envio->aberto_em)) {
+            $envio->aberto_em = now();
+            $envio->ip_abertura = $request->ip();
+            $envio->user_agent_abertura = Str::limit($userAgent, 500);
+            $envio->save();
+
+            if ($envio->contato) {
+                $envio->contato->confirmado = true;
+                $envio->contato->increment('qtd_aberturas');
+                $envio->contato->ultima_abertura_em = now();
+                $envio->contato->save();
+            }
+
+            $contactDisplayName = $envio->nome_contato_snapshot
+                ?: ($envio->contato?->nome_contato ?: ($envio->cotacao->parceiro?->nome_fantasia ?: $envio->cotacao->parceiro?->razao_social ?: 'Cliente'));
+
+            CotacaoHistorico::create([
+                'cotacao_id' => $envio->cotacao->id,
+                'evento' => 'PROPOSTA_VISUALIZADA_CLIENTE',
+                'usuario_id' => null,
+                'papel' => 'cliente',
+                'condicao' => 'Proposta comercial aberta pelo cliente (' . $contactDisplayName . ') no navegador.',
+            ]);
+        }
+
+        return response()->json([
+            'tracked' => true,
+            'aberto_em' => $envio->aberto_em?->format('d/m/Y H:i')
         ]);
     }
 
@@ -93,9 +136,7 @@ class PublicProposalController extends Controller
      */
     public function downloadPdf(string $token)
     {
-        $envio = CotacaoEnvio::where('token_acesso', $token)
-            ->with(['cotacao'])
-            ->first();
+        $envio = $this->findEnvio($token, ['cotacao']);
 
         if (!$envio || !$envio->cotacao) {
             abort(404, 'Proposta comercial não encontrada.');

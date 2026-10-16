@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 // Public Customer Proposal Routes (Accessed via link generated for WhatsApp / Web Share)
 Route::get('/p/{token}', [\App\Http\Controllers\PublicProposalController::class, 'show'])->name('public.proposal');
 Route::get('/p/{token}/pdf', [\App\Http\Controllers\PublicProposalController::class, 'downloadPdf'])->name('public.proposal.pdf');
+Route::post('/p/{token}/track', [\App\Http\Controllers\PublicProposalController::class, 'track'])->name('public.proposal.track');
 
 // 1. Root & Auth
 Route::get('/', function () {

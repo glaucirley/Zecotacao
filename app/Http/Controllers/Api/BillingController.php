@@ -26,10 +26,21 @@ class BillingController extends Controller
         // Trigger automatic expiration check for overdue quotes
         \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
 
-        $quotes = Cotacao::whereIn('status', ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'])
-            ->with(['parceiro', 'representante', 'pedidoExterno'])
-            ->orderBy('updated_at', 'desc')
-            ->get();
+        $status = $request->query('status', 'pendentes');
+
+        $query = Cotacao::with(['parceiro', 'representante', 'pedidoExterno'])
+            ->orderBy('updated_at', 'desc');
+
+        if ($status === 'FATURADA' || $status === 'faturadas') {
+            $query->where('status', 'FATURADA');
+        } elseif ($status === 'todas' || $status === 'all') {
+            $query->whereIn('status', ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA']);
+        } else {
+            // Padrão: Apenas pendentes de faturamento
+            $query->whereIn('status', ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO']);
+        }
+
+        $quotes = $query->get();
 
         return response()->json([
             'success' => true,

@@ -93,6 +93,9 @@ class IntegrationController extends Controller
             'itens.*.campanha_id' => 'nullable|string',
             'itens.*.mostrar_selo_campanha' => 'nullable|boolean',
             'itens.*.ordem_exibicao' => 'nullable|integer',
+            'itens.*.nao_encontrado' => 'nullable|boolean',
+            'itens.*.descricao_original' => 'nullable|string|max:500',
+            'itens.*.observacao_ia' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -314,6 +317,9 @@ class IntegrationController extends Controller
                         'campanha_id' => $item['campanha_id'] ?? null,
                         'mostrar_selo_campanha' => $item['mostrar_selo_campanha'] ?? false,
                         'ordem_exibicao' => $item['ordem_exibicao'] ?? 0,
+                        'nao_encontrado' => (bool)($item['nao_encontrado'] ?? false),
+                        'descricao_original' => $item['descricao_original'] ?? null,
+                        'observacao_ia' => $item['observacao_ia'] ?? null,
                     ]);
                 }
 

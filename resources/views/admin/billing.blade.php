@@ -4,9 +4,22 @@
 
 @section('content')
 <div class="card">
-    <div class="card-header">
-        <h3>Cotações Prontas para Faturamento</h3>
-        <span id="billing-count" class="user-role-label" style="background-color: var(--color-primary-hover);">0 Itens</span>
+    <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+        <div>
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700;">Fila de Faturamento e Conferência</h3>
+            <p style="margin: 3px 0 0 0; font-size: 13px; color: var(--color-text-muted);">Acompanhamento de cotações aptas e conferência de pedidos externos.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: inline-flex; background: #f1f5f9; padding: 4px; border-radius: 8px;">
+                <button type="button" id="tab-billing-pendentes" onclick="switchBillingTab('pendentes')" style="padding: 6px 14px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: #ffffff; color: var(--color-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s;">
+                    Pendentes
+                </button>
+                <button type="button" id="tab-billing-faturadas" onclick="switchBillingTab('faturadas')" style="padding: 6px 14px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: #64748b; transition: all 0.2s;">
+                    Já Faturadas
+                </button>
+            </div>
+            <span id="billing-count" class="user-role-label" style="background-color: var(--color-primary-hover);">0 Cotações</span>
+        </div>
     </div>
 
     <!-- Table Fila -->
@@ -31,7 +44,7 @@
     <!-- Empty State -->
     <div id="empty-state" style="display: none; text-align: center; padding: 40px 20px;">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="1.5" style="margin: 0 auto 15px auto;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        <p style="font-weight: 500; color: var(--color-text-muted);">Nenhuma cotação na fila de faturamento no momento.</p>
+        <p id="empty-state-text" style="font-weight: 500; color: var(--color-text-muted);">Nenhuma cotação pendente de faturamento no momento.</p>
     </div>
 
     <!-- Loading spinner -->
@@ -43,13 +56,46 @@
 
 @section('scripts')
 <script>
+    let currentBillingTab = 'pendentes';
+
     document.addEventListener("DOMContentLoaded", () => {
         loadBillingQueue();
     });
 
+    function switchBillingTab(tab) {
+        currentBillingTab = tab;
+        const btnPend = document.getElementById("tab-billing-pendentes");
+        const btnFat = document.getElementById("tab-billing-faturadas");
+        const emptyText = document.getElementById("empty-state-text");
+
+        if (tab === 'pendentes') {
+            btnPend.style.background = "#ffffff";
+            btnPend.style.color = "var(--color-primary)";
+            btnPend.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+            btnFat.style.background = "transparent";
+            btnFat.style.color = "#64748b";
+            btnFat.style.boxShadow = "none";
+            if (emptyText) emptyText.innerText = "Nenhuma cotação pendente de faturamento no momento.";
+        } else {
+            btnFat.style.background = "#ffffff";
+            btnFat.style.color = "var(--color-primary)";
+            btnFat.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+            btnPend.style.background = "transparent";
+            btnPend.style.color = "#64748b";
+            btnPend.style.boxShadow = "none";
+            if (emptyText) emptyText.innerText = "Nenhuma cotação faturada encontrada.";
+        }
+        loadBillingQueue();
+    }
+
     async function loadBillingQueue() {
+        document.getElementById("loading-spinner").style.display = "block";
+        document.getElementById("empty-state").style.display = "none";
+        const body = document.getElementById("billing-queue-body");
+        body.innerHTML = "";
+
         try {
-            const res = await fetch("{{ url('/api/v1/faturamento/fila') }}");
+            const res = await fetch(`{{ url('/api/v1/faturamento/fila') }}?status=${currentBillingTab}`);
             
             if (res.status === 401 || res.status === 403) {
                 window.location.href = "{{ url('/login') }}";
@@ -68,12 +114,11 @@
                     return;
                 }
 
-                const body = document.getElementById("billing-queue-body");
                 body.innerHTML = "";
 
                 list.forEach(q => {
                     const statusClass = q.status.toLowerCase().replace(/_/g, '-');
-                    const statusText = q.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (q.status === 'PDF_GERADO' ? 'PDF Gerado' : q.status.replace(/_/g, ' '));
+                    const statusText = q.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (q.status === 'PDF_GERADO' ? 'PDF Gerado' : (q.status === 'FATURADA' ? 'Faturada' : q.status.replace(/_/g, ' ')));
 
                     // Check if external order is registered
                     let orderMarkup = `<span style="color:var(--color-text-muted); font-size:12px;">Não registrado</span>`;
@@ -91,8 +136,8 @@
                     body.innerHTML += `
                         <tr>
                             <td><strong>${q.numero}</strong><br><span style="font-size:11px; color:var(--color-text-muted);">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span></td>
-                            <td>${q.parceiro.razao_social}</td>
-                            <td>${q.representante.nome}</td>
+                            <td>${q.parceiro ? q.parceiro.razao_social : '-'}</td>
+                            <td>${q.representante ? q.representante.nome : '-'}</td>
                             <td>
                                 <span class="badge-status ${statusClass}">${statusText}</span>
                             </td>
@@ -110,6 +155,7 @@
             }
         } catch (e) {
             console.error(e);
+            document.getElementById("loading-spinner").style.display = "none";
             showToast("Erro de conexão ao buscar fila de faturamento.", "error");
         }
     }

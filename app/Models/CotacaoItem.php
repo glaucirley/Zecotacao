@@ -19,6 +19,9 @@ class CotacaoItem extends Model
         'subtotal',
         'status_item',
         'inconsistente',
+        'nao_encontrado',
+        'descricao_original',
+        'observacao_ia',
         'margem_calculada',
         'custo',
         'imposto',
@@ -38,6 +41,7 @@ class CotacaoItem extends Model
         'imposto' => 'decimal:2',
         'mostrar_selo_campanha' => 'boolean',
         'inconsistente' => 'boolean',
+        'nao_encontrado' => 'boolean',
     ];
 
     protected $appends = [

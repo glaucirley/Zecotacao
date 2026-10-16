@@ -2016,6 +2016,12 @@
                                 <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">#${item.produto.codigo_sankhya} · ${item.produto.unidade}</span>
                                 ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
                                 ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
+                                ${item.nao_encontrado ? `
+                                    <span class="badge" style="background:#fff1f2; color:#be123c; font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:4px; border:1px solid #fecdd3; display:inline-flex; align-items:center; gap:3px;" title="${item.observacao_ia || 'Item não encontrado no catálogo pelo assistente IA'}">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                        Não encontrado pela IA
+                                    </span>
+                                ` : ''}
                                 ${isRejected ? `
                                     <span class="badge-status recusado" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -2026,6 +2032,16 @@
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                                         Aprovado
                                     </span>
+                                ` : '')}
+                                ${item.descricao_original ? `
+                                    <div style="width:100%; font-size:11.5px; color:#64748b; margin-top:2px;">
+                                        <span style="font-weight:600; color:#475569;">Pedido original:</span> "${item.descricao_original}"
+                                        ${item.observacao_ia ? `<span style="color:#be123c; margin-left:6px;">(${item.observacao_ia})</span>` : ''}
+                                    </div>
+                                ` : (item.observacao_ia ? `
+                                    <div style="width:100%; font-size:11.5px; color:#be123c; margin-top:2px;">
+                                        <em>${item.observacao_ia}</em>
+                                    </div>
                                 ` : '')}
                             </div>
                             <div>
@@ -2955,6 +2971,10 @@
                 if (previewTextarea && data.previa_mensagem) {
                     previewTextarea.value = data.previa_mensagem;
                 }
+                const customNameInput = document.getElementById("send-custom-name");
+                if (customNameInput && quote && quote.parceiro) {
+                    customNameInput.value = customNameInput.value || quote.parceiro.nome_fantasia || quote.parceiro.razao_social || '';
+                }
             } else {
                 const errMsg = data.message || data.error || (res.status === 404 ? 'Cotação não encontrada' : 'Falha ao carregar contatos do cliente.');
                 container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">${escapeHtml(errMsg)}</div>`;
@@ -3055,6 +3075,10 @@
         const customBox = document.getElementById("send-custom-contact-box");
         if (val === 'outro') {
             customBox.style.display = "block";
+            const customNameInput = document.getElementById("send-custom-name");
+            if (customNameInput && !customNameInput.value && quote && quote.parceiro) {
+                customNameInput.value = quote.parceiro.nome_fantasia || quote.parceiro.razao_social || '';
+            }
             document.getElementById("send-custom-phone")?.focus();
         } else {
             customBox.style.display = "none";
@@ -3112,7 +3136,8 @@
         if (canal === 'WHATSAPP') {
             if (selectedContactId === 'outro' || !selectedContactId) {
                 const rawPhone = document.getElementById("send-custom-phone")?.value || '';
-                const contactName = document.getElementById("send-custom-name")?.value || '';
+                const fallbackName = (quote?.parceiro?.nome_fantasia || quote?.parceiro?.razao_social || 'Cliente');
+                const contactName = document.getElementById("send-custom-name")?.value?.trim() || fallbackName;
                 const digits = rawPhone.replace(/\D/g, '');
                 
                 if (digits.length !== 11) {

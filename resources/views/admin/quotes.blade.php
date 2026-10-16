@@ -1267,7 +1267,7 @@
             const s = q.status;
             if (['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO'].includes(s)) cntAtivas++;
             if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(s)) cntAguardando++;
-            if (['PDF_GERADO', 'FATURADA'].includes(s)) cntFaturamento++;
+            if (['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO'].includes(s)) cntFaturamento++;
             if (['FATURADA', 'PERDIDA', 'RECUSADA', 'EXPIRADA', 'CANCELADA'].includes(s)) cntEncerradas++;
         });
 
@@ -1521,7 +1521,7 @@
             } else if (currentQuoteTab === 'aguardando') {
                 matchesTab = ['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(q.status);
             } else if (currentQuoteTab === 'faturamento') {
-                matchesTab = ['PDF_GERADO', 'FATURADA'].includes(q.status);
+                matchesTab = ['PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO'].includes(q.status);
             } else if (currentQuoteTab === 'encerradas') {
                 matchesTab = ['FATURADA', 'PERDIDA', 'RECUSADA', 'EXPIRADA', 'CANCELADA'].includes(q.status);
             }
@@ -1622,7 +1622,11 @@
 
             itemsBody.innerHTML += `
                 <tr>
-                    <td><strong>${desc}</strong></td>
+                    <td>
+                        <strong>${desc}</strong>
+                        ${item.nao_encontrado ? '<span style="display:inline-block; margin-left:6px; background:#fff1f2; color:#be123c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fecdd3;">⚠️ Não encontrado pela IA</span>' : ''}
+                        ${item.descricao_original ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Original: "${item.descricao_original}" ${item.observacao_ia ? `<span style="color:#be123c;">(${item.observacao_ia})</span>` : ''}</div>` : ''}
+                    </td>
                     <td class="text-center">${item.quantidade}</td>
                     <td class="text-right">R$ ${vlrSug.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
                     <td class="text-right">R$ ${vlrProp.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>

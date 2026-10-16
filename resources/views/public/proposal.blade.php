@@ -4,6 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Proposta Comercial #{{ $quote->numero }} · Central Veterinária</title>
+    
+    <!-- Segurança e Privacidade -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+    <meta name="referrer" content="no-referrer">
+    
+    <!-- Prévia Rica no WhatsApp e Redes Sociais (Open Graph) -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Central Veterinária">
+    <meta property="og:title" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
+    <meta property="og:description" content="Proposta comercial para {{ $quote->parceiro?->nome_fantasia ?: $quote->parceiro?->razao_social ?: 'Cliente' }} no valor de R$ {{ number_format((float)$quote->total, 2, ',', '.') }}. Clique para visualizar os itens e condições.">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:image" content="{{ asset('images/logo.png') }}">
+    <meta property="og:image:secure_url" content="{{ asset('images/logo.png') }}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -524,5 +541,24 @@
         @endif
     </div>
 
+    <!-- Rastreamento de visualização real pelo navegador do cliente (ignora crawlers) -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            if (navigator.webdriver) return;
+            try {
+                fetch('/p/{{ $token }}/track', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        screen: `${window.screen?.width}x${window.screen?.height}`,
+                        tz: Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+                    })
+                }).catch(() => {});
+            } catch(e) {}
+        });
+    </script>
 </body>
 </html>

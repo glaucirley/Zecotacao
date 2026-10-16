@@ -132,7 +132,60 @@ class ChatLogController extends Controller
             });
         }
 
-        $contacts = $query->get();
+        $contacts = $query->with(['cotacao' => function($q) {
+            $q->select('id', 'numero', 'parceiro_id');
+        }, 'cotacao.parceiro'])->get();
+
+        foreach ($contacts as $c) {
+            $digits = preg_replace('/\D/', '', $c->telefone_cliente);
+            $last8 = substr($digits, -8);
+
+            // 1. Resolver cotação associada se nula
+            if (!$c->cotacao_id) {
+                $latestQuote = Cotacao::where(function($q) use ($last8) {
+                    $q->whereHas('parceiro', function($pq) use ($last8) {
+                        $pq->where('telefone', 'like', "%{$last8}%");
+                    });
+                })->orderByDesc('id')->first();
+
+                if ($latestQuote) {
+                    $c->cotacao_id = $latestQuote->id;
+                    $c->setRelation('cotacao', $latestQuote);
+                    ChatMensagem::where('telefone_cliente', $c->telefone_cliente)
+                        ->whereNull('cotacao_id')
+                        ->update(['cotacao_id' => $latestQuote->id]);
+                }
+            }
+
+            // 2. Resolver nome do cliente se nulo ou genérico
+            if (empty($c->nome_cliente) || $c->nome_cliente === 'Cliente' || $c->nome_cliente === 'Cliente WhatsApp') {
+                if ($c->cotacao && $c->cotacao->parceiro) {
+                    $c->nome_cliente = $c->cotacao->parceiro->nome_fantasia ?: $c->cotacao->parceiro->razao_social;
+                } elseif (\Illuminate\Support\Facades\Schema::hasTable('cliente_contatos')) {
+                    $contato = \App\Models\ClienteContato::where('telefone', 'like', "%{$last8}%")
+                        ->whereNotNull('nome_contato')
+                        ->first();
+                    if ($contato) {
+                        $c->nome_cliente = $contato->nome_contato;
+                    }
+                }
+
+                if (empty($c->nome_cliente)) {
+                    $parc = Parceiro::where('telefone', 'like', "%{$last8}%")->first();
+                    if ($parc) {
+                        $c->nome_cliente = $parc->nome_fantasia ?: $parc->razao_social;
+                    }
+                }
+
+                if (!empty($c->nome_cliente)) {
+                    ChatMensagem::where('telefone_cliente', $c->telefone_cliente)
+                        ->where(function($q) {
+                            $q->whereNull('nome_cliente')->orWhere('nome_cliente', '')->orWhere('nome_cliente', 'Cliente');
+                        })
+                        ->update(['nome_cliente' => $c->nome_cliente]);
+                }
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -200,6 +253,29 @@ class ChatLogController extends Controller
             }])
             ->orderBy('created_at', 'asc')
             ->get();
+
+        // Se houver mensagens sem cotação vinculada, auto-resolver pela última cotação
+        $needsQuote = $history->contains(fn($m) => is_null($m->cotacao_id));
+        if ($needsQuote) {
+            $last8 = substr($phoneDigits, -8);
+            $latestQuote = Cotacao::where(function($q) use ($last8) {
+                $q->whereHas('parceiro', function($pq) use ($last8) {
+                    $pq->where('telefone', 'like', "%{$last8}%");
+                });
+            })->orderByDesc('id')->first();
+
+            if ($latestQuote) {
+                foreach ($history as $m) {
+                    if (!$m->cotacao_id) {
+                        $m->cotacao_id = $latestQuote->id;
+                        $m->setRelation('cotacao', $latestQuote);
+                    }
+                }
+                ChatMensagem::where('telefone_cliente', $phoneDigits)
+                    ->whereNull('cotacao_id')
+                    ->update(['cotacao_id' => $latestQuote->id]);
+            }
+        }
 
         return response()->json([
             'success' => true,

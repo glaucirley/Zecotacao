@@ -30,6 +30,10 @@ class CotacaoEnvio extends Model
         'expiracao_em' => 'datetime',
     ];
 
+    protected $hidden = [
+        'token_acesso',
+    ];
+
     public function cotacao()
     {
         return $this->belongsTo(Cotacao::class, 'cotacao_id');

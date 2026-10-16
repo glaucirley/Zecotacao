@@ -319,8 +319,9 @@
             const data = await res.json();
             if (data.success) {
                 const select = document.getElementById("funnel-seller-filter");
-                // Filter only representatives
-                const reps = data.data.filter(u => u.papel === 'representante');
+                const usersList = Array.isArray(data.data) ? data.data : (data.data?.users || []);
+                // Filter only representatives (case-insensitive)
+                const reps = usersList.filter(u => String(u.papel || '').toLowerCase() === 'representante');
                 reps.forEach(r => {
                     select.innerHTML += `<option value="${r.id}">${r.nome}</option>`;
                 });

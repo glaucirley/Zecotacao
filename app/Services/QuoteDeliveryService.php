@@ -180,6 +180,7 @@ class QuoteDeliveryService
         $canal = ($data['canal'] ?? 'WHATSAPP') === 'WEB_SHARE' ? 'WEB_SHARE' : 'WHATSAPP';
         $rawPhone = $data['telefone'] ?? '';
         $contactName = trim($data['nome_contato'] ?? '');
+        $partnerDefaultName = $quote->parceiro?->nome_fantasia ?: $quote->parceiro?->razao_social;
 
         // 4. Validação do telefone para envio via WhatsApp
         $normalizedPhone = null;
@@ -208,9 +209,14 @@ class QuoteDeliveryService
                 ]);
             }
 
+            // Se o nome não foi informado pelo representante, usar nome do parceiro como fallback
+            if (empty($contactName)) {
+                $contactName = $contato->nome_contato ?: ($partnerDefaultName ?: 'Cliente');
+            }
             if (empty($contato->nome_contato) && !empty($contactName)) {
                 $contato->nome_contato = $contactName;
             }
+
             if (!$contato->exists) {
                 $contato->codigo_sankhya_parc = $quote->parceiro?->codigo_sankhya;
                 $contato->origem = 'REPRESENTANTE';
@@ -221,10 +227,6 @@ class QuoteDeliveryService
             $contato->qtd_envios = ($contato->qtd_envios ?? 0) + 1;
             $contato->ultimo_envio_em = now();
             $contato->save();
-
-            if (empty($contactName)) {
-                $contactName = $contato->nome_contato ?: 'Cliente';
-            }
         } else {
             // No Web Share o contato é opcional
             if (!empty($data['contato_id'])) {
@@ -234,11 +236,15 @@ class QuoteDeliveryService
                     $contato->update(['ultimo_envio_em' => now()]);
                 }
             }
+            if (empty($contactName)) {
+                $contactName = $contato?->nome_contato ?: ($partnerDefaultName ?: 'Cliente');
+            }
         }
 
-        // 5. Gerar token criptográfico único para rastreamento de abertura
-        $token = Str::random(48);
-        $linkProposta = url("/p/{$token}");
+        // 5. Gerar token criptográfico único para rastreamento de abertura (armazenando apenas o hash SHA-256 no banco)
+        $plainToken = Str::random(48);
+        $linkProposta = url("/p/{$plainToken}");
+        $tokenHash = hash('sha256', $plainToken);
 
         // 6. Montar texto da mensagem
         $template = ParametroSistema::where('chave', 'WA_MSG_PROPOSTA')->value('valor');
@@ -261,21 +267,25 @@ class QuoteDeliveryService
             '{link}' => $linkProposta,
         ];
 
-        // Se o representante editou o texto na tela de envio, garantir que o link está incluído
+        // Se o representante editou o texto na tela de envio, substituir o placeholder provisório ou anexar o link
         if (!empty($data['mensagem'])) {
             $mensagemFinal = trim($data['mensagem']);
-            if (!str_contains($mensagemFinal, $linkProposta)) {
-                $mensagemFinal .= "\n\nAcesse sua proposta: {$linkProposta}";
+            if (str_contains($mensagemFinal, '[Link da Proposta será gerado ao enviar]')) {
+                $mensagemFinal = str_replace('[Link da Proposta será gerado ao enviar]', $linkProposta, $mensagemFinal);
+            } elseif (str_contains($mensagemFinal, '{link}')) {
+                $mensagemFinal = str_replace('{link}', $linkProposta, $mensagemFinal);
+            } elseif (!str_contains($mensagemFinal, $linkProposta)) {
+                $mensagemFinal .= "\n\n" . $linkProposta;
             }
         } else {
             $mensagemFinal = str_replace(array_keys($replacements), array_values($replacements), $template);
         }
 
-        // 7. Gravar registro em cotacao_envios
+        // 7. Gravar registro em cotacao_envios guardando apenas o hash SHA-256 do token
         $envio = CotacaoEnvio::create([
             'cotacao_id' => $quote->id,
             'contato_id' => $contato?->id,
-            'token_acesso' => $token,
+            'token_acesso' => $tokenHash,
             'canal' => $canal,
             'telefone_destino' => $normalizedPhone,
             'nome_contato_snapshot' => $contactName,
