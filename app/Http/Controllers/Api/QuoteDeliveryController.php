@@ -22,8 +22,14 @@ class QuoteDeliveryController extends Controller
     protected function findQuote($idOrToken): Cotacao
     {
         return Cotacao::with(['parceiro', 'representante', 'ultimoEnvio.contato'])
-            ->where('id', $idOrToken)
-            ->orWhere('token_representante', $idOrToken)
+            ->where(function ($q) use ($idOrToken) {
+                if (is_numeric($idOrToken)) {
+                    $q->where('id', $idOrToken);
+                } else {
+                    $q->where('numero', $idOrToken)
+                      ->orWhere('token_representante', $idOrToken);
+                }
+            })
             ->firstOrFail();
     }
 
@@ -33,10 +39,10 @@ class QuoteDeliveryController extends Controller
      */
     public function getDeliveryData(Request $request, $id)
     {
-        $user = Auth::user();
         $quote = $this->findQuote($id);
+        $user = Auth::user() ?? $quote->representante;
 
-        if (!$user->canAccessQuote($quote) && !$user->isAdministrador()) {
+        if ($user && !$user->canAccessQuote($quote) && !$user->isAdministrador()) {
             return response()->json(['error' => 'Acesso não autorizado para esta cotação.'], 403);
         }
 
@@ -88,9 +94,9 @@ class QuoteDeliveryController extends Controller
                 'total_formatado' => number_format((float)$quote->total, 2, ',', '.'),
                 'validade' => $quote->data_validade?->format('d/m/Y H:i'),
                 'parceiro' => [
-                    'id' => $quote->parceiro->id,
-                    'razao_social' => $quote->parceiro->razao_social,
-                    'codigo_sankhya' => $quote->parceiro->codigo_sankhya,
+                    'id' => $quote->parceiro?->id,
+                    'razao_social' => $quote->parceiro?->razao_social ?? 'Cliente',
+                    'codigo_sankhya' => $quote->parceiro?->codigo_sankhya,
                 ],
             ],
             'contatos' => $rankedContacts,
@@ -105,8 +111,12 @@ class QuoteDeliveryController extends Controller
      */
     public function send(Request $request, $id)
     {
-        $user = Auth::user();
         $quote = $this->findQuote($id);
+        $user = Auth::user() ?? $quote->representante;
+
+        if (!$user) {
+            return response()->json(['error' => 'Usuário remetente não identificado.'], 401);
+        }
 
         $validated = $request->validate([
             'canal' => 'nullable|in:WHATSAPP,WEB_SHARE',

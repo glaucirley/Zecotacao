@@ -2890,10 +2890,11 @@
                     previewTextarea.value = data.previa_mensagem;
                 }
             } else {
-                container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">Falha ao carregar contatos do cliente.</div>`;
+                const errMsg = data.message || data.error || (res.status === 404 ? 'Cotação não encontrada' : 'Falha ao carregar contatos do cliente.');
+                container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">${escapeHtml(errMsg)}</div>`;
             }
         } catch (e) {
-            container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">Erro de conexão ao buscar contatos.</div>`;
+            container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">Erro de conexão ao buscar contatos: ${escapeHtml(e.message || '')}</div>`;
         }
     }
 
