@@ -50,6 +50,7 @@ Route::middleware([
             'token' => $token,
             'quoteId' => $quote->id,
             'quote' => $quote,
+            'exigeAnexo' => (bool)\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true),
         ]);
     });
 
@@ -220,6 +221,7 @@ Route::middleware([
                 'quoteId' => $quote->id,
                 'quote' => $quote,
                 'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
+                'exigeAnexo' => (bool)\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true),
             ]);
         });
         

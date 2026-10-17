@@ -338,17 +338,34 @@ class QuoteWorkflowService
             ];
         }
 
-        // 5. Quote requires manual approval! Check justification requirements if below min
-        if ($hasItemsBelowMin) {
+        // 5. Quote requires manual approval! Check justification requirements if below min or discount exceeds allowance
+        $requiresApproval = ($hasItemsBelowMin || $calculatedDiscount > $repLimit);
+        if ($requiresApproval) {
             $exigeAnexo = ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true);
+            $hasJustification = $quote->justificativas()->exists();
             $hasAttachments = $quote->anexos()->exists() || 
                 $quote->justificativas->contains(fn($j) => $j->anexos()->exists());
+
+            if (!$hasJustification && !$hasAttachments) {
+                $reasonMsg = $hasItemsBelowMin 
+                    ? 'Um ou mais itens estão abaixo do preço mínimo.'
+                    : sprintf('O desconto aplicado (%.1f%%) está acima da alçada permitida (%.1f%%).', $calculatedDiscount, $repLimit);
+                $anexoMsg = $exigeAnexo 
+                    ? ' É obrigatório preencher a justificativa e anexar o comprovante antes do envio.' 
+                    : ' É obrigatório preencher a justificativa antes do envio.';
+
+                return [
+                    'success' => false,
+                    'error' => 'JUSTIFICATION_REQUIRED',
+                    'message' => $reasonMsg . $anexoMsg
+                ];
+            }
 
             if ($exigeAnexo && !$hasAttachments) {
                 return [
                     'success' => false,
                     'error' => 'JUSTIFICATION_ATTACHMENT_REQUIRED',
-                    'message' => 'Um ou mais itens estão abaixo do preço mínimo. É obrigatório fornecer justificativa e anexar pelo menos um arquivo comprovatório.'
+                    'message' => 'O parâmetro de segurança exige anexo de pelo menos um comprovante (documento, foto ou orçamento concorrente) para aprovação de cotação com desconto acima da alçada.'
                 ];
             }
         }
@@ -388,6 +405,10 @@ class QuoteWorkflowService
             }
         }
 
+        $actingUser = Auth::user() ?: $quote->representante;
+        $actingUserId = $actingUser?->id ?? $quote->representante_id;
+        $actingUserPapel = $actingUser?->papel ?? 'representante';
+
         // 8. Update quote status and log history
         if ($routeToDirector) {
             $quote->update(['status' => 'COM_DIRETOR']);
@@ -413,8 +434,8 @@ class QuoteWorkflowService
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
                 'evento' => 'ENVIADA_AO_DIRETOR',
-                'usuario_id' => $quote->representante_id,
-                'papel' => 'representante',
+                'usuario_id' => $actingUserId,
+                'papel' => $actingUserPapel,
                 'condicao' => $condicaoHistorico
             ]);
 
@@ -451,8 +472,8 @@ class QuoteWorkflowService
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
                 'evento' => 'ENVIADA_AO_GESTOR',
-                'usuario_id' => $quote->representante_id,
-                'papel' => 'representante',
+                'usuario_id' => $actingUserId,
+                'papel' => $actingUserPapel,
                 'condicao' => $condicaoHistorico
             ]);
 

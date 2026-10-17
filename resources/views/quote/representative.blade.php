@@ -1042,11 +1042,11 @@
         <div class="card-header" style="border-bottom: 1px solid #fef3c7;">
             <h3 style="color: #d97706; display: flex; align-items: center; gap: 8px; font-size: 15px;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                Justificativa Obrigatória — Itens Abaixo do Mínimo
+                <span id="just-panel-title">Justificativa Obrigatória — Desconto Especial</span>
             </h3>
         </div>
-        <p style="font-size: 13px; color: #b45309; margin-bottom: 15px;">
-            Existem produtos abaixo do preço mínimo configurado. É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação ao gestor.
+        <p id="just-panel-desc" style="font-size: 13px; color: #b45309; margin-bottom: 15px;">
+            Existem produtos abaixo do preço mínimo ou com desconto acima da sua alçada. É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.
         </p>
         
         <div class="form-group">
@@ -1312,6 +1312,7 @@
     const TOKEN = "{{ $token ?? '' }}";
     const API_URL = "{{ url('/api/v1') }}";
     const QUOTE_BASE_URL = TOKEN ? `${API_URL}/cotacoes/token/${encodeURIComponent(TOKEN)}` : `${API_URL}/cotacoes/${QUOTE_ID}`;
+    let EXIGE_ANEXO_JUSTIFICATIVA = {{ isset($exigeAnexo) ? ($exigeAnexo ? 'true' : 'false') : (\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true) ? 'true' : 'false') }};
     let quote = null;
     let productsList = [];
     let isEditingLocked = false;
@@ -1368,6 +1369,9 @@
                 return;
             }
             quote = quoteData.data;
+            if (typeof quoteData.exige_anexo_justificativa !== 'undefined') {
+                EXIGE_ANEXO_JUSTIFICATIVA = Boolean(quoteData.exige_anexo_justificativa);
+            }
 
             // Update Navbar and Tab Title dynamically
             const pageTitleEl = document.querySelector(".page-title");
@@ -1910,6 +1914,106 @@
         return (sug > 0 && min > sug);
     }
 
+    function getRepresentativeLimits() {
+        const repLimit = parseFloat(quote?.representante?.limite_desconto_percentual || 0);
+        const gestor = quote?.representante?.equipe?.gestor;
+        const hasGestor = Boolean(gestor && gestor.ativo);
+        const gestorLimit = hasGestor ? parseFloat(gestor.limite_desconto_percentual || 0) : 0;
+        return { repLimit, gestorLimit, hasGestor, gestorNome: gestor?.nome };
+    }
+
+    function getItemPriceTagHtml(item) {
+        if (!item) return '';
+        const propPrice = parseFloat(item.preco_unit_proposto || 0);
+        const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
+        const minEf = getItemEffectiveMin(item);
+        const isBelowMin = propPrice < minEf;
+        const { repLimit, gestorLimit, hasGestor } = getRepresentativeLimits();
+
+        if (isBelowMin) {
+            const dest = (!hasGestor || (gestorLimit > 0 && sugPrice > 0 && (((sugPrice - propPrice) / sugPrice) * 100) > gestorLimit))
+                ? 'a diretoria'
+                : 'o gestor';
+            return `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">⚠️ Abaixo do mínimo · Vai para ${dest}</span>`;
+        }
+
+        if (Math.abs(propPrice - sugPrice) < 0.005) {
+            return `<span class="badge-price-tag tag-table">Preço de tabela</span>`;
+        }
+
+        if (propPrice < sugPrice) {
+            const discount = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100) : 0;
+            const perc = discount.toFixed(1).replace('.', ',');
+
+            if (discount <= (repLimit + 0.0001)) {
+                return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">−${perc}% · Liberado na sua alçada</span>`;
+            } else if (hasGestor && discount <= (gestorLimit + 0.0001)) {
+                return `<span class="badge-price-tag tag-below-min" style="background:#fffbeb; color:#b45309; border:1px solid #fcd34d; font-weight:600;">−${perc}% · Acima da sua alçada, vai para o gestor</span>`;
+            } else {
+                return `<span class="badge-price-tag tag-below-min" style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">−${perc}% · Acima da sua alçada, vai para a diretoria</span>`;
+            }
+        } else {
+            const perc = sugPrice > 0 ? (((propPrice - sugPrice) / sugPrice) * 100).toFixed(1).replace('.', ',') : '0';
+            return `<span class="badge-price-tag tag-above">+${perc}%</span>`;
+        }
+    }
+
+    function updateJustificationPanelVisibility() {
+        const justPanel = document.getElementById("justification-panel");
+        if (!justPanel) return;
+
+        if (isEditingLocked) {
+            justPanel.style.display = "none";
+            return;
+        }
+
+        const { repLimit } = getRepresentativeLimits();
+        let hasItemBelowMin = false;
+        let totalSug = 0;
+        let totalProp = 0;
+
+        if (quote && quote.itens) {
+            quote.itens.forEach(i => {
+                if (i.status_item === 'recusado') return;
+                const minEf = getItemEffectiveMin(i);
+                const prop = parseFloat(i.preco_unit_proposto || 0);
+                const sug = parseFloat(i.preco_unit_sugerido || 0);
+                const qtd = parseInt(i.qtd || 1);
+
+                if (prop < minEf && i.status_item !== 'aprovado') {
+                    hasItemBelowMin = true;
+                }
+
+                totalSug += qtd * Math.max(sug, prop);
+                totalProp += qtd * prop;
+            });
+        }
+
+        const quoteDiscount = totalSug > 0 && totalProp < totalSug
+            ? ((totalSug - totalProp) / totalSug) * 100
+            : 0;
+
+        const isAboveRepLimit = quoteDiscount > (repLimit + 0.0001);
+        const requiresApproval = hasItemBelowMin || isAboveRepLimit;
+
+        if (requiresApproval) {
+            justPanel.style.display = "block";
+            const panelTitle = document.getElementById("just-panel-title");
+            const panelDesc = document.getElementById("just-panel-desc");
+            if (panelTitle && panelDesc) {
+                if (hasItemBelowMin) {
+                    panelTitle.innerText = "Justificativa Obrigatória — Itens Abaixo do Mínimo";
+                    panelDesc.innerText = "Existem produtos abaixo do preço mínimo configurado. É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.";
+                } else {
+                    panelTitle.innerText = "Justificativa Obrigatória — Desconto Acima da Alçada";
+                    panelDesc.innerText = `O desconto comercial aplicado (${quoteDiscount.toFixed(1).replace('.', ',')}%) excede a sua alçada permitida (${repLimit.toFixed(1).replace('.', ',')}%). É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.`;
+                }
+            }
+        } else {
+            justPanel.style.display = "none";
+        }
+    }
+
     // Render Compact 3-Line Cards (Point 1)
     function renderItems() {
         const container = document.getElementById("items-cards-container");
@@ -1998,18 +2102,7 @@
                 const rowClass = isRejected ? "recusado" : (isApproved ? "aprovado" : "");
 
                 // Semantic Price Tag Badge for Line 3
-                let priceTagHtml = '';
-                if (isBelowMin) {
-                    priceTagHtml = `<span class="badge-price-tag tag-below-min">⚠️ Abaixo do mínimo</span>`;
-                } else if (Math.abs(propPrice - sugPrice) < 0.005) {
-                    priceTagHtml = `<span class="badge-price-tag tag-table">Preço de tabela</span>`;
-                } else if (propPrice < sugPrice) {
-                    const perc = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100).toFixed(1).replace('.', ',') : '0';
-                    priceTagHtml = `<span class="badge-price-tag tag-discount">−${perc}%</span>`;
-                } else {
-                    const perc = sugPrice > 0 ? (((propPrice - sugPrice) / sugPrice) * 100).toFixed(1).replace('.', ',') : '0';
-                    priceTagHtml = `<span class="badge-price-tag tag-above">+${perc}%</span>`;
-                }
+                const priceTagHtml = getItemPriceTagHtml(item);
 
                 // Check justification/rejection reason
                 const justifItem = (quote.justificativas && quote.justificativas.length) 
@@ -2110,7 +2203,7 @@
                                 <span>·</span>
                                 <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
                             </div>
-                            <div>
+                            <div id="price-tag-wrap-${item.id}">
                                 ${isRejected ? `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">Desconsiderado do total</span>` : priceTagHtml}
                             </div>
                         </div>
@@ -2126,10 +2219,7 @@
         }
 
         // Show/hide justification box
-        const justPanel = document.getElementById("justification-panel");
-        if (justPanel) {
-            justPanel.style.display = hasItemBelowMin && !isEditingLocked ? "block" : "none";
-        }
+        updateJustificationPanelVisibility();
         
         recalculateTotalsFromState();
     }
@@ -2148,6 +2238,12 @@
         const sugerido = parseFloat(item.preco_unit_sugerido);
         item.ajuste_percentual = sugerido > 0 ? ((item.preco_unit_proposto - sugerido) / sugerido) * 100 : 0;
 
+        // Update tag badge dynamically in real time as user edits price
+        const tagWrap = document.getElementById(`price-tag-wrap-${itemId}`);
+        if (tagWrap && item.status_item !== 'recusado') {
+            tagWrap.innerHTML = getItemPriceTagHtml(item);
+        }
+
         // Apply price-below-min warning class dynamically in DOM
         const card = document.getElementById(`card-item-${itemId}`);
         if (card) {
@@ -2164,18 +2260,8 @@
             }
         }
 
-        // Evaluate if any active item triggers the justification requirement
-        let hasItemBelowMin = false;
-        quote.itens.forEach(i => {
-            const minEf = getItemEffectiveMin(i);
-            if (parseFloat(i.preco_unit_proposto) < minEf && i.status_item !== 'aprovado' && i.status_item !== 'recusado') {
-                hasItemBelowMin = true;
-            }
-        });
-        const justPanel = document.getElementById("justification-panel");
-        if (justPanel) {
-            justPanel.style.display = hasItemBelowMin && !isEditingLocked ? "block" : "none";
-        }
+        // Evaluate if any condition requires justification panel
+        updateJustificationPanelVisibility();
 
         recalculateTotalsFromState();
     }
@@ -2615,54 +2701,75 @@
         const saved = await saveDraft(false);
         if (!saved) return;
 
-        // 2. If justifications are visible (needed), upload them first
+        // 2. If justifications are visible (needed), validate and upload them
         const justificationPanel = document.getElementById("justification-panel");
-        if (justificationPanel.style.display !== "none") {
-            const texto = document.getElementById("just-texto").value;
+        const isJustRequired = justificationPanel && justificationPanel.style.display !== "none";
+
+        if (isJustRequired) {
+            const texto = (document.getElementById("just-texto")?.value || "").trim();
             const fileInput = document.getElementById("just-anexos");
             const audioInput = document.getElementById("just-audio");
 
-            if (!texto && !fileInput.files.length && !audioInput.files.length) {
-                showToast("Justificativa e anexo comprovatório são obrigatórios para itens abaixo do preço mínimo.", 'error');
+            const hasText = texto.length > 0;
+            const hasNewFiles = Boolean((fileInput && fileInput.files && fileInput.files.length > 0) || (audioInput && audioInput.files && audioInput.files.length > 0));
+            const hasExistingJustification = Boolean(quote.justificativas && quote.justificativas.length > 0);
+            const hasExistingAttachments = Boolean(
+                (quote.anexos && quote.anexos.length > 0) ||
+                (quote.justificativas && quote.justificativas.some(j => j.anexos && j.anexos.length > 0))
+            );
+
+            // Mandatory written text if no existing justification
+            if (!hasText && !hasExistingJustification) {
+                showToast("É obrigatório informar uma justificativa por escrito antes de enviar para aprovação.", 'error');
+                document.getElementById("just-texto")?.focus();
+                return;
+            }
+
+            // Mandatory attachment if EXIGE_ANEXO_JUSTIFICATIVA is enabled
+            if (EXIGE_ANEXO_JUSTIFICATIVA && !hasNewFiles && !hasExistingAttachments) {
+                showToast("O parâmetro de segurança exige anexo de pelo menos um comprovante (documento, foto ou orçamento concorrente) para aprovação de cotação com desconto acima da alçada.", 'error');
+                document.getElementById("just-anexos")?.focus();
                 return;
             }
 
             // Client-side validations
-            if (!validateAttachmentFiles(fileInput)) {
+            if (fileInput && fileInput.files && fileInput.files.length > 0 && !validateAttachmentFiles(fileInput)) {
                 return;
             }
-            if (!validateAudioFile(audioInput)) {
+            if (audioInput && audioInput.files && audioInput.files.length > 0 && !validateAudioFile(audioInput)) {
                 return;
             }
 
-            // Perform multipart submit for attachments/justification
-            const formData = new FormData();
-            formData.append("texto", texto);
-            if (fileInput.files.length) {
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    formData.append("anexos[]", fileInput.files[i]);
-                }
-            }
-            if (audioInput.files.length) {
-                formData.append("audio", audioInput.files[0]);
-            }
-
-            const justRes = await fetch(`${QUOTE_BASE_URL}/justificativa`, {
-                method: "POST",
-                body: formData
-            });
-            const justData = await justRes.json().catch(() => ({}));
-            if (!justRes.ok || !justData.success) {
-                let errorMsg = justData.message || justData.error || ("Falha no envio HTTP " + justRes.status);
-                if (justData.messages && typeof justData.messages === 'object') {
-                    const firstKey = Object.keys(justData.messages)[0];
-                    if (firstKey && justData.messages[firstKey]) {
-                        const val = justData.messages[firstKey];
-                        errorMsg = Array.isArray(val) ? val[0] : val;
+            // Perform multipart submit for attachments/justification if new content provided
+            if (hasText || hasNewFiles) {
+                const formData = new FormData();
+                if (hasText) formData.append("texto", texto);
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        formData.append("anexos[]", fileInput.files[i]);
                     }
                 }
-                showToast("Erro ao enviar justificativa: " + errorMsg, 'error');
-                return;
+                if (audioInput && audioInput.files && audioInput.files.length > 0) {
+                    formData.append("audio", audioInput.files[0]);
+                }
+
+                const justRes = await fetch(`${QUOTE_BASE_URL}/justificativa`, {
+                    method: "POST",
+                    body: formData
+                });
+                const justData = await justRes.json().catch(() => ({}));
+                if (!justRes.ok || !justData.success) {
+                    let errorMsg = justData.message || justData.error || ("Falha no envio HTTP " + justRes.status);
+                    if (justData.messages && typeof justData.messages === 'object') {
+                        const firstKey = Object.keys(justData.messages)[0];
+                        if (firstKey && justData.messages[firstKey]) {
+                            const val = justData.messages[firstKey];
+                            errorMsg = Array.isArray(val) ? val[0] : val;
+                        }
+                    }
+                    showToast("Erro ao enviar justificativa: " + errorMsg, 'error');
+                    return;
+                }
             }
         }
 

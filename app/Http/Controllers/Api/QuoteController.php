@@ -381,7 +381,7 @@ class QuoteController extends Controller
         try {
             $quote->load([
                 'parceiro',
-                'representante.equipe',
+                'representante.equipe.gestor',
                 'itens.produto',
                 'justificativas.anexos',
                 'anexos',
@@ -396,7 +396,7 @@ class QuoteController extends Controller
             try {
                 $quote->load([
                     'parceiro',
-                    'representante.equipe',
+                    'representante.equipe.gestor',
                     'itens.produto'
                 ]);
             } catch (\Throwable $e2) {
@@ -410,7 +410,8 @@ class QuoteController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $quote
+            'data' => $quote,
+            'exige_anexo_justificativa' => (bool)\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true)
         ]);
     }
 
@@ -495,12 +496,13 @@ class QuoteController extends Controller
                 $this->recalculateQuoteTotals($quote);
 
                 // Log history
+                $actor = Auth::user() ?: $quote->representante;
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
-                    'evento' => 'EDITADA_PELO_REPRESENTANTE',
-                    'usuario_id' => $quote->representante_id,
-                    'papel' => 'representante',
-                    'condicao' => 'Cotacao alterada pelo representante comercial.',
+                    'evento' => 'EDITADA',
+                    'usuario_id' => $actor?->id ?? $quote->representante_id,
+                    'papel' => $actor?->papel ?? 'representante',
+                    'condicao' => 'Cotação alterada por ' . ($actor?->nome ?? 'representante comercial') . '.',
                 ]);
             });
 
@@ -597,12 +599,13 @@ class QuoteController extends Controller
 
                 $this->recalculateQuoteTotals($quote);
 
+                $actor = Auth::user() ?: $quote->representante;
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
                     'evento' => 'ITEM_ADICIONADO',
-                    'usuario_id' => $quote->representante_id,
-                    'papel' => 'representante',
-                    'condicao' => 'Item adicionado a cotacao.',
+                    'usuario_id' => $actor?->id ?? $quote->representante_id,
+                    'papel' => $actor?->papel ?? 'representante',
+                    'condicao' => 'Item adicionado à cotação por ' . ($actor?->nome ?? 'representante') . '.',
                 ]);
             });
 
@@ -647,12 +650,13 @@ class QuoteController extends Controller
                 $item->delete();
                 $this->recalculateQuoteTotals($quote);
 
+                $actor = Auth::user() ?: $quote->representante;
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
                     'evento' => 'ITEM_REMOVIDO',
-                    'usuario_id' => $quote->representante_id,
-                    'papel' => 'representante',
-                    'condicao' => "Item ID {$item->id} removido da cotacao.",
+                    'usuario_id' => $actor?->id ?? $quote->representante_id,
+                    'papel' => $actor?->papel ?? 'representante',
+                    'condicao' => "Item ID {$item->id} removido da cotação por " . ($actor?->nome ?? 'usuário') . '.',
                 ]);
             });
 
@@ -821,7 +825,7 @@ class QuoteController extends Controller
                     'cotacao_item_id' => $request->input('cotacao_item_id'),
                     'texto' => $request->input('texto'),
                     'audio_url' => $audioUrl,
-                    'criado_por' => $quote->representante_id,
+                    'criado_por' => Auth::id() ?: $quote->representante_id,
                 ]);
 
                 // Handle file attachments (anexos)
@@ -892,18 +896,19 @@ class QuoteController extends Controller
                 $quote->update(['status' => 'PERDIDA']);
 
                 // Log the justification
+                $actor = Auth::user() ?: $quote->representante;
                 CotacaoJustificativa::create([
                     'cotacao_id' => $quote->id,
                     'texto' => $request->input('justificativa'),
-                    'criado_por' => $quote->representante_id,
+                    'criado_por' => $actor?->id ?? $quote->representante_id,
                 ]);
 
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
                     'evento' => 'MARCADA_COMO_PERDIDA',
-                    'usuario_id' => $quote->representante_id,
-                    'papel' => 'representante',
-                    'condicao' => 'Cotacao marcada como perdida pelo representante. Motivo: ' . $request->input('justificativa'),
+                    'usuario_id' => $actor?->id ?? $quote->representante_id,
+                    'papel' => $actor?->papel ?? 'representante',
+                    'condicao' => 'Cotação marcada como perdida por ' . ($actor?->nome ?? 'representante') . '. Motivo: ' . $request->input('justificativa'),
                 ]);
             });
 
