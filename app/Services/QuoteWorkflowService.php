@@ -326,10 +326,15 @@ class QuoteWorkflowService
                 'condicao' => $autoApproveReason,
             ]);
 
+            $autoApproveMsg = ($calculatedDiscount <= 0)
+                ? 'Aprovada automaticamente: sem desconto, não precisa de gestor. O envio ao cliente já está liberado!'
+                : sprintf('Aprovada automaticamente: desconto de %.2f%% dentro da sua alçada (até %.2f%%), não precisa de gestor.', $calculatedDiscount, $repLimit);
+
             return [
                 'success' => true,
                 'status' => 'APROVADA',
-                'message' => 'Cotação aprovada automaticamente. O PDF está disponível para geração.'
+                'auto_approved' => true,
+                'message' => $autoApproveMsg
             ];
         }
 

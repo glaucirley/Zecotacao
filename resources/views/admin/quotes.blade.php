@@ -637,6 +637,65 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
+    /* Mobile Responsive Card Mode for Quotations */
+    @media (max-width: 768px) {
+        .page-header-container {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+        }
+        .header-actions {
+            width: 100%;
+            justify-content: stretch;
+        }
+        .header-actions button {
+            flex: 1;
+            justify-content: center;
+        }
+        .quotes-tabs-wrapper {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 6px;
+        }
+        .filters-grid {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filter-input-search {
+            min-width: 100%;
+        }
+        .filter-select {
+            width: 100%;
+        }
+        .desktop-only-table {
+            display: none !important;
+        }
+        .mobile-only-cards {
+            display: flex !important;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .table-container-card {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .quote-card-mobile {
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .quote-card-mobile:active {
+            transform: scale(0.98);
+        }
+    }
+    @media (min-width: 769px) {
+        .desktop-only-table {
+            display: block !important;
+        }
+        .mobile-only-cards {
+            display: none !important;
+        }
+    }
 </style>
 
 <!-- Header Title & Action Buttons -->
@@ -718,7 +777,7 @@
 
 <!-- Table Card Container -->
 <div class="table-container-card">
-    <div class="table-responsive">
+    <div class="table-responsive desktop-only-table">
         <table class="table-mockup" id="main-quotes-table">
             <thead>
                 <tr>
@@ -733,6 +792,11 @@
                 <!-- Dynamic rows -->
             </tbody>
         </table>
+    </div>
+
+    <!-- Mobile Cards View -->
+    <div class="mobile-only-cards" id="quotes-cards-container" style="display: none;">
+        <!-- Dynamic mobile cards -->
     </div>
 
     <!-- Loading spinner -->
@@ -1315,8 +1379,10 @@
 
     function renderQuotes(list) {
         const body = document.getElementById("quotes-table-body");
+        const mobileContainer = document.getElementById("quotes-cards-container");
         const paginationInfo = document.getElementById("pagination-info");
         body.innerHTML = "";
+        if (mobileContainer) mobileContainer.innerHTML = "";
 
         paginationInfo.innerText = `Mostrando ${list.length} de ${rawQuotes.length} registros`;
 
@@ -1394,6 +1460,7 @@
             const clientSubEscaped = escapeHtml(clientSub || ('Cód: ' + (p.codigo_sankhya || 'N/A')));
             const quoteNumEscaped = escapeHtml(q.numero || ('#' + q.id));
 
+            // Desktop Table Row
             body.innerHTML += `
                 <tr class="quote-row-clickable" onclick="window.location.href='{{ url('/cotacoes/id') }}/${q.id}'" title="Clique para abrir a cotação">
                     <td class="col-cotacao-cliente">
@@ -1450,6 +1517,46 @@
                     </td>
                 </tr>
             `;
+
+            // Mobile Card
+            if (mobileContainer) {
+                mobileContainer.innerHTML += `
+                    <div class="quote-card-mobile" onclick="window.location.href='{{ url('/cotacoes/id') }}/${q.id}'" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:14px 16px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                            <span class="quote-pill-badge" style="font-size:12px; font-weight:700; color:#2563eb; background:#eff6ff; padding:3px 8px; border-radius:6px; border:1px solid #bfdbfe;">
+                                ${quoteNumEscaped}
+                            </span>
+                            <div class="badge-status-mockup ${statusClass}" style="font-size:11px; padding:3px 8px;">
+                                <span>${statusText}</span>
+                                ${subText ? `<span class="badge-subtext" style="font-size:10px;"> · ${subText}</span>` : ''}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="font-size:14px; font-weight:700; color:#0f172a; line-height:1.3;">${clientNameEscaped}</div>
+                            <div style="font-size:11.5px; color:#64748b; margin-top:3px;">${clientSubEscaped}</div>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#475569; padding-top:8px; border-top:1px dashed #e2e8f0;">
+                            <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                                <div class="user-avatar-circle" style="width:22px; height:22px; font-size:10px; flex-shrink:0;">${initial}</div>
+                                <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${repNameEscaped}</span>
+                            </div>
+                            <div style="color:#64748b; font-size:11px; flex-shrink:0;">📅 ${date}</div>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid #f1f5f9;">
+                            <div>
+                                <span style="font-size:10.5px; color:#64748b; display:block;">Total</span>
+                                <span style="font-size:15px; font-weight:800; color:#1e293b;">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                            </div>
+                            <a href="{{ url('/cotacoes/id') }}/${q.id}" class="btn-abrir-row" style="text-decoration:none; padding:6px 14px; font-size:12px; font-weight:700;" onclick="event.stopPropagation()">
+                                Abrir
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
         });
 
         // Re-apply column visibility and widths after rendering

@@ -245,11 +245,21 @@ class QuoteDeliveryService
         // Se o representante editou o texto na tela de envio, substituir o placeholder provisório ou anexar o link
         if (!empty($data['mensagem'])) {
             $mensagemFinal = trim($data['mensagem']);
-            if (str_contains($mensagemFinal, '[Link da Proposta será gerado ao enviar]')) {
-                $mensagemFinal = str_replace('[Link da Proposta será gerado ao enviar]', $linkProposta, $mensagemFinal);
-            } elseif (str_contains($mensagemFinal, '{link}')) {
-                $mensagemFinal = str_replace('{link}', $linkProposta, $mensagemFinal);
-            } elseif (!str_contains($mensagemFinal, $linkProposta)) {
+            $placeholders = [
+                '🔗 link da proposta',
+                '🔗 link da proposta será gerado ao enviar',
+                '[Link da Proposta será gerado ao enviar]',
+                '{link}',
+            ];
+            $replaced = false;
+            foreach ($placeholders as $ph) {
+                if (stripos($mensagemFinal, $ph) !== false) {
+                    $mensagemFinal = str_ireplace($ph, $linkProposta, $mensagemFinal);
+                    $replaced = true;
+                    break;
+                }
+            }
+            if (!$replaced && !str_contains($mensagemFinal, $linkProposta)) {
                 $mensagemFinal .= "\n\n" . $linkProposta;
             }
         } else {
@@ -343,11 +353,30 @@ class QuoteDeliveryService
                 'link_proposta' => $linkProposta,
                 'url_whatsapp' => $urlWhatsapp,
                 'mensagem' => $mensagemFinal,
-                'telefone_formatado' => $contato?->telefone_formatado ?? $normalizedPhone,
+                'telefone_formatado' => $contato?->telefone_formatado ?? static::formatPhoneNumber($normalizedPhone),
                 'nome_contato' => $histName,
                 'contato_confirmado' => (bool)$contato?->confirmado,
                 'warning' => $warning,
             ];
         });
+    }
+
+    /**
+     * Formata um telefone no padrão visual brasileiro (XX) 9XXXX-XXXX
+     */
+    public static function formatPhoneNumber(?string $phone): string
+    {
+        if (empty($phone)) return '';
+        $digits = preg_replace('/\D/', '', $phone);
+        if (strlen($digits) >= 12 && str_starts_with($digits, '55')) {
+            $digits = substr($digits, 2);
+        }
+        if (strlen($digits) === 11) {
+            return '(' . substr($digits, 0, 2) . ') ' . substr($digits, 2, 5) . '-' . substr($digits, 7);
+        }
+        if (strlen($digits) === 10) {
+            return '(' . substr($digits, 0, 2) . ') ' . substr($digits, 2, 4) . '-' . substr($digits, 6);
+        }
+        return $phone;
     }
 }

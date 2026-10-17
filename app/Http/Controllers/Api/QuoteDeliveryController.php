@@ -90,7 +90,7 @@ class QuoteDeliveryController extends Controller
                 'canal' => $env->canal,
                 'nome_contato' => $env->nome_contato_snapshot ?: $env->contato?->nome_contato ?: 'Cliente',
                 'telefone' => $env->telefone_destino,
-                'telefone_formatado' => $env->contato?->telefone_formatado,
+                'telefone_formatado' => $env->contato?->telefone_formatado ?: \App\Services\QuoteDeliveryService::formatPhoneNumber($env->telefone_destino),
                 'enviado_em' => $env->enviado_em?->format('d/m/Y H:i'),
                 'aberto_em' => $env->aberto_em?->format('d/m/Y H:i'),
                 'is_aberto' => $env->isAberto(),
@@ -105,7 +105,7 @@ class QuoteDeliveryController extends Controller
                 'canal' => $envAb->canal,
                 'nome_contato' => $envAb->nome_contato_snapshot ?: $envAb->contato?->nome_contato ?: 'Cliente',
                 'telefone' => $envAb->telefone_destino,
-                'telefone_formatado' => $envAb->contato?->telefone_formatado,
+                'telefone_formatado' => $envAb->contato?->telefone_formatado ?: \App\Services\QuoteDeliveryService::formatPhoneNumber($envAb->telefone_destino),
                 'enviado_em' => $envAb->enviado_em?->format('d/m/Y H:i'),
                 'aberto_em' => $envAb->aberto_em?->format('d/m/Y H:i'),
                 'is_aberto' => true,
@@ -127,7 +127,7 @@ class QuoteDeliveryController extends Controller
                 $quote->numero,
                 number_format((float)$quote->total, 2, ',', '.'),
                 $quote->data_validade ? $quote->data_validade->format('d/m/Y') : now()->addHours($quote->validade_horas ?: 24)->format('d/m/Y'),
-                '[Link da Proposta será gerado ao enviar]',
+                '🔗 link da proposta',
             ],
             $template
         );

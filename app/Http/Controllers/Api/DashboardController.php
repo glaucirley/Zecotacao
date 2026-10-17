@@ -406,10 +406,15 @@ class DashboardController extends Controller
         $pendingBilling = $billingQuery->count();
 
         // 3. Quotes expiring today or in < 24h
-        $expiringQuery = Cotacao::whereIn('status', ['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO'])
+        $expiringQuery = Cotacao::whereIn('status', ['EM_CRIACAO', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'DEVOLVIDA', 'APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'])
             ->where(function($q) {
-                $q->whereDate('data_validade', '<=', now()->toDateString())
-                  ->orWhere('created_at', '<=', now()->subHours(24));
+                $q->where(function($sub) {
+                    $sub->whereNotNull('data_validade')
+                        ->where('data_validade', '<=', now()->addHours(24));
+                })->orWhere(function($sub) {
+                    $sub->whereNull('data_validade')
+                        ->where('created_at', '<=', now()->subHours(24));
+                });
             });
         if ($user->isRepresentante()) {
             $expiringQuery->where('representante_id', $user->id);
