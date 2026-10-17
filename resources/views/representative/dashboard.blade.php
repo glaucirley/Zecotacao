@@ -1407,6 +1407,16 @@
 
     <!-- Scripts -->
     <script>
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         // Responsive In-Screen Toast Notifications with message deduplication
         let lastDashboardToastMsg = "";
         let lastDashboardToastTime = 0;
@@ -1548,14 +1558,20 @@
             if (diffMs <= 0 || status === 'EXPIRADA') {
                 return '<span style="font-size:11px; color:#ef4444; font-weight:600; display:inline-flex; align-items:center; gap:2px;">⚠️ Expirada</span>';
             }
-            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            if (diffHours < 24) {
-                const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            
+            const isToday = valDate.toDateString() === now.toDateString();
+            const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            const isTomorrow = valDate.toDateString() === tomorrow.toDateString();
+            const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            if (isToday) {
                 return `<span style="font-size:11px; color:#d97706; font-weight:600; display:inline-flex; align-items:center; gap:2px;">⏳ vence hoje ${timeStr}</span>`;
-            } else if (diffDays === 1) {
-                return '<span style="font-size:11px; color:#2563eb; font-weight:600; display:inline-flex; align-items:center; gap:2px;">⏳ vence amanhã</span>';
+            } else if (isTomorrow) {
+                return `<span style="font-size:11px; color:#2563eb; font-weight:600; display:inline-flex; align-items:center; gap:2px;">⏳ vence amanhã ${timeStr}</span>`;
             } else {
+                const startOfNow = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                const startOfVal = new Date(valDate.getFullYear(), valDate.getMonth(), valDate.getDate()).getTime();
+                const diffDays = Math.round((startOfVal - startOfNow) / (1000 * 60 * 60 * 24));
                 return `<span style="font-size:11px; color:#64748b; display:inline-flex; align-items:center; gap:2px;">⏳ vence em ${diffDays}d</span>`;
             }
         }
@@ -2564,12 +2580,13 @@
                 container.style.display = "flex";
             }
 
-            const query = document.getElementById("partner-search-input").value.trim();
+            const query = (document.getElementById("partner-search-input")?.value || "").trim();
+            const qNorm = normalizeStr(query).trim();
 
             if (!list || list.length === 0) {
                 container.innerHTML = `
                     <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px dashed var(--color-border); font-size:12px; color:var(--color-text-muted);">
-                        ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${query}</strong>"...` : `Nenhum cliente encontrado para "<strong>${query}</strong>".`) : 'Sem clientes para exibir.'}
+                        ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${escapeHtml(query)}</strong>"...` : `Nenhum cliente encontrado para "<strong>${escapeHtml(query)}</strong>".`) : 'Sem clientes para exibir.'}
                     </div>
                 `;
                 return;
@@ -2577,29 +2594,84 @@
 
             container.innerHTML = "";
             list.forEach(p => {
-                let rawName = p.razao_social || p.nome_fantasia || 'Cliente Sem Nome';
-                let displayName = rawName.replace(/^[\?\s\-\.]+/g, '').trim();
-                if (!displayName && p.nome_fantasia) displayName = p.nome_fantasia.trim();
-                if (!displayName) displayName = rawName;
+                const pFantasia = (p.nome_fantasia || '').trim();
+                const pRazao = (p.razao_social || '').trim();
+                
+                let mainTitle = pFantasia || pRazao || 'Cliente Sem Nome';
+                let subTitle = (pFantasia && pRazao && pFantasia.toLowerCase() !== pRazao.toLowerCase()) ? pRazao : '';
 
                 const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
                 const docVal = p.cnpj || p.cnpj_cpf;
                 const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
+                
                 const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
-                const cityStr = (p.cidade || pUf) ? ` &bull; ${p.cidade || ''}${pUf ? '/' + pUf : ''}` : '';
+                const cityStr = p.cidade ? `${p.cidade}${pUf ? ' / ' + pUf : ''}` : (pUf ? 'UF: ' + pUf : 'Cidade não informada');
+
+                const isExact = qNorm && (normalizeStr(pFantasia) === qNorm || normalizeStr(pRazao) === qNorm);
+                const cardBorder = isExact ? 'border: 2px solid #22c55e; background: #f0fdf4;' : 'border: 1px solid var(--color-border); background: #ffffff;';
+                const exactBadge = isExact ? `<span style="display:inline-flex; align-items:center; gap:3px; background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px;">✓ Correspondência Exata</span>` : '';
 
                 container.innerHTML += `
-                    <div class="partner-item-card" onclick="selectPartnerById(${p.id})">
-                        <div style="flex-grow:1; padding-right:8px;">
-                            <div style="font-weight:700; font-size:13.5px; color:var(--color-text); line-height:1.3;">${displayName}</div>
-                            <div style="font-size:11px; color:var(--color-text-muted); margin-top:3px;">${code}${cityStr}</div>
-                            <div style="font-size:11px; color:var(--color-primary); font-weight:600; margin-top:2px;">${docStr}</div>
+                    <div class="partner-item-card" onclick="selectPartnerById(${p.id})" style="${cardBorder} border-radius:10px; padding:12px; margin-bottom:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;">
+                        <div style="flex-grow:1; padding-right:10px; min-width:0;">
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span style="font-weight:700; font-size:14px; color:var(--color-text); line-height:1.3;">${escapeHtml(mainTitle)}</span>
+                                ${exactBadge}
+                            </div>
+                            ${subTitle ? `<div style="font-size:12px; color:#475569; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Razão: ${escapeHtml(subTitle)}</div>` : ''}
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px;">
+                                <span style="display:inline-flex; align-items:center; gap:3px; background:#eff6ff; color:#1d4ed8; font-weight:700; font-size:11.5px; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe;">
+                                    📍 ${escapeHtml(cityStr)}
+                                </span>
+                                <span style="font-size:11px; color:var(--color-text-muted);">${escapeHtml(code)}</span>
+                                <span style="font-size:11px; color:#64748b; font-weight:600;">${escapeHtml(docStr)}</span>
+                            </div>
                         </div>
                         <div style="background:#e0f2fe; color:#0284c7; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; flex-shrink:0;">
                             Selecionar
                         </div>
                     </div>
                 `;
+            });
+        }
+
+        function sortPartnersByRelevance(items, qNorm) {
+            if (!qNorm || !items || !items.length) return items || [];
+            const terms = qNorm.split(/\s+/).filter(Boolean);
+
+            return items.slice().sort((a, b) => {
+                const aFan = normalizeStr(a.nome_fantasia || '').trim();
+                const bFan = normalizeStr(b.nome_fantasia || '').trim();
+                const aRaz = normalizeStr(a.razao_social || '').trim();
+                const bRaz = normalizeStr(b.razao_social || '').trim();
+
+                const getScore = (fan, raz) => {
+                    // 1. Exact match with query
+                    if (fan === qNorm || raz === qNorm) return 1;
+                    // 2. Starts with query
+                    if (fan.startsWith(qNorm) || raz.startsWith(qNorm)) return 2;
+                    // 3. Contains full query phrase
+                    if (fan.includes(qNorm) || raz.includes(qNorm)) return 3;
+                    // 4. Contains all terms
+                    if (terms.every(t => fan.includes(t) || raz.includes(t))) return 4;
+                    return 5;
+                };
+
+                const scoreA = getScore(aFan, aRaz);
+                const scoreB = getScore(bFan, bRaz);
+
+                if (scoreA !== scoreB) {
+                    return scoreA - scoreB;
+                }
+
+                // Tie-breaker: shorter name preferred (closer exact match)
+                const aLen = (aFan || aRaz).length;
+                const bLen = (bFan || bRaz).length;
+                if (aLen !== bLen) {
+                    return aLen - bLen;
+                }
+
+                return (aRaz || aFan).localeCompare(bRaz || bFan);
             });
         }
 
@@ -2610,10 +2682,12 @@
             const card = document.getElementById("selected-partner-card");
             const container = document.getElementById("partner-search-results");
 
-            let rawName = selectedPartner.razao_social || selectedPartner.nome_fantasia || 'Cliente Sem Nome';
-            let displayName = rawName.replace(/^[\?\s\-\.]+/g, '').trim();
-            if (!displayName && selectedPartner.nome_fantasia) displayName = selectedPartner.nome_fantasia.trim();
-            if (!displayName) displayName = rawName;
+            const pFantasia = (selectedPartner.nome_fantasia || '').trim();
+            const pRazao = (selectedPartner.razao_social || '').trim();
+            let displayName = pFantasia || pRazao || 'Cliente Sem Nome';
+            if (pFantasia && pRazao && pFantasia.toLowerCase() !== pRazao.toLowerCase()) {
+                displayName = `${pFantasia} (${pRazao})`;
+            }
 
             const docStr = selectedPartner.cnpj || selectedPartner.cnpj_cpf || 'Não informado';
             const codeStr = selectedPartner.codigo_sankhya || 'N/A';
@@ -2676,11 +2750,13 @@
 
                 // Perform instant local search across pre-loaded items without heavy in-loop normalizations
                 const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-                const localMatches = (allPartnersList || []).filter(p => {
+                let localMatches = (allPartnersList || []).filter(p => {
                     if (!p) return false;
                     const key = p._searchKey || preparePartnerSearchKey(p);
                     return terms.every(term => key.includes(term));
                 });
+
+                localMatches = sortPartnersByRelevance(localMatches, normalizedQuery);
 
                 // Immediately render local matches (or searching state if empty)
                 renderPartnerSelectOptions(localMatches, true);
@@ -2728,13 +2804,15 @@
                         }
                     });
 
-                    renderPartnerSelectOptions(rawResults, false);
+                    const qNorm = normalizeStr(trimmedQuery).trim();
+                    const sortedResults = sortPartnersByRelevance(rawResults, qNorm);
+                    renderPartnerSelectOptions(sortedResults, false);
                 }
             } catch(e) {
                 console.error("Error searching server partners:", e);
                 const container = document.getElementById("partner-search-results");
                 if (container && thisReqId === partnerSearchReqId) {
-                    container.innerHTML = `<div style="text-align:center; padding:16px; color:#ef4444; font-size:12px;">⚠️ Erro na consulta (${e.message}). Verifique a conexão ou tente novamente.</div>`;
+                    container.innerHTML = `<div style="text-align:center; padding:16px; color:#ef4444; font-size:12px;">⚠️ Erro na consulta (${escapeHtml(e.message)}). Verifique a conexão ou tente novamente.</div>`;
                 }
             }
         }

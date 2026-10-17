@@ -1886,21 +1886,46 @@
         let html = "";
         const maxDisplay = 40;
         const items = list.slice(0, maxDisplay);
+        const qNorm = normalizeStr(query).trim();
+
         for (let i = 0; i < items.length; i++) {
             const p = items[i];
-            const code = p.codigo_sankhya ? `Cód: ${escapeHtml(p.codigo_sankhya)}` : 'Cód: N/A';
+            const pFantasia = (p.nome_fantasia || '').trim();
+            const pRazao = (p.razao_social || '').trim();
+            const mainTitle = pFantasia || pRazao || 'Cliente Sem Nome';
+            const subTitle = (pFantasia && pRazao && pFantasia.toLowerCase() !== pRazao.toLowerCase()) ? pRazao : '';
+
+            const code = p.codigo_sankhya ? `Cód: ${p.codigo_sankhya}` : 'Cód: N/A';
             const docVal = p.cnpj || p.cnpj_cpf;
-            const docStr = docVal ? `CNPJ/CPF: ${escapeHtml(docVal)}` : 'Sem documento';
-            const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
-            const cityStr = (p.cidade || pUf) ? ` &bull; ${escapeHtml(p.cidade || '')}${pUf ? '/' + escapeHtml(pUf) : ''}` : '';
-            const razao = escapeHtml(p.razao_social || 'Sem razão social');
+            const docStr = docVal ? `CNPJ/CPF: ${docVal}` : 'Sem documento';
+            
+            let clientCity = (p.cidade && p.cidade !== 'null') ? p.cidade : '';
+            clientCity = clientCity.replace(/[\-\/]\s*2\b/g, '').trim();
+            let pUf = (p.uf && p.uf !== 'null') ? p.uf : '';
+            if (pUf === '2' || (!isNaN(pUf) && pUf !== '') || (clientCity && clientCity.toUpperCase().includes('UBERLANDIA'))) {
+                pUf = 'MG';
+            }
+            const cityStr = (clientCity || pUf) ? `${clientCity}${clientCity && pUf ? '/' : ''}${pUf}` : 'Não informada';
+
+            const isExact = qNorm && (normalizeStr(pFantasia) === qNorm || normalizeStr(pRazao) === qNorm);
+            const cardBorder = isExact ? 'border: 2px solid #22c55e; background: #f0fdf4;' : 'border: 1px solid #e2e8f0; background: #ffffff;';
+            const exactBadge = isExact ? `<span style="display:inline-flex; align-items:center; gap:3px; background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px;">✓ Correspondência Exata</span>` : '';
 
             html += `
-                <div class="partner-item-card" onclick="selectAdminPartnerById(${p.id})" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; cursor:pointer; transition:all 0.15s;">
-                    <div style="flex-grow:1; padding-right:8px; min-width:0;">
-                        <div style="font-weight:700; font-size:13px; color:var(--color-text); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${razao}</div>
-                        <div style="font-size:11px; color:var(--color-text-muted); margin-top:2px;">${code}${cityStr}</div>
-                        <div style="font-size:11px; color:var(--color-primary); font-weight:600; margin-top:1px;">${docStr}</div>
+                <div class="partner-item-card" onclick="selectAdminPartnerById(${p.id})" style="${cardBorder} border-radius:8px; padding:10px 12px; margin-bottom:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;">
+                    <div style="flex-grow:1; padding-right:10px; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-weight:700; font-size:13.5px; color:var(--color-text); line-height:1.3;">${escapeHtml(mainTitle)}</span>
+                            ${exactBadge}
+                        </div>
+                        ${subTitle ? `<div style="font-size:11.5px; color:#475569; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Razão: ${escapeHtml(subTitle)}</div>` : ''}
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:5px;">
+                            <span style="display:inline-flex; align-items:center; gap:3px; background:#eff6ff; color:#1d4ed8; font-weight:700; font-size:11px; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe;">
+                                📍 ${escapeHtml(cityStr)}
+                            </span>
+                            <span style="font-size:11px; color:var(--color-text-muted);">${escapeHtml(code)}</span>
+                            <span style="font-size:11px; color:#64748b; font-weight:600;">${escapeHtml(docStr)}</span>
+                        </div>
                     </div>
                     <div style="background:#e0f2fe; color:#0284c7; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; flex-shrink:0;">
                         Selecionar
@@ -1941,17 +1966,37 @@
     }
 
     function sortPartnersByRelevance(items, qNorm) {
+        if (!qNorm || !items || !items.length) return items || [];
+        const terms = qNorm.split(/\s+/).filter(Boolean);
+
         return items.slice().sort((a, b) => {
-            const aFantasia = normalizeStr(a.nome_fantasia || '');
-            const bFantasia = normalizeStr(b.nome_fantasia || '');
-            const aRazao = normalizeStr(a.razao_social || '');
-            const bRazao = normalizeStr(b.razao_social || '');
+            const aFan = normalizeStr(a.nome_fantasia || '').trim();
+            const bFan = normalizeStr(b.nome_fantasia || '').trim();
+            const aRaz = normalizeStr(a.razao_social || '').trim();
+            const bRaz = normalizeStr(b.razao_social || '').trim();
 
-            const aScore = (aFantasia === qNorm ? 1 : (aRazao === qNorm ? 2 : (aFantasia.startsWith(qNorm) ? 3 : (aRazao.startsWith(qNorm) ? 4 : (aFantasia.includes(qNorm) ? 5 : (aRazao.includes(qNorm) ? 6 : 7))))));
-            const bScore = (bFantasia === qNorm ? 1 : (bRazao === qNorm ? 2 : (bFantasia.startsWith(qNorm) ? 3 : (bRazao.startsWith(qNorm) ? 4 : (bFantasia.includes(qNorm) ? 5 : (bRazao.includes(qNorm) ? 6 : 7))))));
+            const getScore = (fan, raz) => {
+                if (fan === qNorm || raz === qNorm) return 1;
+                if (fan.startsWith(qNorm) || raz.startsWith(qNorm)) return 2;
+                if (fan.includes(qNorm) || raz.includes(qNorm)) return 3;
+                if (terms.every(t => fan.includes(t) || raz.includes(t))) return 4;
+                return 5;
+            };
 
-            if (aScore !== bScore) return aScore - bScore;
-            return aRazao.localeCompare(bRazao);
+            const scoreA = getScore(aFan, aRaz);
+            const scoreB = getScore(bFan, bRaz);
+
+            if (scoreA !== scoreB) {
+                return scoreA - scoreB;
+            }
+
+            const aLen = (aFan || aRaz).length;
+            const bLen = (bFan || bRaz).length;
+            if (aLen !== bLen) {
+                return aLen - bLen;
+            }
+
+            return (aRaz || aFan).localeCompare(bRaz || bFan);
         });
     }
 

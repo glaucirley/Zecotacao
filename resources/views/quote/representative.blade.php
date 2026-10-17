@@ -1242,7 +1242,7 @@
                     <label class="form-label" style="font-size: 11.5px;">Celular com WhatsApp (com DDD)</label>
                     <input type="tel" id="send-custom-phone" class="form-control" placeholder="(00) 90000-0000" inputmode="tel" style="font-size: 13px;" oninput="onCustomPhoneInput(this)">
                 </div>
-                <div id="send-phone-validation-feedback" style="font-size: 11.5px; margin-top: 4px; display: none;"></div>
+                <div id="send-phone-validation-feedback" style="font-size: 12px; font-weight: 600; margin-top: 6px; display: none;"></div>
             </div>
         </div>
 
@@ -1426,17 +1426,22 @@
         }
         const diffMinutes = Math.floor(diffMs / (1000 * 60));
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        const isToday = valDate.toDateString() === now.toDateString();
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const isTomorrow = valDate.toDateString() === tomorrow.toDateString();
+        const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         if (diffMinutes < 60) {
             return `⏳ Vence em ${diffMinutes} min`;
-        } else if (diffHours < 24) {
-            const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        } else if (isToday) {
             return `⏳ Vence hoje às ${timeStr} (${diffHours}h restantes)`;
-        } else if (diffDays === 1) {
-            const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            return `⏳ Vence amanhã às ${timeStr}`;
+        } else if (isTomorrow) {
+            return `⏳ Vence amanhã às ${timeStr} (${diffHours}h restantes)`;
         } else {
+            const startOfNow = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const startOfVal = new Date(valDate.getFullYear(), valDate.getMonth(), valDate.getDate()).getTime();
+            const diffDays = Math.round((startOfVal - startOfNow) / (1000 * 60 * 60 * 24));
             return `⏳ Vence em ${diffDays} dias (${valDate.toLocaleDateString('pt-BR')})`;
         }
     }
@@ -3007,9 +3012,11 @@
             } else {
                 const errMsg = data.message || data.error || (res.status === 404 ? 'Cotação não encontrada' : 'Falha ao carregar contatos do cliente.');
                 container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">${escapeHtml(errMsg)}</div>`;
+                validateSendContactForm(false);
             }
         } catch (e) {
             container.innerHTML = `<div style="color: #dc2626; padding: 12px; font-size: 12.5px;">Erro de conexão ao buscar contatos: ${escapeHtml(e.message || '')}</div>`;
+            validateSendContactForm(false);
         }
     }
 
@@ -3031,6 +3038,7 @@
                 </div>
             `;
             document.getElementById("send-custom-contact-box").style.display = "block";
+            validateSendContactForm(false);
             return;
         }
 
@@ -3090,6 +3098,80 @@
         container.appendChild(outroDiv);
 
         document.getElementById("send-custom-contact-box").style.display = (selectedContactId === 'outro') ? "block" : "none";
+        validateSendContactForm(false);
+    }
+
+    function validateSendContactForm(showErrors = false) {
+        const btnWa = document.getElementById("btn-open-wa-native");
+        const feedback = document.getElementById("send-phone-validation-feedback");
+        const phoneInput = document.getElementById("send-custom-phone");
+
+        const checkedRadio = document.querySelector('input[name="delivery_contact_choice"]:checked');
+        const activeChoice = checkedRadio ? checkedRadio.value : (selectedContactId || (sendDeliveryContacts.length ? (sendDeliveryContacts[0]._key || sendDeliveryContacts[0].id) : 'outro'));
+        const isCustom = (activeChoice === 'outro' || !sendDeliveryContacts || sendDeliveryContacts.length === 0);
+
+        let isValid = true;
+        let errorMsg = '';
+
+        if (isCustom) {
+            const rawPhone = phoneInput ? phoneInput.value : '';
+            const digits = rawPhone.replace(/\D/g, '');
+
+            if (digits.length === 0) {
+                isValid = false;
+                if (showErrors) {
+                    errorMsg = "Informe o celular com DDD para enviar via WhatsApp.";
+                }
+            } else if (digits.length < 11) {
+                isValid = false;
+                if (digits.length === 10) {
+                    errorMsg = "⚠️ Número fixo não tem WhatsApp. Informe um celular com 9 dígitos.";
+                } else {
+                    errorMsg = `⚠️ Celular incompleto (${digits.length} de 11 dígitos). Ex: (34) 99999-9999`;
+                }
+            } else if (digits.substring(2, 3) !== '9') {
+                isValid = false;
+                errorMsg = "⚠️ Celulares com WhatsApp devem começar com o dígito 9 após o DDD.";
+            } else {
+                isValid = true;
+            }
+
+            if (feedback) {
+                if (!isValid) {
+                    if (errorMsg) {
+                        feedback.style.display = "block";
+                        feedback.style.color = "#dc2626";
+                        feedback.innerText = errorMsg;
+                        if (phoneInput) phoneInput.style.borderColor = "#ef4444";
+                    } else {
+                        feedback.style.display = "none";
+                        if (phoneInput) phoneInput.style.borderColor = "#cbd5e1";
+                    }
+                } else {
+                    feedback.style.display = "block";
+                    feedback.style.color = "#16a34a";
+                    feedback.innerText = "✓ Celular válido para WhatsApp";
+                    if (phoneInput) phoneInput.style.borderColor = "#22c55e";
+                }
+            }
+        } else {
+            // Predefined contact from client list
+            isValid = true;
+            if (feedback) {
+                feedback.style.display = "none";
+            }
+            if (phoneInput) {
+                phoneInput.style.borderColor = "#cbd5e1";
+            }
+        }
+
+        if (btnWa) {
+            btnWa.disabled = !isValid;
+            btnWa.style.opacity = isValid ? "1" : "0.5";
+            btnWa.style.cursor = isValid ? "pointer" : "not-allowed";
+        }
+
+        return isValid;
     }
 
     function onContactSelectionChange(val) {
@@ -3111,9 +3193,11 @@
             if (customNameInput && !customNameInput.value && quote && quote.parceiro) {
                 customNameInput.value = quote.parceiro.nome_fantasia || quote.parceiro.razao_social || '';
             }
+            validateSendContactForm(false);
             document.getElementById("send-custom-phone")?.focus();
         } else {
             customBox.style.display = "none";
+            validateSendContactForm(false);
         }
     }
 
@@ -3129,26 +3213,7 @@
             input.value = `(${v}`;
         }
 
-        const feedback = document.getElementById("send-phone-validation-feedback");
-        if (!feedback) return;
-
-        if (v.length >= 10) {
-            if (v.length === 10) {
-                feedback.style.display = "block";
-                feedback.style.color = "#dc2626";
-                feedback.innerText = "⚠️ Número fixo não tem WhatsApp. Informe um celular com 9 dígitos.";
-            } else if (v.substring(2, 3) !== '9') {
-                feedback.style.display = "block";
-                feedback.style.color = "#dc2626";
-                feedback.innerText = "⚠️ Celulares com WhatsApp devem começar com 9.";
-            } else {
-                feedback.style.display = "block";
-                feedback.style.color = "#16a34a";
-                feedback.innerText = "✓ Celular válido para WhatsApp";
-            }
-        } else {
-            feedback.style.display = "none";
-        }
+        validateSendContactForm(true);
     }
 
     function onCustomContactInput() {
@@ -3166,6 +3231,11 @@
         };
 
         if (canal === 'WHATSAPP') {
+            if (!validateSendContactForm(true)) {
+                document.getElementById("send-custom-phone")?.focus();
+                return;
+            }
+
             const checkedRadio = document.querySelector('input[name="delivery_contact_choice"]:checked');
             const activeChoice = checkedRadio ? checkedRadio.value : (selectedContactId || (sendDeliveryContacts.length ? (sendDeliveryContacts[0]._key || sendDeliveryContacts[0].id) : 'outro'));
 
@@ -3174,17 +3244,6 @@
                 const fallbackName = (quote?.parceiro?.nome_fantasia || quote?.parceiro?.razao_social || 'Cliente');
                 const contactName = document.getElementById("send-custom-name")?.value?.trim() || fallbackName;
                 const digits = rawPhone.replace(/\D/g, '');
-                
-                if (digits.length !== 11) {
-                    showToast("Informe um número de celular válido com DDD (11 dígitos).", "warning");
-                    document.getElementById("send-custom-phone")?.focus();
-                    return;
-                }
-                if (digits.substring(2, 3) !== '9') {
-                    showToast("Celulares com WhatsApp devem começar com o dígito 9.", "warning");
-                    document.getElementById("send-custom-phone")?.focus();
-                    return;
-                }
                 
                 payload.telefone = digits;
                 payload.nome_contato = contactName;
@@ -3202,7 +3261,12 @@
             }
 
             if (!payload.telefone) {
-                showToast("Selecione ou informe um número de telefone com WhatsApp.", "warning");
+                const feedback = document.getElementById("send-phone-validation-feedback");
+                if (feedback) {
+                    feedback.style.display = "block";
+                    feedback.style.color = "#dc2626";
+                    feedback.innerText = "Selecione ou informe um número de telefone com WhatsApp.";
+                }
                 return;
             }
         }

@@ -51,18 +51,20 @@ class PartnerController extends Controller
                     });
                 });
 
-                // Prioritise results by relevance: exact match > prefix match > contains phrase
+                // Prioritise results by relevance: exact match > prefix match > contains phrase > word count
                 $safeSearch = addslashes($search);
                 $query->orderByRaw("
                     CASE 
-                        WHEN LOWER(nome_fantasia) = LOWER('{$safeSearch}') THEN 1
-                        WHEN LOWER(razao_social) = LOWER('{$safeSearch}') THEN 2
-                        WHEN LOWER(nome_fantasia) LIKE LOWER('{$safeSearch}%') THEN 3
-                        WHEN LOWER(razao_social) LIKE LOWER('{$safeSearch}%') THEN 4
-                        WHEN LOWER(nome_fantasia) LIKE LOWER('%{$safeSearch}%') THEN 5
-                        WHEN LOWER(razao_social) LIKE LOWER('%{$safeSearch}%') THEN 6
+                        WHEN LOWER(TRIM(nome_fantasia)) = LOWER('{$safeSearch}') THEN 1
+                        WHEN LOWER(TRIM(razao_social)) = LOWER('{$safeSearch}') THEN 2
+                        WHEN LOWER(TRIM(nome_fantasia)) LIKE LOWER('{$safeSearch}%') THEN 3
+                        WHEN LOWER(TRIM(razao_social)) LIKE LOWER('{$safeSearch}%') THEN 4
+                        WHEN LOWER(TRIM(nome_fantasia)) LIKE LOWER('%{$safeSearch}%') THEN 5
+                        WHEN LOWER(TRIM(razao_social)) LIKE LOWER('%{$safeSearch}%') THEN 6
                         ELSE 7
-                    END ASC
+                    END ASC,
+                    LENGTH(COALESCE(NULLIF(nome_fantasia, ''), razao_social)) ASC,
+                    razao_social ASC
                 ");
             }
         }
@@ -76,9 +78,13 @@ class PartnerController extends Controller
             }
         }
 
+        if (!$request->filled('search')) {
+            $query->orderBy('razao_social');
+        }
+
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
 
-        $partners = $query->orderBy('razao_social')->take($limit)->get();
+        $partners = $query->take($limit)->get();
 
         return response()->json([
             'success' => true,
