@@ -265,6 +265,7 @@ class QuoteDeliveryService
         } else {
             $mensagemFinal = str_replace(array_keys($replacements), array_values($replacements), $template);
         }
+        $mensagemFinal = static::normalizeCurrencyText($mensagemFinal);
 
         // Construir URL wa.me
         $urlWhatsapp = null;
@@ -359,6 +360,25 @@ class QuoteDeliveryService
                 'warning' => $warning,
             ];
         });
+    }
+
+    /**
+     * Converte valores monetários em formato americano dentro de um texto
+     * (ex.: "R$ 13.00", "R$ 1021.39", "R$ 1,021.39") para o padrão brasileiro
+     * ("R$ 13,00", "R$ 1.021,39"). Valores já corretos não são alterados.
+     */
+    public static function normalizeCurrencyText(?string $text): string
+    {
+        if ($text === null || $text === '') return (string)$text;
+
+        return preg_replace_callback(
+            '/R\$\s?((?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})(?!\d)/u',
+            function ($m) {
+                $num = (float)str_replace(',', '', $m[1]);
+                return 'R$ ' . number_format($num, 2, ',', '.');
+            },
+            $text
+        );
     }
 
     /**

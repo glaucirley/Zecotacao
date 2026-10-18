@@ -480,8 +480,10 @@ class QuoteController extends Controller
 
         try {
             DB::transaction(function () use ($request, $quote) {
+                $changedFields = [];
+
                 // Update quote fields
-                $quote->update($request->only([
+                $quote->fill($request->only([
                     'forma_pagamento',
                     'prazo_entrega',
                     'frete_tipo',
@@ -489,8 +491,13 @@ class QuoteController extends Controller
                     'observacao_cliente',
                     'observacao_interna',
                 ]));
+                if ($quote->isDirty()) {
+                    $changedFields = array_keys($quote->getDirty());
+                    $quote->save();
+                }
 
                 // Update items if passed
+                $changedItems = 0;
                 if ($request->has('itens')) {
                     foreach ($request->input('itens') as $itemData) {
                         $item = CotacaoItem::where('cotacao_id', $quote->id)
@@ -500,24 +507,36 @@ class QuoteController extends Controller
                         if ($item) {
                             $qtd = (int)$itemData['qtd'];
                             if ($item->nao_encontrado) {
-                                $item->update([
+                                $item->fill([
                                     'qtd' => $qtd,
                                     'preco_unit_proposto' => 0.00,
                                     'subtotal' => 0.00,
                                 ]);
+                                if ($item->isDirty('qtd')) {
+                                    $changedItems++;
+                                }
+                                if ($item->isDirty()) {
+                                    $item->save();
+                                }
                                 continue;
                             }
 
+                            $precoProposto = round((float)$itemData['preco_unit_proposto'], 2);
+
                             // If price or quantity is changed, the item goes back to 'pendente' for review
                             $status = $item->status_item;
-                            $hasChanged = (float)$item->preco_unit_proposto !== (float)$itemData['preco_unit_proposto'] 
+                            $hasChanged = abs(round((float)$item->preco_unit_proposto, 2) - $precoProposto) >= 0.005
                                        || (int)$item->qtd !== $qtd;
 
-                            if ($hasChanged && in_array($status, ['recusado', 'aprovado'])) {
+                            if (!$hasChanged) {
+                                continue;
+                            }
+                            $changedItems++;
+
+                            if (in_array($status, ['recusado', 'aprovado'])) {
                                 $status = 'pendente';
                             }
 
-                            $precoProposto = round((float)$itemData['preco_unit_proposto'], 2);
                             $precoSugerido = round((float)$item->preco_unit_sugerido, 2);
                             $ajuste = $precoSugerido > 0 ? round((($precoProposto - $precoSugerido) / $precoSugerido) * 100, 2) : 0.00;
 
@@ -532,17 +551,29 @@ class QuoteController extends Controller
                     }
                 }
 
+                // Sem mudança real: não recalcula nem polui a auditoria
+                if (empty($changedFields) && $changedItems === 0) {
+                    return;
+                }
+
                 // Recalculate totals
                 $this->recalculateQuoteTotals($quote);
 
                 // Log history
                 $actor = Auth::user() ?: $quote->representante;
+                $parts = [];
+                if ($changedItems > 0) {
+                    $parts[] = $changedItems . ' item(ns) alterado(s)';
+                }
+                if (!empty($changedFields)) {
+                    $parts[] = 'condições: ' . implode(', ', $changedFields);
+                }
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
                     'evento' => 'EDITADA',
                     'usuario_id' => $actor?->id ?? $quote->representante_id,
                     'papel' => $actor?->papel ?? 'representante',
-                    'condicao' => 'Cotação alterada por ' . ($actor?->nome ?? 'representante comercial') . '.',
+                    'condicao' => 'Cotação alterada por ' . ($actor?->nome ?? 'representante comercial') . ' (' . implode('; ', $parts) . ').',
                 ]);
             });
 

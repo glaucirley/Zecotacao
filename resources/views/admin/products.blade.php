@@ -135,6 +135,11 @@
     let searchTimer = null;
 
     document.addEventListener("DOMContentLoaded", () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const statusParam = urlParams.get('status');
+        if (statusParam && document.getElementById("status-filter-select")) {
+            document.getElementById("status-filter-select").value = statusParam;
+        }
         loadProducts();
     });
 

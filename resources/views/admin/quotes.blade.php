@@ -138,6 +138,8 @@
         transform: translateY(-50%);
         color: #94a3b8;
         font-size: 14px;
+        line-height: 1;
+        pointer-events: none;
     }
 
     .filter-select {
@@ -662,7 +664,15 @@
             align-items: stretch;
         }
         .filter-input-search {
+            flex: 0 0 auto;
             min-width: 100%;
+            width: 100%;
+            height: auto;
+        }
+        .filter-input-search input {
+            font-size: 16px; /* evita zoom automático no iOS */
+            padding-top: 10px;
+            padding-bottom: 10px;
         }
         .filter-select {
             width: 100%;

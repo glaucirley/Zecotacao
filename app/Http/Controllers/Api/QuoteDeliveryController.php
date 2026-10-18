@@ -131,6 +131,7 @@ class QuoteDeliveryController extends Controller
             ],
             $template
         );
+        $previewMsg = QuoteDeliveryService::normalizeCurrencyText($previewMsg);
 
         return response()->json([
             'success' => true,

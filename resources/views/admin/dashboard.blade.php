@@ -225,7 +225,7 @@
                 <h3 class="queue-title">Saúde do cadastro (Sankhya)</h3>
                 <p class="queue-desc" id="queue-health-desc">Inconsistências cadastrais (produtos sem preço na tabela ou dados incompletos).</p>
             </div>
-            <a href="{{ url('/produtos') }}" class="queue-action-btn">
+            <a href="{{ url('/produtos?status=problema') }}" class="queue-action-btn">
                 <span>Revisar Catálogo de Produtos</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </a>
@@ -1163,11 +1163,15 @@
                 if (expEl) expEl.innerText = expiring;
 
                 const healthEl = document.getElementById('queue-health-num');
-                if (healthEl) healthEl.innerText = semPreco + semEquipe;
+                if (healthEl) healthEl.innerText = semPreco;
 
                 const healthDesc = document.getElementById('queue-health-desc');
                 if (healthDesc) {
-                    healthDesc.innerHTML = `<strong>${semPreco} produtos sem preço de tabela</strong> · ${semEquipe} representantes sem equipe.`;
+                    let desc = semPreco === 1 ? `<strong>1 produto sem preço de tabela</strong>` : `<strong>${semPreco} produtos sem preço de tabela</strong>`;
+                    if (semEquipe > 0) {
+                        desc += ` · <a href="{{ url('/usuarios') }}" style="color: inherit; text-decoration: underline;">${semEquipe} representante${semEquipe > 1 ? 's' : ''} sem equipe</a>`;
+                    }
+                    healthDesc.innerHTML = desc;
                 }
 
                 const totalPending = approvals + billing + expiring;

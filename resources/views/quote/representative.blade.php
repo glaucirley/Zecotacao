@@ -3470,6 +3470,16 @@
         }
     }
 
+    // Converte "R$ 13.00" / "R$ 1,021.39" em "R$ 13,00" / "R$ 1.021,39" (valores já corretos ficam intactos)
+    function normalizeCurrencyInText(text) {
+        if (!text) return text;
+        return String(text).replace(/R\$\s?((?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})(?!\d)/g, (m, num) => {
+            const val = parseFloat(num.replace(/,/g, ''));
+            if (isNaN(val)) return m;
+            return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        });
+    }
+
     async function openSendQuoteModal() {
         if (!quote) return;
         const allowStatuses = ['APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO'];
@@ -3492,7 +3502,7 @@
                 sendDeliveryContacts = data.contatos || [];
                 renderSendContactsList(sendDeliveryContacts);
                 if (previewTextarea && data.previa_mensagem) {
-                    previewTextarea.value = data.previa_mensagem;
+                    previewTextarea.value = normalizeCurrencyInText(data.previa_mensagem);
                 }
                 const customNameInput = document.getElementById("send-custom-name");
                 if (customNameInput && quote && quote.parceiro) {
