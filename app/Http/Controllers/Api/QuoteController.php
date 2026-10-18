@@ -404,7 +404,7 @@ class QuoteController extends Controller
                 \Illuminate\Support\Facades\Log::error("Erro crítico ao carregar cotação ID {$quote->id}: " . $e2->getMessage());
                 return response()->json([
                     'error' => 'Erro ao carregar cotação',
-                    'message' => config('app.debug') ? $e2->getMessage() : 'Não foi possível carregar os dados da cotação. Tente novamente mais tarde.'
+                    'message' => 'Não foi possível carregar os dados da cotação. Tente novamente mais tarde.'
                 ], 500);
             }
         }
@@ -1016,7 +1016,7 @@ class QuoteController extends Controller
             return response()->json([
                 'error' => 'Erro na geração do PDF',
                 'code' => 'PDF_GENERATION_ERROR',
-                'message' => config('app.debug') ? ('Erro na geração do PDF: ' . $e->getMessage()) : 'Não foi possível gerar o PDF da cotação. O erro foi registrado nos logs.'
+                'message' => 'Não foi possível gerar o PDF da cotação. O erro foi registrado nos logs.'
             ], 422);
         }
     }

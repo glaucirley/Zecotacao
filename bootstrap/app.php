@@ -44,14 +44,6 @@ return Application::configure(basePath: dirname(__DIR__))
             ]);
 
             if ($request->is('api/*') || $request->expectsJson() || $request->wantsJson() || $request->ajax()) {
-                if (config('app.debug')) {
-                    return response()->json([
-                        'error' => 'Erro no banco de dados (Debug Mode)',
-                        'code' => 'DATABASE_QUERY_ERROR',
-                        'message' => $e->getMessage(),
-                    ], 500);
-                }
-
                 return response()->json([
                     'error' => 'Erro interno do servidor',
                     'code' => 'DATABASE_ERROR',
@@ -59,9 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 500);
             }
 
-            if (!config('app.debug')) {
-                return response()->make('Ocorreu um erro interno ao processar a solicitação.', 500);
-            }
+            return response()->make('Ocorreu um erro interno ao processar a solicitação.', 500);
         });
 
         // 3. Database PDOException (sanitized response, full log)
@@ -72,14 +62,6 @@ return Application::configure(basePath: dirname(__DIR__))
             ]);
 
             if ($request->is('api/*') || $request->expectsJson() || $request->wantsJson() || $request->ajax()) {
-                if (config('app.debug')) {
-                    return response()->json([
-                        'error' => 'Falha de conexão com banco de dados (Debug Mode)',
-                        'code' => 'DATABASE_CONNECTION_ERROR',
-                        'message' => $e->getMessage(),
-                    ], 500);
-                }
-
                 return response()->json([
                     'error' => 'Erro interno do servidor',
                     'code' => 'DATABASE_CONNECTION_ERROR',
@@ -87,12 +69,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 500);
             }
 
-            if (!config('app.debug')) {
-                return response()->make('Ocorreu uma falha de conexão com o banco de dados.', 500);
-            }
+            return response()->make('Ocorreu uma falha de conexão com o banco de dados.', 500);
         });
 
-        // 4. Global fallback for any unhandled Throwable in production (APP_DEBUG=false)
+        // 4. Global fallback for any unhandled Throwable (never leak traces/files/env)
         $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
             if ($e instanceof \Illuminate\Auth\AuthenticationException
                 || $e instanceof \Illuminate\Validation\ValidationException
@@ -106,16 +86,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 'user_id' => auth()->id() ?? null,
             ]);
 
-            if (!config('app.debug')) {
-                if ($request->is('api/*') || $request->expectsJson() || $request->wantsJson() || $request->ajax()) {
-                    return response()->json([
-                        'error' => 'Erro interno do servidor',
-                        'code' => 'INTERNAL_SERVER_ERROR',
-                        'message' => 'Ocorreu um erro interno no servidor. Os detalhes foram registrados nos logs.'
-                    ], 500);
-                }
-
-                return response()->make('Ocorreu um erro interno no servidor.', 500);
+            if ($request->is('api/*') || $request->expectsJson() || $request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'error' => 'Erro interno do servidor',
+                    'code' => 'INTERNAL_SERVER_ERROR',
+                    'message' => 'Ocorreu um erro interno no servidor. Os detalhes foram registrados nos logs.'
+                ], 500);
             }
+
+            return response()->make('Ocorreu um erro interno no servidor.', 500);
         });
     })->create();
