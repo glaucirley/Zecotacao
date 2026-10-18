@@ -16,7 +16,7 @@ class SyncSankhyaCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'sankhya:sync {--type=all : The type of sync (all, products, partners, reps)}';
+    protected $signature = 'sankhya:sync {--type=all : The type of sync (all, products, partners, reps, prices, conditions, validades)}';
 
     /**
      * The console command description.
@@ -103,6 +103,13 @@ class SyncSankhyaCommand extends Command
                 $condRows = $db->fetchPaymentConditionsFromView();
                 $count = $db->savePaymentConditionsFromViewRows($condRows);
                 $this->info("Synced {$count} payment conditions successfully.");
+            }
+
+            if (in_array($type, ['all', 'validades', 'validade'])) {
+                $this->info("Fetching product expiration dates from Oracle (VGF_VALIDADEAPP)...");
+                $validadeRows = $db->fetchValidadesFromView();
+                $count = $db->saveValidadesFromViewRows($validadeRows);
+                $this->info("Synced {$count} product expiration dates successfully.");
             }
 
             $this->info("Sankhya sync process completed successfully.");
