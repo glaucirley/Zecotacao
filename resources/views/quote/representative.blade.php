@@ -1969,6 +1969,7 @@
 
         const { repLimit } = getRepresentativeLimits();
         let hasItemBelowMin = false;
+        let maxItemDiscount = 0;
         let totalSug = 0;
         let totalProp = 0;
 
@@ -1984,6 +1985,13 @@
                     hasItemBelowMin = true;
                 }
 
+                if (sug > 0 && prop < sug && i.status_item !== 'aprovado') {
+                    const itemDisc = ((sug - prop) / sug) * 100;
+                    if (itemDisc > maxItemDiscount) {
+                        maxItemDiscount = itemDisc;
+                    }
+                }
+
                 totalSug += qtd * Math.max(sug, prop);
                 totalProp += qtd * prop;
             });
@@ -1993,7 +2001,8 @@
             ? ((totalSug - totalProp) / totalSug) * 100
             : 0;
 
-        const isAboveRepLimit = quoteDiscount > (repLimit + 0.0001);
+        const effectiveDiscount = Math.max(maxItemDiscount, quoteDiscount);
+        const isAboveRepLimit = effectiveDiscount > (repLimit + 0.0001);
         const requiresApproval = hasItemBelowMin || isAboveRepLimit;
 
         if (requiresApproval) {
@@ -2006,7 +2015,7 @@
                     panelDesc.innerText = "Existem produtos abaixo do preço mínimo configurado. É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.";
                 } else {
                     panelTitle.innerText = "Justificativa Obrigatória — Desconto Acima da Alçada";
-                    panelDesc.innerText = `O desconto comercial aplicado (${quoteDiscount.toFixed(1).replace('.', ',')}%) excede a sua alçada permitida (${repLimit.toFixed(1).replace('.', ',')}%). É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.`;
+                    panelDesc.innerText = `O desconto comercial aplicado (${effectiveDiscount.toFixed(1).replace('.', ',')}%) excede a sua alçada permitida (${repLimit.toFixed(1).replace('.', ',')}%). É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.`;
                 }
             }
         } else {

@@ -12,6 +12,7 @@ use App\Models\Produto;
 use App\Models\ParametroSistema;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -513,7 +514,7 @@ class QuoteController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("Erro ao atualizar cotação ID {$id}: " . $e->getMessage(), ['exception' => $e]);
+            \Illuminate\Support\Facades\Log::error("Erro ao atualizar cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro interno do servidor',
                 'code' => 'QUOTE_UPDATE_ERROR',
@@ -1011,7 +1012,7 @@ class QuoteController extends Controller
 
             return $pdf->stream("cotacao_{$quote->numero}.pdf");
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("Erro na geração do PDF da cotação ID {$id}: " . $e->getMessage(), ['exception' => $e]);
+            \Illuminate\Support\Facades\Log::error("Erro na geração do PDF da cotação ID {$quote->id}: " . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'error' => 'Erro na geração do PDF',
                 'code' => 'PDF_GENERATION_ERROR',
@@ -1117,14 +1118,16 @@ class QuoteController extends Controller
                 $quote->update(['status' => 'FINALIZADA_COM_PEDIDO']);
 
                 // Log audit history
+                $actor = Auth::user() ?: $quote->representante;
                 \App\Models\CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
                     'evento' => 'PEDIDO_EXTERNO_REGISTRADO',
-                    'usuario_id' => $quote->representante_id,
-                    'papel' => 'representante',
+                    'usuario_id' => $actor?->id ?? $quote->representante_id,
+                    'papel' => $actor?->papel ?? 'representante',
                     'condicao' => sprintf(
-                        'Pedido externo Nº %s registrado pelo representante no valor de R$ %s (%s). Status alterado para FINALIZADA_COM_PEDIDO.',
+                        'Pedido externo Nº %s registrado por %s no valor de R$ %s (%s). Status alterado para FINALIZADA_COM_PEDIDO.',
                         $pedido->numero_pedido_externo,
+                        $actor?->nome ?? 'representante',
                         number_format($pedido->valor_pedido, 2, ',', '.'),
                         $request->input('tipo_faturamento') === 'parcial' ? 'Faturamento Parcial' : 'Faturamento Total'
                     )

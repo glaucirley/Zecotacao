@@ -7,6 +7,7 @@ use App\Models\ParametroSistema;
 use App\Models\CotacaoHistorico;
 use App\Models\User;
 use App\Models\Notificacao;
+use Illuminate\Support\Facades\Auth;
 
 class QuoteWorkflowService
 {
