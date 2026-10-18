@@ -853,6 +853,9 @@
         </button>
     </div>
 
+    <!-- Priority Attention Alerts Container (Devolução com instruções, itens recusados com motivo, alerta de margem negativa) -->
+    <div id="quote-attention-banner" style="display: none; margin-bottom: 16px; flex-direction: column; gap: 12px;"></div>
+
     <!-- Compact Client Header Strip -->
     <div class="compact-client-strip" style="background: white; border: 1px solid var(--color-border); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
@@ -1106,16 +1109,25 @@
         </div>
     </div>
 
-    <!-- Live Audit Trail & History Card -->
-    <div class="card" style="margin-bottom: 24px; padding: 18px; border: 1px solid var(--color-border); border-radius: 12px; background: #ffffff; box-shadow: var(--shadow-sm);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
-            <h3 style="font-size: 15px; margin: 0; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Trilha de Auditoria &amp; Histórico
-            </h3>
-            <span style="font-size: 11.5px; color: #64748b;">Registro de eventos e aprovações</span>
+    <!-- Collapsible Audit Trail & History Accordion (Collapsed by Default) -->
+    <div class="card" style="margin-bottom: 24px; padding: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; background: #ffffff; box-shadow: var(--shadow-sm);">
+        <div onclick="toggleAuditAccordion()" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #f8fafc; transition: background 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px;">
+                <span style="font-size: 16px; line-height: 1;">🕘</span>
+                <span style="font-weight: 700; color: #0f172a;">Trilha de Auditoria</span>
+                <span style="color: #94a3b8;">·</span>
+                <span id="audit-summary-details" style="color: #64748b; font-size: 12.5px;">Carregando eventos...</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #2563eb; font-weight: 600; white-space: nowrap;">
+                <span id="audit-toggle-text">Ver ⌄</span>
+                <svg id="audit-toggle-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s ease;"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
         </div>
-        <div id="quote-audit-trail" style="display: flex; flex-direction: column; gap: 10px;">
-            <div style="font-size: 12.5px; color: #64748b; text-align: center; padding: 12px;">Carregando histórico da cotação...</div>
+
+        <div id="audit-accordion-body" style="display: none; padding: 18px; border-top: 1px solid var(--color-border); background: white;">
+            <div id="quote-audit-trail" style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="font-size: 12.5px; color: #64748b; text-align: center; padding: 12px;">Carregando histórico da cotação...</div>
+            </div>
         </div>
     </div>
 </div>
@@ -1605,11 +1617,158 @@
         }
     }
 
+    function toggleAuditAccordion(forceState) {
+        const body = document.getElementById("audit-accordion-body");
+        const arrow = document.getElementById("audit-toggle-arrow");
+        const text = document.getElementById("audit-toggle-text");
+        if (!body) return;
+
+        let shouldOpen;
+        if (typeof forceState === 'boolean') {
+            shouldOpen = forceState;
+        } else {
+            shouldOpen = body.style.display === "none";
+        }
+
+        body.style.display = shouldOpen ? "block" : "none";
+        if (arrow) arrow.style.transform = shouldOpen ? "rotate(180deg)" : "rotate(0deg)";
+        if (text) text.innerText = shouldOpen ? "Recolher ⌃" : "Ver ⌄";
+
+        try {
+            sessionStorage.setItem('zecotacao_audit_accordion_open', shouldOpen ? 'true' : 'false');
+        } catch(e) {}
+    }
+
+    function formatAuditTime(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        const h = String(d.getHours()).padStart(2, '0');
+        const m = String(d.getMinutes()).padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function formatAuditDate(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        const day = String(d.getDate()).padStart(2, '0');
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        return `${day}/${mo}`;
+    }
+
+    function formatAuditDateTime(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        return `${formatAuditDate(d)} ${formatAuditTime(d)}`;
+    }
+
+    function getEventFriendlyTitle(evento, condicao) {
+        const ev = String(evento || '').toUpperCase();
+        const map = {
+            'CRIADA': 'Cotação criada',
+            'SALVA_RASCUNHO': 'Rascunho salvo',
+            'EDITADA': 'Cotação editada',
+            'SUBMETIDA_APROVACAO': 'Enviada para aprovação',
+            'ENVIADA_PARA_APROVACAO': 'Enviada para aprovação',
+            'APROVADA': 'Cotação aprovada',
+            'APROVADA_AUTOMATICA': 'Aprovada automaticamente',
+            'APROVADA_DIRETORIA': 'Aprovada pela diretoria',
+            'DEVOLVIDA': 'Devolvida para ajustes',
+            'DEVOLVIDA_AO_REPRESENTANTE': 'Devolvida para ajustes',
+            'COTACAO_DEVOLVIDA': 'Devolvida para ajustes',
+            'ESCALADA_DIRETORIA': 'Escalada para diretoria',
+            'RECUSADA': 'Cotação recusada',
+            'CANCELADA': 'Cotação cancelada',
+            'PERDIDA': 'Marcada como perdida',
+            'PDF_GERADO': 'PDF comercial gerado',
+            'PROPOSTA_ENVIADA_WHATSAPP': 'Proposta enviada via WhatsApp',
+            'PROPOSTA_ENVIADA_EMAIL': 'Proposta enviada por e-mail',
+            'PROPOSTA_ENVIADA_LINK': 'Link compartilhado',
+            'PROPOSTA_ABERTA_CLIENTE': 'Proposta aberta pelo cliente',
+            'PEDIDO_GERADO': 'Pedido gerado no ERP',
+            'FATURADA': 'Cotação faturada',
+            'VALIDADE_ESTENDIDA_EM_APROVACAO': 'Validade estendida em aprovação'
+        };
+        if (map[ev]) return map[ev];
+        return (evento || 'Evento de Workflow').replace(/_/g, ' ');
+    }
+
+    function groupAuditEvents(rawHistory) {
+        if (!Array.isArray(rawHistory) || rawHistory.length === 0) return [];
+
+        // 1. Sort chronological (oldest to newest)
+        const sorted = rawHistory.slice().sort((a, b) => {
+            const da = new Date(a.created_at || 0).getTime();
+            const db = new Date(b.created_at || 0).getTime();
+            return (da - db) || (a.id - b.id);
+        });
+
+        // 2. Group consecutive identical events
+        const groups = [];
+        let currentGroup = null;
+
+        sorted.forEach(item => {
+            const evName = String(item.evento || item.descricao || '').toUpperCase();
+            const userId = item.usuario_id || (item.usuario ? item.usuario.id : null);
+            const userRole = (item.usuario && item.usuario.papel) ? item.usuario.papel : (item.papel || '');
+            const userName = item.usuario ? (item.usuario.nome || item.usuario.name) : (item.papel || 'Sistema');
+            const itemDate = new Date(item.created_at || Date.now());
+
+            if (!currentGroup) {
+                currentGroup = {
+                    evento: evName,
+                    userId: userId,
+                    userName: userName,
+                    userRole: userRole,
+                    items: [item],
+                    startDate: itemDate,
+                    endDate: itemDate
+                };
+            } else {
+                const sameEv = currentGroup.evento === evName;
+                const sameUser = (currentGroup.userId && userId && currentGroup.userId === userId) ||
+                                 (currentGroup.userName === userName && currentGroup.userRole === userRole);
+
+                if (sameEv && sameUser) {
+                    currentGroup.items.push(item);
+                    currentGroup.endDate = itemDate;
+                } else {
+                    groups.push(currentGroup);
+                    currentGroup = {
+                        evento: evName,
+                        userId: userId,
+                        userName: userName,
+                        userRole: userRole,
+                        items: [item],
+                        startDate: itemDate,
+                        endDate: itemDate
+                    };
+                }
+            }
+        });
+
+        if (currentGroup) {
+            groups.push(currentGroup);
+        }
+
+        // 3. Reverse groups so newest is first
+        return groups.reverse();
+    }
+
     function renderAuditTrail() {
         const container = document.getElementById("quote-audit-trail");
+        const summaryEl = document.getElementById("audit-summary-details");
         if (!container) return;
-        const history = quote.historico || [];
-        if (history.length === 0) {
+
+        const rawHistory = Array.isArray(quote.historico) ? quote.historico : [];
+        const totalCount = rawHistory.length;
+
+        // Restore saved accordion state from session (default: closed)
+        try {
+            const savedState = sessionStorage.getItem('zecotacao_audit_accordion_open');
+            toggleAuditAccordion(savedState === 'true');
+        } catch(e) {
+            toggleAuditAccordion(false);
+        }
+
+        if (totalCount === 0) {
+            if (summaryEl) summaryEl.innerText = "0 eventos registrados";
             container.innerHTML = `
                 <div style="font-size: 12.5px; color: #94a3b8; text-align: center; padding: 14px; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0;">
                     Nenhum evento registrado no histórico até o momento.
@@ -1618,35 +1777,195 @@
             return;
         }
 
+        // Sort chronological to identify latest event
+        const sortedChronological = rawHistory.slice().sort((a, b) => {
+            const da = new Date(a.created_at || 0).getTime();
+            const db = new Date(b.created_at || 0).getTime();
+            return (da - db) || (a.id - b.id);
+        });
+        const latest = sortedChronological[sortedChronological.length - 1];
+        const latestTitle = getEventFriendlyTitle(latest.evento, latest.condicao);
+        const latestDateStr = formatAuditDateTime(new Date(latest.created_at || Date.now()));
+
+        if (summaryEl) {
+            summaryEl.innerHTML = `<strong>${totalCount} evento${totalCount > 1 ? 's' : ''}</strong> · Último: ${escapeHtml(latestTitle)} — ${latestDateStr}`;
+        }
+
+        // Group consecutive duplicate events and reverse (newest first)
+        const grouped = groupAuditEvents(rawHistory);
         container.innerHTML = "";
-        history.forEach(item => {
-            const date = item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '';
-            const user = item.usuario ? (item.usuario.nome || item.usuario.name) : (item.papel || 'Sistema');
-            const resolvedRole = (item.usuario && item.usuario.papel && !['sistema', 'cliente'].includes(item.papel))
-                ? item.usuario.papel
-                : item.papel;
-            const role = resolvedRole ? `(${resolvedRole})` : '';
-            const action = (item.evento || item.descricao || item.mensagem || 'Evento de Workflow').replace(/_/g, ' ');
-            const details = item.justificativa || item.observacao || item.condicao || '';
+
+        grouped.forEach(group => {
+            const isGrouped = group.items.length > 1;
+            const lastItem = group.items[group.items.length - 1];
+            const cleanUser = group.userName || 'Sistema';
+            const cleanRole = group.userRole ? `(${group.userRole})` : '';
+            const cleanUserInitial = String(cleanUser).replace(/<[^>]*>/g, '').trim().charAt(0).toUpperCase() || 'U';
+
+            let actionText = "";
+            if (isGrouped) {
+                if (group.evento === 'EDITADA') {
+                    actionText = `Editada ${group.items.length}× por ${escapeHtml(cleanUser)}`;
+                } else {
+                    actionText = `${getEventFriendlyTitle(group.evento)} ${group.items.length}× por ${escapeHtml(cleanUser)}`;
+                }
+            } else {
+                actionText = getEventFriendlyTitle(group.evento, lastItem.condicao);
+            }
+
+            // Date Range
+            let dateDisplay = "";
+            const startStr = formatAuditDateTime(group.startDate);
+            const endStr = formatAuditDateTime(group.endDate);
+            if (formatAuditDate(group.startDate) === formatAuditDate(group.endDate)) {
+                if (formatAuditTime(group.startDate) === formatAuditTime(group.endDate)) {
+                    dateDisplay = startStr;
+                } else {
+                    dateDisplay = `${startStr}–${formatAuditTime(group.endDate)}`;
+                }
+            } else {
+                dateDisplay = `${startStr} – ${endStr}`;
+            }
+
+            const details = lastItem.justificativa || lastItem.observacao || lastItem.condicao || '';
 
             const row = document.createElement("div");
             row.style.cssText = "display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12.5px;";
-            const cleanUserInitial = String(user).replace(/<[^>]*>/g, '').trim().charAt(0).toUpperCase() || 'U';
             row.innerHTML = `
                 <div style="width: 28px; height: 28px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;">
                     ${escapeHtml(cleanUserInitial)}
                 </div>
                 <div style="flex-grow: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-                        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(user)} <span style="font-weight: 500; color: #64748b; font-size: 11.5px;">${escapeHtml(role)}</span></span>
-                        <span style="color: #94a3b8; font-size: 11px;">📅 ${date}</span>
+                        <span style="font-weight: 700; color: #0f172a;">
+                            ${escapeHtml(cleanUser)} <span style="font-weight: 500; color: #64748b; font-size: 11.5px;">${escapeHtml(cleanRole)}</span>
+                            ${isGrouped ? `<span style="background: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px;">${group.items.length}× repetido</span>` : ''}
+                        </span>
+                        <span style="color: #64748b; font-size: 11px; font-weight: 500;">📅 ${dateDisplay}</span>
                     </div>
-                    <div style="color: #2563eb; font-weight: 600; margin-top: 2px;">${escapeHtml(action)}</div>
+                    <div style="color: #2563eb; font-weight: 600; margin-top: 2px;">${actionText}</div>
                     ${details ? `<div style="color: #475569; margin-top: 4px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px;">${escapeHtml(details)}</div>` : ''}
                 </div>
             `;
             container.appendChild(row);
         });
+    }
+
+    function renderAttentionBanners() {
+        const container = document.getElementById("quote-attention-banner");
+        if (!container || !quote) return;
+        container.innerHTML = "";
+        let hasAlert = false;
+
+        // 1. Devolução com instruções do gestor
+        if (quote.status === 'DEVOLVIDA') {
+            const rawHist = Array.isArray(quote.historico) ? quote.historico : [];
+            const returnEv = rawHist.slice().reverse().find(h => {
+                const ev = String(h.evento || '').toUpperCase();
+                return ev.includes('DEVOLVID') || (h.condicao && h.condicao.toLowerCase().includes('devolvi'));
+            });
+            const instruction = (returnEv && (returnEv.condicao || returnEv.justificativa || returnEv.observacao)) 
+                ? (returnEv.condicao || returnEv.justificativa || returnEv.observacao)
+                : (quote.observacao_interna || 'O gestor devolveu a cotação solicitando revisão dos descontos ou condições comerciais.');
+
+            const bannerDevolvida = document.createElement("div");
+            bannerDevolvida.style.cssText = "background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 12px; padding: 14px 18px; color: #92400e; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+            bannerDevolvida.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 24px; line-height: 1; flex-shrink: 0;">⚠️</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 800; font-size: 14px; margin-bottom: 4px; color: #92400e;">
+                            Cotação Devolvida para Ajustes pelo Gestor
+                        </div>
+                        <div style="font-size: 13px; color: #78350f; line-height: 1.45;">
+                            <strong>Instruções do Gestor:</strong> ${escapeHtml(instruction)}
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(bannerDevolvida);
+            hasAlert = true;
+        }
+
+        // 2. Itens recusados com motivo
+        const rejectedItems = [];
+        (quote.itens || []).forEach(item => {
+            const isRejected = (item.decisao_diretoria === 'RECUSADO') || (item.status === 'RECUSADO');
+            if (isRejected) {
+                const justif = (quote.justificativas || []).find(j => j.cotacao_item_id === item.id);
+                const desc = item.produto ? item.produto.descricao : (item.descricao_original || 'Produto');
+                const reason = item.motivo_recusa || (justif ? justif.texto : null) || 'Recusado na aprovação';
+                rejectedItems.push({ desc, reason });
+            }
+        });
+
+        if (rejectedItems.length > 0) {
+            const bannerRecusados = document.createElement("div");
+            bannerRecusados.style.cssText = "background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 12px; padding: 14px 18px; color: #991b1b; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+            const itemsListHtml = rejectedItems.map(it => `
+                <li style="margin-top: 4px;">
+                    <strong>${escapeHtml(it.desc)}:</strong> <span style="color: #7f1d1d;">${escapeHtml(it.reason)}</span>
+                </li>
+            `).join('');
+
+            bannerRecusados.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 24px; line-height: 1; flex-shrink: 0;">❌</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 800; font-size: 14px; margin-bottom: 4px; color: #991b1b;">
+                            Itens Recusados na Análise Comercial
+                        </div>
+                        <div style="font-size: 13px; color: #7f1d1d; line-height: 1.45;">
+                            Alguns itens desta proposta foram recusados:
+                            <ul style="margin: 6px 0 0 18px; padding: 0;">
+                                ${itemsListHtml}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(bannerRecusados);
+            hasAlert = true;
+        }
+
+        // 3. Alerta de margem negativa
+        let hasNegativeMargin = false;
+        let countNegative = 0;
+        (quote.itens || []).forEach(item => {
+            const sug = parseFloat(item.preco_unit_sugerido || item.preco_tabela || 0);
+            const prop = parseFloat(item.preco_unit_proposto || item.preco_praticado || 0);
+            const cost = parseFloat(item.custo || 0);
+            const tax = parseFloat(item.imposto || 0);
+            if (cost > 0 && prop > 0) {
+                const net = prop * (1 - (tax / 100));
+                if (net < cost) {
+                    hasNegativeMargin = true;
+                    countNegative++;
+                }
+            }
+        });
+
+        if (hasNegativeMargin) {
+            const bannerMargem = document.createElement("div");
+            bannerMargem.style.cssText = "background: #fef2f2; border: 1.5px solid #dc2626; border-radius: 12px; padding: 14px 18px; color: #991b1b; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+            bannerMargem.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 24px; line-height: 1; flex-shrink: 0;">🚨</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 800; font-size: 14px; margin-bottom: 4px; color: #991b1b;">
+                            Alerta Crítico: Margem Negativa (${countNegative} item(ns) abaixo do custo)
+                        </div>
+                        <div style="font-size: 13px; color: #7f1d1d; line-height: 1.45;">
+                            Existem itens com preço proposto inferior ao custo cadastrado no ERP Sankhya. Propostas com margem negativa exigem justificativa e alçada especial da diretoria.
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(bannerMargem);
+            hasAlert = true;
+        }
+
+        container.style.display = hasAlert ? "flex" : "none";
     }
 
     function toggleClientDetails() {
@@ -1974,6 +2293,9 @@
 
         // Update proposal delivery tracking banner
         updateDeliveryBanner();
+
+        // Bind Priority Attention Alerts (Manager instructions, rejected items, negative margin)
+        renderAttentionBanners();
 
         // Bind Items List
         renderItems();
@@ -2851,6 +3173,7 @@
                 if (data.data.historico) {
                     quote.historico = data.data.historico;
                     renderAuditTrail();
+                    renderAttentionBanners();
                 }
                 cancelManualInclusionReplacement();
                 renderItems();

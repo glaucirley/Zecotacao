@@ -120,6 +120,46 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         </div>
     </div>
 
+    <!-- Justificativas de Desconto (Aberto por padrão para decisão do aprovador) -->
+    <div class="card" id="approval-justifications-card" style="margin-bottom: 18px; border: 1.5px solid #fcd34d; border-radius: 12px; background: #fffdf5; box-shadow: var(--shadow-sm); padding: 18px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #fef3c7; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px; line-height: 1;">💬</span>
+                <h3 style="font-size: 15px; margin: 0; font-weight: 700; color: #92400e;">
+                    Justificativas de Desconto do Vendedor
+                </h3>
+            </div>
+            <span style="font-size: 11.5px; color: #b45309; font-weight: 600; background: #fef3c7; padding: 2px 8px; border-radius: 6px; border: 1px solid #fde68a;">
+                Essencial para Decisão
+            </span>
+        </div>
+        <div id="approval-inline-justifications">
+            <!-- Dynamic Justifications -->
+        </div>
+    </div>
+
+    <!-- Trilha de Auditoria & Histórico (Recolhida por padrão) -->
+    <div class="card" style="margin-bottom: 20px; padding: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; background: #ffffff; box-shadow: var(--shadow-sm);">
+        <div onclick="toggleAuditAccordion()" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #f8fafc; transition: background 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px;">
+                <span style="font-size: 16px; line-height: 1;">🕘</span>
+                <span style="font-weight: 700; color: #0f172a;">Trilha de Auditoria</span>
+                <span style="color: #94a3b8;">·</span>
+                <span id="audit-summary-details" style="color: #64748b; font-size: 12.5px;">Carregando eventos...</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #2563eb; font-weight: 600; white-space: nowrap;">
+                <span id="audit-toggle-text">Ver ⌄</span>
+                <svg id="audit-toggle-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s ease;"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+        </div>
+
+        <div id="audit-accordion-body" style="display: none; padding: 18px; border-top: 1px solid var(--color-border); background: white;">
+            <div id="approval-audit-trail" style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="font-size: 12.5px; color: #64748b; text-align: center; padding: 12px;">Carregando histórico da cotação...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Items Grid Cockpit -->
     <div class="card">
         <div class="card-header">
@@ -396,23 +436,158 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         }
     }
 
-    function renderJustifications() {
-        const container = document.getElementById("justifications-container");
-        container.innerHTML = "";
+    function toggleAuditAccordion(forceState) {
+        const body = document.getElementById("audit-accordion-body");
+        const arrow = document.getElementById("audit-toggle-arrow");
+        const text = document.getElementById("audit-toggle-text");
+        if (!body) return;
 
-        // Get unique justifications
-        if (quote.justificativas.length === 0) {
-            container.innerHTML = '<p style="color: var(--color-text-muted); font-size:13px;">Nenhuma justificativa anexada pelo representante.</p>';
+        let shouldOpen;
+        if (typeof forceState === 'boolean') {
+            shouldOpen = forceState;
+        } else {
+            shouldOpen = body.style.display === "none";
+        }
+
+        body.style.display = shouldOpen ? "block" : "none";
+        if (arrow) arrow.style.transform = shouldOpen ? "rotate(180deg)" : "rotate(0deg)";
+        if (text) text.innerText = shouldOpen ? "Recolher ⌃" : "Ver ⌄";
+
+        try {
+            sessionStorage.setItem('zecotacao_audit_accordion_open', shouldOpen ? 'true' : 'false');
+        } catch(e) {}
+    }
+
+    function formatAuditTime(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        const h = String(d.getHours()).padStart(2, '0');
+        const m = String(d.getMinutes()).padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function formatAuditDate(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        const day = String(d.getDate()).padStart(2, '0');
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        return `${day}/${mo}`;
+    }
+
+    function formatAuditDateTime(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        return `${formatAuditDate(d)} ${formatAuditTime(d)}`;
+    }
+
+    function getEventFriendlyTitle(evento, condicao) {
+        const ev = String(evento || '').toUpperCase();
+        const map = {
+            'CRIADA': 'Cotação criada',
+            'SALVA_RASCUNHO': 'Rascunho salvo',
+            'EDITADA': 'Cotação editada',
+            'SUBMETIDA_APROVACAO': 'Enviada para aprovação',
+            'ENVIADA_PARA_APROVACAO': 'Enviada para aprovação',
+            'APROVADA': 'Cotação aprovada',
+            'APROVADA_AUTOMATICA': 'Aprovada automaticamente',
+            'APROVADA_DIRETORIA': 'Aprovada pela diretoria',
+            'DEVOLVIDA': 'Devolvida para ajustes',
+            'DEVOLVIDA_AO_REPRESENTANTE': 'Devolvida para ajustes',
+            'COTACAO_DEVOLVIDA': 'Devolvida para ajustes',
+            'ESCALADA_DIRETORIA': 'Escalada para diretoria',
+            'RECUSADA': 'Cotação recusada',
+            'CANCELADA': 'Cotação cancelada',
+            'PERDIDA': 'Marcada como perdida',
+            'PDF_GERADO': 'PDF comercial gerado',
+            'PROPOSTA_ENVIADA_WHATSAPP': 'Proposta enviada via WhatsApp',
+            'PROPOSTA_ENVIADA_EMAIL': 'Proposta enviada por e-mail',
+            'PROPOSTA_ENVIADA_LINK': 'Link compartilhado',
+            'PROPOSTA_ABERTA_CLIENTE': 'Proposta aberta pelo cliente',
+            'PEDIDO_GERADO': 'Pedido gerado no ERP',
+            'FATURADA': 'Cotação faturada',
+            'VALIDADE_ESTENDIDA_EM_APROVACAO': 'Validade estendida em aprovação'
+        };
+        if (map[ev]) return map[ev];
+        return (evento || 'Evento de Workflow').replace(/_/g, ' ');
+    }
+
+    function groupAuditEvents(rawHistory) {
+        if (!Array.isArray(rawHistory) || rawHistory.length === 0) return [];
+
+        const sorted = rawHistory.slice().sort((a, b) => {
+            const da = new Date(a.created_at || 0).getTime();
+            const db = new Date(b.created_at || 0).getTime();
+            return (da - db) || (a.id - b.id);
+        });
+
+        const groups = [];
+        let currentGroup = null;
+
+        sorted.forEach(item => {
+            const evName = String(item.evento || item.descricao || '').toUpperCase();
+            const userId = item.usuario_id || (item.usuario ? item.usuario.id : null);
+            const userRole = (item.usuario && item.usuario.papel) ? item.usuario.papel : (item.papel || '');
+            const userName = item.usuario ? (item.usuario.nome || item.usuario.name) : (item.papel || 'Sistema');
+            const itemDate = new Date(item.created_at || Date.now());
+
+            if (!currentGroup) {
+                currentGroup = {
+                    evento: evName,
+                    userId: userId,
+                    userName: userName,
+                    userRole: userRole,
+                    items: [item],
+                    startDate: itemDate,
+                    endDate: itemDate
+                };
+            } else {
+                const sameEv = currentGroup.evento === evName;
+                const sameUser = (currentGroup.userId && userId && currentGroup.userId === userId) ||
+                                 (currentGroup.userName === userName && currentGroup.userRole === userRole);
+
+                if (sameEv && sameUser) {
+                    currentGroup.items.push(item);
+                    currentGroup.endDate = itemDate;
+                } else {
+                    groups.push(currentGroup);
+                    currentGroup = {
+                        evento: evName,
+                        userId: userId,
+                        userName: userName,
+                        userRole: userRole,
+                        items: [item],
+                        startDate: itemDate,
+                        endDate: itemDate
+                    };
+                }
+            }
+        });
+
+        if (currentGroup) {
+            groups.push(currentGroup);
+        }
+
+        return groups.reverse();
+    }
+
+    function renderJustifications() {
+        const drawerContainer = document.getElementById("justifications-container");
+        const inlineContainer = document.getElementById("approval-inline-justifications");
+        
+        let html = "";
+        const justifs = Array.isArray(quote.justificativas) ? quote.justificativas : [];
+
+        if (justifs.length === 0) {
+            html = '<div style="color: var(--color-text-muted); font-size:13px; font-style:italic; padding:6px 0;">Nenhuma justificativa formal anexada pelo representante para esta cotação.</div>';
+            if (drawerContainer) drawerContainer.innerHTML = html;
+            if (inlineContainer) inlineContainer.innerHTML = html;
             return;
         }
 
-        quote.justificativas.forEach(j => {
-            const date = new Date(j.created_at).toLocaleString('pt-BR');
+        justifs.forEach(j => {
+            const date = j.created_at ? new Date(j.created_at).toLocaleString('pt-BR') : '';
             let itemDesc = "Geral da Cotação";
             if (j.cotacao_item_id) {
-                const item = quote.itens.find(i => i.id === j.cotacao_item_id);
+                const item = (quote.itens || []).find(i => i.id === j.cotacao_item_id);
                 if (item) {
-                    itemDesc = `Produto: ${item.produto.descricao}`;
+                    itemDesc = `Item específico: ${item.produto ? item.produto.descricao : (item.descricao_original || 'Produto')}`;
                 }
             }
 
@@ -421,8 +596,8 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 attachmentsMarkup += '<div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">';
                 j.anexos.forEach(a => {
                     attachmentsMarkup += `
-                        <a href="${a.arquivo_url}" target="_blank" class="btn btn-outline" style="padding: 4px 8px; font-size:11px;">
-                            Ver Anexo (${escapeHtml(a.tipo)})
+                        <a href="${a.arquivo_url}" target="_blank" class="btn btn-outline" style="padding: 4px 10px; font-size:11.5px; display:inline-flex; align-items:center; gap:5px; background:#ffffff; text-decoration:none;">
+                            <span>📎</span> <span>Ver Anexo (${escapeHtml(a.tipo || 'Arquivo')})</span>
                         </a>
                     `;
                 });
@@ -432,44 +607,148 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             let audioMarkup = "";
             if (j.audio_url) {
                 audioMarkup = `
-                    <div style="margin-top: 10px;">
-                        <audio src="${j.audio_url}" controls style="width: 100%; max-width: 300px; height: 32px;"></audio>
+                    <div style="margin-top: 10px; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:16px;">🎙️</span>
+                        <audio src="${j.audio_url}" controls style="width: 100%; max-width: 340px; height: 34px;"></audio>
                     </div>
                 `;
             }
 
-            container.innerHTML += `
-                <div style="border: 1px solid var(--color-border); padding: 12px; border-radius: var(--radius-md); background-color: var(--color-bg); margin-bottom: 12px;">
-                    <div style="display:flex; justify-content:space-between; font-size:11px; color: var(--color-text-muted); margin-bottom: 6px;">
-                        <strong>Contexto: ${escapeHtml(itemDesc)}</strong>
-                        <span>${date}</span>
+            html += `
+                <div style="border: 1px solid #fde68a; padding: 14px 16px; border-radius: 10px; background-color: #ffffff; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color: #b45309; margin-bottom: 8px; flex-wrap:wrap; gap:6px;">
+                        <span style="font-weight:700; color:#92400e; background:#fef3c7; padding:2px 8px; border-radius:4px;">${escapeHtml(itemDesc)}</span>
+                        <span style="color:#94a3b8; font-size:11.5px;">📅 ${date}</span>
                     </div>
-                    <p style="font-size:13px; white-space:pre-line;">${escapeHtml(j.texto || '(Sem justificativa em texto)')}</p>
+                    <p style="font-size:13px; color:#1e293b; margin:0; line-height:1.5; white-space:pre-line;">${escapeHtml(j.texto || '(Sem justificativa textual preenchida)')}</p>
                     ${audioMarkup}
                     ${attachmentsMarkup}
                 </div>
             `;
         });
+
+        if (drawerContainer) drawerContainer.innerHTML = html;
+        if (inlineContainer) inlineContainer.innerHTML = html;
     }
 
     function renderStepper() {
-        const container = document.getElementById("stepper-container");
-        container.innerHTML = "";
+        const drawerContainer = document.getElementById("stepper-container");
+        const inlineContainer = document.getElementById("approval-audit-trail");
+        const summaryEl = document.getElementById("audit-summary-details");
 
-        if (quote.historico.length === 0) {
-            container.innerHTML = '<li>Nenhum evento registrado.</li>';
+        const rawHistory = Array.isArray(quote.historico) ? quote.historico : [];
+        const totalCount = rawHistory.length;
+
+        // Restore accordion state
+        try {
+            const savedState = sessionStorage.getItem('zecotacao_audit_accordion_open');
+            toggleAuditAccordion(savedState === 'true');
+        } catch(e) {
+            toggleAuditAccordion(false);
+        }
+
+        if (totalCount === 0) {
+            if (summaryEl) summaryEl.innerText = "0 eventos registrados";
+            const emptyHtml = '<div style="font-size:12.5px; color:#94a3b8; text-align:center; padding:14px; background:#f8fafc; border-radius:8px; border:1px dashed #e2e8f0;">Nenhum evento registrado no histórico até o momento.</div>';
+            if (inlineContainer) inlineContainer.innerHTML = emptyHtml;
+            if (drawerContainer) drawerContainer.innerHTML = '<li>Nenhum evento registrado.</li>';
             return;
         }
 
-        quote.historico.forEach(h => {
-            const date = new Date(h.created_at).toLocaleString('pt-BR');
-            container.innerHTML += `
-                <li class="stepper-item">
-                    <div class="stepper-time">${date} | Papel: ${escapeHtml(h.papel)}</div>
-                    <div class="stepper-desc"><strong>${escapeHtml((h.evento || '').replace(/_/g, ' '))}</strong> - ${escapeHtml(h.condicao || '')}</div>
-                </li>
-            `;
+        // Summary header
+        const sortedChronological = rawHistory.slice().sort((a, b) => {
+            const da = new Date(a.created_at || 0).getTime();
+            const db = new Date(b.created_at || 0).getTime();
+            return (da - db) || (a.id - b.id);
         });
+        const latest = sortedChronological[sortedChronological.length - 1];
+        const latestTitle = getEventFriendlyTitle(latest.evento, latest.condicao);
+        const latestDateStr = formatAuditDateTime(new Date(latest.created_at || Date.now()));
+
+        if (summaryEl) {
+            summaryEl.innerHTML = `<strong>${totalCount} evento${totalCount > 1 ? 's' : ''}</strong> · Último: ${escapeHtml(latestTitle)} — ${latestDateStr}`;
+        }
+
+        // Group consecutive duplicate events and reverse (newest first)
+        const grouped = groupAuditEvents(rawHistory);
+        
+        // Inline Accordion rendering
+        if (inlineContainer) {
+            inlineContainer.innerHTML = "";
+            grouped.forEach(group => {
+                const isGrouped = group.items.length > 1;
+                const lastItem = group.items[group.items.length - 1];
+                const cleanUser = group.userName || 'Sistema';
+                const cleanRole = group.userRole ? `(${group.userRole})` : '';
+                const cleanUserInitial = String(cleanUser).replace(/<[^>]*>/g, '').trim().charAt(0).toUpperCase() || 'U';
+
+                let actionText = "";
+                if (isGrouped) {
+                    if (group.evento === 'EDITADA') {
+                        actionText = `Editada ${group.items.length}× por ${escapeHtml(cleanUser)}`;
+                    } else {
+                        actionText = `${getEventFriendlyTitle(group.evento)} ${group.items.length}× por ${escapeHtml(cleanUser)}`;
+                    }
+                } else {
+                    actionText = getEventFriendlyTitle(group.evento, lastItem.condicao);
+                }
+
+                // Date Range
+                let dateDisplay = "";
+                const startStr = formatAuditDateTime(group.startDate);
+                const endStr = formatAuditDateTime(group.endDate);
+                if (formatAuditDate(group.startDate) === formatAuditDate(group.endDate)) {
+                    if (formatAuditTime(group.startDate) === formatAuditTime(group.endDate)) {
+                        dateDisplay = startStr;
+                    } else {
+                        dateDisplay = `${startStr}–${formatAuditTime(group.endDate)}`;
+                    }
+                } else {
+                    dateDisplay = `${startStr} – ${endStr}`;
+                }
+
+                const details = lastItem.justificativa || lastItem.observacao || lastItem.condicao || '';
+
+                const row = document.createElement("div");
+                row.style.cssText = "display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12.5px;";
+                row.innerHTML = `
+                    <div style="width: 28px; height: 28px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;">
+                        ${escapeHtml(cleanUserInitial)}
+                    </div>
+                    <div style="flex-grow: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+                            <span style="font-weight: 700; color: #0f172a;">
+                                ${escapeHtml(cleanUser)} <span style="font-weight: 500; color: #64748b; font-size: 11.5px;">${escapeHtml(cleanRole)}</span>
+                                ${isGrouped ? `<span style="background: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px;">${group.items.length}× repetido</span>` : ''}
+                            </span>
+                            <span style="color: #64748b; font-size: 11px; font-weight: 500;">📅 ${dateDisplay}</span>
+                        </div>
+                        <div style="color: #2563eb; font-weight: 600; margin-top: 2px;">${actionText}</div>
+                        ${details ? `<div style="color: #475569; margin-top: 4px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px;">${escapeHtml(details)}</div>` : ''}
+                    </div>
+                `;
+                inlineContainer.appendChild(row);
+            });
+        }
+
+        // Drawer stepper list
+        if (drawerContainer) {
+            drawerContainer.innerHTML = "";
+            grouped.forEach(group => {
+                const isGrouped = group.items.length > 1;
+                const lastItem = group.items[group.items.length - 1];
+                const actionTitle = isGrouped 
+                    ? `${getEventFriendlyTitle(group.evento)} (${group.items.length}×)`
+                    : getEventFriendlyTitle(group.evento, lastItem.condicao);
+                const dateDisplay = formatAuditDateTime(group.endDate);
+                drawerContainer.innerHTML += `
+                    <li class="stepper-item">
+                        <div class="stepper-time">${dateDisplay} | ${escapeHtml(group.userName)} (${escapeHtml(group.userRole || 'Usuário')})</div>
+                        <div class="stepper-desc"><strong>${escapeHtml(actionTitle)}</strong> - ${escapeHtml(lastItem.condicao || lastItem.justificativa || '')}</div>
+                    </li>
+                `;
+            });
+        }
     }
 
     function computeEffectiveItemMargin(item) {

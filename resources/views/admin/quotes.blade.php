@@ -877,9 +877,25 @@
             <div>Valor Final: <strong id="modal-total" style="color: var(--color-primary);">R$ 0,00</strong></div>
         </div>
 
-        <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--color-primary);">Histórico de Auditoria / Workflow</h4>
-        <div id="modal-history-list" style="font-size: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto; background: #f8f9fa; padding: 12px; border-radius: 8px;">
-            <!-- History -->
+        <!-- Collapsible Audit Accordion in Modal -->
+        <div class="card" style="margin-top: 20px; padding: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 10px;">
+            <div onclick="toggleModalAuditAccordion()" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #f8fafc; transition: background 0.2s;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                    <span style="font-size: 15px;">🕘</span>
+                    <strong style="color: #0f172a;">Trilha de Auditoria</strong>
+                    <span style="color: #94a3b8;">·</span>
+                    <span id="modal-audit-summary" style="color: #64748b; font-size: 12px;">Carregando eventos...</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #2563eb; font-weight: 600;">
+                    <span id="modal-audit-toggle-text">Ver ⌄</span>
+                    <svg id="modal-audit-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+            <div id="modal-audit-body" style="display: none; padding: 14px; border-top: 1px solid var(--color-border); background: white;">
+                <div id="modal-history-list" style="font-size: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
+                    <!-- History -->
+                </div>
+            </div>
         </div>
 
         <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
@@ -1766,9 +1782,111 @@
         document.getElementById("modal-discount").innerText = "R$ " + parseFloat(quote.desconto_total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
         document.getElementById("modal-total").innerText = "R$ " + parseFloat(quote.total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
 
+        // Populate Collapsible Audit in Modal
+        renderModalAuditTrail(quote);
+
         // Open drawer
         document.getElementById("detail-overlay").classList.add("active", "open");
         document.getElementById("detail-modal").classList.add("active", "open");
+    }
+
+    function toggleModalAuditAccordion(forceState) {
+        const body = document.getElementById("modal-audit-body");
+        const arrow = document.getElementById("modal-audit-arrow");
+        const text = document.getElementById("modal-audit-toggle-text");
+        if (!body) return;
+
+        let shouldOpen;
+        if (typeof forceState === 'boolean') {
+            shouldOpen = forceState;
+        } else {
+            shouldOpen = body.style.display === "none";
+        }
+
+        body.style.display = shouldOpen ? "block" : "none";
+        if (arrow) arrow.style.transform = shouldOpen ? "rotate(180deg)" : "rotate(0deg)";
+        if (text) text.innerText = shouldOpen ? "Recolher ⌃" : "Ver ⌄";
+
+        try {
+            sessionStorage.setItem('zecotacao_audit_accordion_open', shouldOpen ? 'true' : 'false');
+        } catch(e) {}
+    }
+
+    function renderModalAuditTrail(quote) {
+        const list = document.getElementById("modal-history-list");
+        const summary = document.getElementById("modal-audit-summary");
+        if (!list) return;
+
+        const raw = Array.isArray(quote.historico) ? quote.historico : [];
+        const total = raw.length;
+
+        // Restore accordion state
+        try {
+            const saved = sessionStorage.getItem('zecotacao_audit_accordion_open');
+            toggleModalAuditAccordion(saved === 'true');
+        } catch(e) {
+            toggleModalAuditAccordion(false);
+        }
+
+        if (total === 0) {
+            if (summary) summary.innerText = "0 eventos";
+            list.innerHTML = `<span style="color:var(--color-text-muted); font-size:11.5px; text-align:center; padding:10px;">Nenhum evento registrado.</span>`;
+            return;
+        }
+
+        // Identify latest event
+        const sorted = raw.slice().sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0) || (a.id - b.id));
+        const latest = sorted[sorted.length - 1];
+        const latestDate = latest.created_at ? new Date(latest.created_at) : new Date();
+        const latestDateStr = `${String(latestDate.getDate()).padStart(2, '0')}/${String(latestDate.getMonth() + 1).padStart(2, '0')} ${String(latestDate.getHours()).padStart(2, '0')}:${String(latestDate.getMinutes()).padStart(2, '0')}`;
+        const latestTitle = (latest.evento || 'Evento').replace(/_/g, ' ');
+
+        if (summary) {
+            summary.innerHTML = `<strong>${total} evento${total > 1 ? 's' : ''}</strong> · Último: ${escapeHtml(latestTitle)} — ${latestDateStr}`;
+        }
+
+        // Group consecutive duplicate events
+        const groups = [];
+        let cur = null;
+        sorted.forEach(item => {
+            const ev = (item.evento || '').toUpperCase();
+            const uId = item.usuario_id || (item.usuario ? item.usuario.id : null);
+            const uName = item.usuario ? item.usuario.nome : (item.papel || 'Sistema');
+            const d = new Date(item.created_at || Date.now());
+
+            if (!cur) {
+                cur = { ev, uId, uName, items: [item], startDate: d, endDate: d };
+            } else {
+                if (cur.ev === ev && cur.uId === uId) {
+                    cur.items.push(item);
+                    cur.endDate = d;
+                } else {
+                    groups.push(cur);
+                    cur = { ev, uId, uName, items: [item], startDate: d, endDate: d };
+                }
+            }
+        });
+        if (cur) groups.push(cur);
+
+        // Reverse (newest first)
+        groups.reverse();
+        list.innerHTML = "";
+        groups.forEach(g => {
+            const isGrouped = g.items.length > 1;
+            const last = g.items[g.items.length - 1];
+            const dStr = `${String(g.endDate.getDate()).padStart(2, '0')}/${String(g.endDate.getMonth() + 1).padStart(2, '0')} ${String(g.endDate.getHours()).padStart(2, '0')}:${String(g.endDate.getMinutes()).padStart(2, '0')}`;
+            const action = isGrouped ? `${(g.ev || 'Evento').replace(/_/g, ' ')} ${g.items.length}× por ${escapeHtml(g.uName)}` : (g.ev || 'Evento').replace(/_/g, ' ');
+
+            list.innerHTML += `
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; font-size:11.5px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong>${escapeHtml(action)}</strong>
+                        <span style="color:#94a3b8; font-size:10.5px;">${dStr}</span>
+                    </div>
+                    ${last.condicao ? `<div style="color:#64748b; margin-top:2px;">${escapeHtml(last.condicao)}</div>` : ''}
+                </div>
+            `;
+        });
     }
 
     function closeDetailModal() {

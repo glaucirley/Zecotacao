@@ -124,20 +124,53 @@
         const tbody = document.getElementById("audit-table-body");
         tbody.innerHTML = "";
 
-        if (quote.historico.length === 0) {
+        const raw = Array.isArray(quote.historico) ? quote.historico : [];
+        if (raw.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--color-text-muted); padding:30px;">Nenhum evento registrado no histórico desta cotação.</td></tr>`;
             return;
         }
 
-        quote.historico.forEach(h => {
-            const date = new Date(h.created_at).toLocaleString('pt-BR');
+        // 1. Sort chronological (oldest to newest) to group consecutive repeats
+        const sorted = raw.slice().sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0) || (a.id - b.id));
+
+        const groups = [];
+        let cur = null;
+        sorted.forEach(item => {
+            const ev = (item.evento || '').toUpperCase();
+            const uId = item.usuario_id || (item.usuario ? item.usuario.id : null);
+            const d = new Date(item.created_at || Date.now());
+
+            if (!cur) {
+                cur = { ev, uId, items: [item], startDate: d, endDate: d };
+            } else {
+                if (cur.ev === ev && cur.uId === uId) {
+                    cur.items.push(item);
+                    cur.endDate = d;
+                } else {
+                    groups.push(cur);
+                    cur = { ev, uId, items: [item], startDate: d, endDate: d };
+                }
+            }
+        });
+        if (cur) groups.push(cur);
+
+        // 2. Reverse so newest is first
+        groups.reverse();
+
+        groups.forEach(g => {
+            const isGrouped = g.items.length > 1;
+            const h = g.items[g.items.length - 1]; // latest item in group
+            const firstDateStr = new Date(g.startDate).toLocaleString('pt-BR');
+            const lastDateStr = new Date(g.endDate).toLocaleString('pt-BR');
+            const dateStr = isGrouped && (firstDateStr !== lastDateStr) ? `${firstDateStr} – ${lastDateStr.split(' ')[1]}` : lastDateStr;
+
             const userStr = h.usuario ? `${h.usuario.nome} (${h.usuario.email})` : (h.papel === 'sistema' ? 'Sistema (Regras de Alçada)' : 'Sistema n8n / WhatsApp');
             const resolvedRole = (h.usuario && h.usuario.papel && !['sistema', 'cliente'].includes(h.papel)) ? h.usuario.papel : h.papel;
             const roleStr = resolvedRole ? capitalize(resolvedRole) : 'Integração';
             
             // Map event to a nice badge
             let badgeClass = 'event-default';
-            const evt = h.evento.toLowerCase();
+            const evt = (h.evento || '').toLowerCase();
             if (evt.includes('criada') || evt.includes('criaçao') || evt.includes('item_adicionado')) {
                 badgeClass = 'event-criacao';
             } else if (evt.includes('pdf')) {
@@ -152,15 +185,19 @@
                 badgeClass = 'event-faturamento';
             }
 
-            const cleanEvent = h.evento.replace(/_/g, ' ');
+            const cleanEvent = (h.evento || 'Evento').replace(/_/g, ' ');
+            const displayEvent = isGrouped ? `${cleanEvent} (${g.items.length}×)` : cleanEvent;
 
             tbody.innerHTML += `
                 <tr>
-                    <td style="white-space: nowrap;"><strong>${date}</strong></td>
+                    <td style="white-space: nowrap;"><strong>${dateStr}</strong></td>
                     <td>${escapeHtml(userStr)}</td>
                     <td><span style="font-weight:600; color:#555;">${escapeHtml(roleStr)}</span></td>
-                    <td><span class="event-badge ${badgeClass}">${escapeHtml(cleanEvent)}</span></td>
-                    <td style="color:var(--color-text); line-height:1.45;">${escapeHtml(h.condicao || '-')}</td>
+                    <td>
+                        <span class="event-badge ${badgeClass}">${escapeHtml(displayEvent)}</span>
+                        ${isGrouped ? `<span style="font-size:10px; color:#64748b; font-weight:700; margin-left:4px;">${g.items.length}× repetido</span>` : ''}
+                    </td>
+                    <td style="color:var(--color-text); line-height:1.45;">${escapeHtml(h.condicao || h.justificativa || h.observacao || '-')}</td>
                 </tr>
             `;
         });
