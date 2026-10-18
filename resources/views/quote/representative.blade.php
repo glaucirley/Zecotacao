@@ -1451,12 +1451,13 @@
     }
 
     function getRelativeValidityText(validityDateStr) {
-        if (!validityDateStr) return 'Sem validade definida';
+        const isWaitingApproval = quote && ['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote.status);
+        if (!validityDateStr) return isWaitingApproval ? '⏸️ Validade pausada na aprovação' : 'Sem validade definida';
         const now = new Date();
         const valDate = new Date(validityDateStr);
         const diffMs = valDate.getTime() - now.getTime();
         if (diffMs <= 0) {
-            return '⚠️ Validade expirada';
+            return isWaitingApproval ? '⏸️ Validade pausada (aguardando aprovação)' : '⚠️ Validade expirada';
         }
         const diffMinutes = Math.floor(diffMs / (1000 * 60));
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -1465,6 +1466,10 @@
         const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
         const isTomorrow = valDate.toDateString() === tomorrow.toDateString();
         const timeStr = valDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        if (isWaitingApproval) {
+            return `⏸️ Validade protegida na aprovação (renova ao aprovar)`;
+        }
 
         if (diffMinutes < 60) {
             return `⏳ Vence em ${diffMinutes} min`;
@@ -1478,6 +1483,77 @@
             const diffDays = Math.round((startOfVal - startOfNow) / (1000 * 60 * 60 * 24));
             return `⏳ Vence em ${diffDays} dias (${valDate.toLocaleDateString('pt-BR')})`;
         }
+    }
+
+    function getQuoteApprovalSummary() {
+        const history = Array.isArray(quote?.historico) ? quote.historico : [];
+        let type = null; // 'diretoria' | 'gestor' | 'automatica'
+        let approverName = '';
+
+        // Inspect events in chronological order so the most recent approval wins
+        const ordered = [...history].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+        let lastRoutedTo = null;
+
+        ordered.forEach(ev => {
+            const code = String(ev.evento || '').toUpperCase();
+            const role = String(ev.usuario?.papel || ev.papel || '').toLowerCase();
+            const uName = ev.usuario ? (ev.usuario.nome || ev.usuario.name || '') : '';
+
+            if (code === 'DEVOLVIDA_AO_REPRESENTANTE' || code === 'COTACAO_DEVOLVIDA') {
+                type = null;
+                approverName = '';
+                lastRoutedTo = null;
+            } else if (code === 'ENVIADA_AO_DIRETOR' || code === 'ESCALADA_PARA_DIRETORIA') {
+                lastRoutedTo = 'diretoria';
+            } else if (code === 'ENVIADA_AO_GESTOR') {
+                lastRoutedTo = 'gestor';
+            } else if (code === 'APROVADA_DIRETOR' || code === 'APROVADA_ADMINISTRADOR') {
+                type = 'diretoria';
+                if (uName) approverName = uName;
+            } else if (code === 'APROVADA_GESTOR') {
+                type = (lastRoutedTo === 'diretoria') ? 'diretoria' : 'gestor';
+                if (uName) approverName = uName;
+            } else if (code === 'ITEM_APROVADO') {
+                if (lastRoutedTo === 'diretoria' || role === 'diretor' || role === 'administrador') {
+                    type = 'diretoria';
+                } else if (lastRoutedTo === 'gestor' || role === 'gestor') {
+                    type = 'gestor';
+                }
+                if (uName) approverName = uName;
+            } else if (code === 'LIBERADA_AUTOMATICAMENTE') {
+                type = 'automatica';
+                approverName = '';
+            }
+        });
+
+        // Calculate effective discount % across non-rejected items
+        let totalSug = 0;
+        let totalProp = 0;
+        let hasBelowMin = false;
+        if (quote && Array.isArray(quote.itens)) {
+            quote.itens.forEach(it => {
+                if (it.status_item === 'recusado' || it.nao_encontrado) return;
+                const qtd = parseInt(it.qtd || 1);
+                const sug = parseFloat(it.preco_unit_sugerido || 0);
+                const prop = parseFloat(it.preco_unit_proposto || 0);
+                const minEf = getItemEffectiveMin(it);
+                if (prop < minEf) hasBelowMin = true;
+                totalSug += qtd * Math.max(sug, prop);
+                totalProp += qtd * prop;
+            });
+        }
+        const discountPct = (totalSug > 0 && totalProp < totalSug) ? (((totalSug - totalProp) / totalSug) * 100) : 0;
+
+        if (!type) {
+            const { repLimit, gestorLimit, hasGestor } = getRepresentativeLimits();
+            if (hasBelowMin || discountPct > (repLimit + 0.0001)) {
+                type = (!hasGestor || (gestorLimit > 0 && discountPct > (gestorLimit + 0.0001))) ? 'diretoria' : 'gestor';
+            } else {
+                type = 'automatica';
+            }
+        }
+
+        return { type, approverName, discountPct };
     }
 
     function updateStepper(status) {
@@ -1701,11 +1777,20 @@
             if (isEditingLocked) {
                 banner.style.display = "flex";
                 if (quote.status === 'AGUARDANDO_GESTOR') {
-                    bannerText.innerHTML = "<strong>Cotação em análise de alçada:</strong> Aguardando aprovação do Gestor de Equipe. Os campos estão em modo somente leitura.";
+                    bannerText.innerHTML = "<strong>Cotação em análise de alçada:</strong> Aguardando aprovação do Gestor de Equipe. A validade comercial está protegida durante a análise.";
                 } else if (quote.status === 'COM_DIRETOR') {
-                    bannerText.innerHTML = "<strong>Cotação em análise com a Diretoria:</strong> Aguardando decisão superior. Os campos estão em modo somente leitura.";
+                    bannerText.innerHTML = "<strong>Cotação em análise com a Diretoria:</strong> Aguardando decisão superior. A validade comercial está protegida durante a análise.";
                 } else if (quote.status === 'APROVADA') {
-                    bannerText.innerHTML = "<strong>Aprovada automaticamente:</strong> Cotação sem desconto (ou dentro da alçada), não precisa de gestor. Clique no botão <strong>'Enviar ao Cliente'</strong> no rodapé para enviar via WhatsApp (o PDF é gerado automaticamente).";
+                    const appInfo = getQuoteApprovalSummary();
+                    const discStr = appInfo.discountPct > 0.005 ? ` com <strong>${appInfo.discountPct.toFixed(1).replace('.', ',')}% de desconto</strong>` : '';
+                    const byStr = appInfo.approverName ? ` por <strong>${escapeHtml(appInfo.approverName)}</strong>` : '';
+                    if (appInfo.type === 'diretoria') {
+                        bannerText.innerHTML = `<strong>Aprovada pela Diretoria:</strong> Cotação revisada e aprovada pela Diretoria${byStr}${discStr}. Clique no botão <strong>'Enviar ao Cliente'</strong> no rodapé para enviar via WhatsApp (o PDF é gerado automaticamente).`;
+                    } else if (appInfo.type === 'gestor') {
+                        bannerText.innerHTML = `<strong>Aprovada pelo Gestor:</strong> Cotação revisada e aprovada pelo Gestor${byStr}${discStr}. Clique no botão <strong>'Enviar ao Cliente'</strong> no rodapé para enviar via WhatsApp (o PDF é gerado automaticamente).`;
+                    } else {
+                        bannerText.innerHTML = `<strong>Aprovada automaticamente:</strong> Cotação ${appInfo.discountPct > 0.005 ? `com desconto de ${appInfo.discountPct.toFixed(1).replace('.', ',')}% dentro da sua alçada` : 'sem desconto'}, não precisa de gestor. Clique no botão <strong>'Enviar ao Cliente'</strong> no rodapé para enviar via WhatsApp (o PDF é gerado automaticamente).`;
+                    }
                 } else if (quote.status === 'PDF_GERADO') {
                     bannerText.innerHTML = "<strong>PDF Emitido:</strong> Documento gerado com sucesso. Clique no botão <strong>'Enviar ao Cliente'</strong> no rodapé para enviar a proposta via WhatsApp.";
                 } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
@@ -1963,13 +2048,43 @@
         if (item.nao_encontrado) {
             return `<span class="badge-price-tag tag-below-min" style="background:#ffe4e6; color:#be123c; border:1px solid #fecdd3; font-weight:700;">⚠️ Aguardando inclusão manual</span>`;
         }
+        if (item.status_item === 'recusado') {
+            return `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-weight:700;">✕ Item recusado na avaliação</span>`;
+        }
+
         const propPrice = parseFloat(item.preco_unit_proposto || 0);
         const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
         const minEf = getItemEffectiveMin(item);
         const isBelowMin = propPrice < minEf;
         const { repLimit, gestorLimit, hasGestor } = getRepresentativeLimits();
+        const isQuoteApprovedOrAfter = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'].includes(quote?.status);
+        const isItemApproved = (item.status_item === 'aprovado') || isQuoteApprovedOrAfter;
+
+        if (isItemApproved) {
+            const appInfo = getQuoteApprovalSummary();
+            const originLabel = appInfo.type === 'diretoria'
+                ? 'Aprovado pela Diretoria'
+                : (appInfo.type === 'gestor' ? 'Aprovado pelo Gestor' : 'Liberado na sua alçada');
+
+            if (Math.abs(propPrice - sugPrice) < 0.005) {
+                return `<span class="badge-price-tag tag-table">Preço de tabela</span>`;
+            }
+            if (propPrice < sugPrice) {
+                const discount = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100) : 0;
+                const perc = discount.toFixed(1).replace('.', ',');
+                return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">✓ −${perc}% · ${originLabel}</span>`;
+            }
+            const percAbove = sugPrice > 0 ? (((propPrice - sugPrice) / sugPrice) * 100).toFixed(1).replace('.', ',') : '0';
+            return `<span class="badge-price-tag tag-above">+${percAbove}%</span>`;
+        }
+
+        const isPendingApprovalQueue = ['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote?.status);
+        const pendingDestLabel = quote?.status === 'COM_DIRETOR' ? 'Em análise na Diretoria' : 'Em análise no Gestor';
 
         if (isBelowMin) {
+            if (isPendingApprovalQueue) {
+                return `<span class="badge-price-tag tag-below-min" style="background:#fffbeb; color:#b45309; border:1px solid #fcd34d; font-weight:700;">⏳ Abaixo do mínimo · ${pendingDestLabel}</span>`;
+            }
             const dest = (!hasGestor || (gestorLimit > 0 && sugPrice > 0 && (((sugPrice - propPrice) / sugPrice) * 100) > gestorLimit))
                 ? 'a diretoria'
                 : 'o gestor';
@@ -1986,6 +2101,8 @@
 
             if (discount <= (repLimit + 0.0001)) {
                 return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">−${perc}% · Liberado na sua alçada</span>`;
+            } else if (isPendingApprovalQueue) {
+                return `<span class="badge-price-tag tag-below-min" style="background:#fffbeb; color:#b45309; border:1px solid #fcd34d; font-weight:600;">−${perc}% · ${pendingDestLabel}</span>`;
             } else if (hasGestor && discount <= (gestorLimit + 0.0001)) {
                 return `<span class="badge-price-tag tag-below-min" style="background:#fffbeb; color:#b45309; border:1px solid #fcd34d; font-weight:600;">−${perc}% · Acima da sua alçada, vai para o gestor</span>`;
             } else {
@@ -2315,7 +2432,7 @@
                 const isUnfound = Boolean(item.nao_encontrado);
 
                 container.innerHTML += `
-                    <div class="compact-item-card ${rowClass} ${isUnfound || (isBelowMin && !isRejected) ? 'below-min-card' : ''}" id="card-item-${item.id}">
+                    <div class="compact-item-card ${rowClass} ${isUnfound || (isBelowMin && !isRejected && !isApproved) ? 'below-min-card' : ''}" id="card-item-${item.id}">
                         <!-- LINHA 1: descrição em destaque + código + unidade + etiqueta status + lixeira -->
                         <div class="item-line-1">
                             <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">

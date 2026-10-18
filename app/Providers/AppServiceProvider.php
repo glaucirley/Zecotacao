@@ -75,6 +75,63 @@ class AppServiceProvider extends ServiceProvider
                     // Fail silently if DB is not ready
                 }
             }
+
+            $restoreApprovalLock = storage_path('framework/restore_expired_in_approval_2026_10_18.lock');
+            if (!is_file($restoreApprovalLock)) {
+                try {
+                    $expiredQuotes = \App\Models\Cotacao::where('status', 'EXPIRADA')
+                        ->with('historico')
+                        ->get();
+                    $defaultHours = (int) \App\Models\ParametroSistema::getVal('VALIDADE_PADRAO_HORAS', 24);
+
+                    foreach ($expiredQuotes as $eq) {
+                        $history = $eq->historico->sortBy('id')->values();
+                        $lastStatusEvent = null;
+                        foreach ($history as $h) {
+                            if ($h->evento === 'COTACAO_EXPIRADA') {
+                                continue;
+                            }
+                            if (in_array($h->evento, [
+                                'ENVIADA_AO_DIRETOR',
+                                'ESCALADA_PARA_DIRETORIA',
+                                'ENVIADA_AO_GESTOR',
+                                'APROVADA_DIRETOR',
+                                'APROVADA_GESTOR',
+                                'APROVADA_ADMINISTRADOR',
+                                'LIBERADA_AUTOMATICAMENTE',
+                                'DEVOLVIDA_AO_REPRESENTANTE',
+                                'COTACAO_DEVOLVIDA',
+                                'TODOS_ITENS_RECUSADOS',
+                                'PDF_GERADO',
+                            ])) {
+                                $lastStatusEvent = $h->evento;
+                            }
+                        }
+
+                        if (in_array($lastStatusEvent, ['ENVIADA_AO_DIRETOR', 'ESCALADA_PARA_DIRETORIA', 'ENVIADA_AO_GESTOR'])) {
+                            $restoredStatus = ($lastStatusEvent === 'ENVIADA_AO_GESTOR') ? 'AGUARDANDO_GESTOR' : 'COM_DIRETOR';
+                            $hoursToAdd = max(1, (int)($eq->validade_horas ?: $defaultHours));
+                            $newVal = now()->addHours($hoursToAdd);
+
+                            $eq->update([
+                                'status' => $restoredStatus,
+                                'data_validade' => $newVal,
+                            ]);
+
+                            \App\Models\CotacaoHistorico::create([
+                                'cotacao_id' => $eq->id,
+                                'evento' => 'VALIDADE_ESTENDIDA_EM_APROVACAO',
+                                'usuario_id' => null,
+                                'papel' => 'sistema',
+                                'condicao' => "Cotação restaurada para {$restoredStatus} pois havia expirado enquanto aguardava avaliação. Validade estendida até " . $newVal->format('d/m/Y H:i') . ".",
+                            ]);
+                        }
+                    }
+                    @file_put_contents($restoreApprovalLock, date('c'));
+                } catch (\Throwable $e) {
+                    // Fail silently if DB is not ready
+                }
+            }
         }
     }
 }

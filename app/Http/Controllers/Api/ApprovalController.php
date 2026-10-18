@@ -33,7 +33,7 @@ class ApprovalController extends Controller
                 ->whereHas('representante', function ($q) use ($teamIds) {
                     $q->whereIn('equipe_id', $teamIds);
                 })
-                ->with(['parceiro', 'representante'])
+                ->with(['parceiro', 'representante', 'itens'])
                 ->get();
 
             return response()->json(['success' => true, 'data' => $quotes]);
@@ -42,7 +42,7 @@ class ApprovalController extends Controller
         if ($user->isDiretor()) {
             // Directors see all quotes escalated to the director
             $quotes = Cotacao::where('status', 'COM_DIRETOR')
-                ->with(['parceiro', 'representante'])
+                ->with(['parceiro', 'representante', 'itens'])
                 ->get();
 
             return response()->json(['success' => true, 'data' => $quotes]);
@@ -51,7 +51,7 @@ class ApprovalController extends Controller
         if ($user->isAdministrador()) {
             // Admin sees both manager pending and director pending quotes
             $quotes = Cotacao::whereIn('status', ['AGUARDANDO_GESTOR', 'COM_DIRETOR'])
-                ->with(['parceiro', 'representante'])
+                ->with(['parceiro', 'representante', 'itens'])
                 ->get();
 
             return response()->json(['success' => true, 'data' => $quotes]);
@@ -122,12 +122,17 @@ class ApprovalController extends Controller
             DB::transaction(function () use ($request, $quote, $item, $user) {
                 $precoProposto = (float)$request->input('preco_unit_proposto');
                 $precoSugerido = (float)$item->preco_unit_sugerido;
+                $custo = (float)$item->custo;
+                $imposto = (float)$item->imposto;
                 $ajuste = $precoSugerido > 0 ? (($precoProposto - $precoSugerido) / $precoSugerido) * 100 : 0;
+                $precoLiquido = $precoProposto * (1 - ($imposto / 100));
+                $margem = ($custo > 0 && $precoLiquido > 0) ? (($precoLiquido - $custo) / $precoLiquido) * 100 : (float)$item->margem_calculada;
 
                 $item->update([
                     'preco_unit_proposto' => $precoProposto,
-                    'ajuste_percentual' => $ajuste,
-                    'subtotal' => $item->qtd * $precoProposto,
+                    'ajuste_percentual' => round($ajuste, 2),
+                    'margem_calculada' => round($margem, 2),
+                    'subtotal' => round($item->qtd * $precoProposto, 2),
                 ]);
 
                 // Recalculate quote totals
@@ -135,7 +140,7 @@ class ApprovalController extends Controller
                 $total = 0;
                 $quote->refresh();
                 foreach ($quote->itens as $it) {
-                    if ($it->status_item === 'recusado') {
+                    if ($it->status_item === 'recusado' || $it->nao_encontrado) {
                         continue;
                     }
                     $subtotal += $it->qtd * max((float)$it->preco_unit_sugerido, (float)$it->preco_unit_proposto);
@@ -254,7 +259,7 @@ class ApprovalController extends Controller
      */
     public function decide(Request $request, $cotacao_id)
     {
-        $quote = Cotacao::findOrFail($cotacao_id);
+        $quote = Cotacao::with('itens.produto')->findOrFail($cotacao_id);
         $user = Auth::user();
 
         // Authorization
@@ -274,6 +279,8 @@ class ApprovalController extends Controller
             'itens.*.id' => 'required_with:itens|exists:cotacao_itens,id',
             'itens.*.status' => 'required_with:itens|in:aprovado,recusado',
             'itens.*.justificativa' => 'nullable|string',
+            'confirmar_margem_negativa' => 'nullable|boolean',
+            'observacao_margem_negativa' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -282,9 +289,15 @@ class ApprovalController extends Controller
 
         $acao = $request->input('acao');
 
-        // Manual item-level checks for rejected justifications
+        // Manual item-level checks for rejected justifications & negative margin guard
+        $hasNegativeMarginApproval = false;
+        $computedOverallMargin = 0.0;
+        $minApprovedItemMargin = 0.0;
+
         if ($acao === 'decidir_itens') {
+            $decisionsById = [];
             foreach ($request->input('itens', []) as $index => $itemDec) {
+                $decisionsById[(int)$itemDec['id']] = $itemDec['status'] ?? 'pendente';
                 if (isset($itemDec['status']) && $itemDec['status'] === 'recusado') {
                     if (empty($itemDec['justificativa'])) {
                         return response()->json([
@@ -296,12 +309,86 @@ class ApprovalController extends Controller
                     }
                 }
             }
+
+            // Evaluate margin on items being approved
+            $totalNetRevenue = 0.0;
+            $totalCost = 0.0;
+            $validItemsForMargin = 0;
+
+            foreach ($quote->itens as $qItem) {
+                if ($qItem->nao_encontrado) {
+                    continue;
+                }
+                $targetStatus = $decisionsById[$qItem->id] ?? $qItem->status_item;
+                if ($targetStatus !== 'aprovado') {
+                    continue;
+                }
+
+                $prop = (float)$qItem->preco_unit_proposto;
+                $sug = (float)$qItem->preco_unit_sugerido;
+                $min = (float)$qItem->preco_minimo;
+                $cost = (float)$qItem->custo;
+                $tax = (float)$qItem->imposto;
+                $qty = max(1, (int)$qItem->qtd);
+
+                $isInconsistent = ($sug > 0 && $min > $sug)
+                    || ($cost <= 0 || ($sug > 0 && $cost > $sug))
+                    || ($tax < 0 || $tax >= 100)
+                    || ($prop <= 0);
+
+                if (!$isInconsistent) {
+                    $netPrice = $prop * (1 - ($tax / 100));
+                    $itemMargin = $netPrice > 0 ? (($netPrice - $cost) / $netPrice) * 100 : -100.0;
+                    if ($itemMargin < -0.001) {
+                        $hasNegativeMarginApproval = true;
+                        if ($itemMargin < $minApprovedItemMargin) {
+                            $minApprovedItemMargin = $itemMargin;
+                        }
+                    }
+                    $totalNetRevenue += ($qty * $netPrice);
+                    $totalCost += ($qty * $cost);
+                    $validItemsForMargin++;
+                } elseif ((float)$qItem->margem_calculada < -0.001) {
+                    $hasNegativeMarginApproval = true;
+                    if ((float)$qItem->margem_calculada < $minApprovedItemMargin) {
+                        $minApprovedItemMargin = (float)$qItem->margem_calculada;
+                    }
+                }
+            }
+
+            if ($validItemsForMargin > 0 && $totalNetRevenue > 0) {
+                $computedOverallMargin = (($totalNetRevenue - $totalCost) / $totalNetRevenue) * 100;
+                if ($computedOverallMargin < -0.001) {
+                    $hasNegativeMarginApproval = true;
+                }
+            }
+
+            if ($hasNegativeMarginApproval && !$request->boolean('confirmar_margem_negativa')) {
+                $displayMargin = $computedOverallMargin < 0 ? $computedOverallMargin : $minApprovedItemMargin;
+                return response()->json([
+                    'error' => 'Confirmação de margem negativa obrigatória',
+                    'code' => 'NEGATIVE_MARGIN_CONFIRMATION_REQUIRED',
+                    'overall_margin' => round($displayMargin, 2),
+                    'message' => sprintf(
+                        'Atenção: Esta aprovação contém venda abaixo do custo (margem negativa de %.2f%%). Confirme explicitamente a autorização excepcional para prosseguir.',
+                        $displayMargin
+                    ),
+                ], 422);
+            }
         }
 
         try {
-            DB::transaction(function () use ($request, $quote, $acao, $user) {
+            DB::transaction(function () use ($request, $quote, $acao, $user, $hasNegativeMarginApproval, $computedOverallMargin, $minApprovedItemMargin) {
+                $previousStatus = $quote->status;
+                $defaultHours = (int) \App\Models\ParametroSistema::getVal('VALIDADE_PADRAO_HORAS', 24);
+                $validityHours = max(1, (int)($quote->validade_horas ?: $defaultHours));
+                $renewedValidity = now()->addHours($validityHours);
+
                 if ($acao === 'devolver') {
-                    $quote->update(['status' => 'DEVOLVIDA']);
+                    $quote->update([
+                        'status' => 'DEVOLVIDA',
+                        'data_validade' => ($quote->data_validade && $quote->data_validade->gt($renewedValidity)) ? $quote->data_validade : $renewedValidity,
+                    ]);
 
                     // Clear items approvals and set back to pendente
                     CotacaoItem::where('cotacao_id', $quote->id)
@@ -325,7 +412,10 @@ class ApprovalController extends Controller
                     ]);
                 } 
                 elseif ($acao === 'escalar') {
-                    $quote->update(['status' => 'COM_DIRETOR']);
+                    $quote->update([
+                        'status' => 'COM_DIRETOR',
+                        'data_validade' => ($quote->data_validade && $quote->data_validade->gt($renewedValidity)) ? $quote->data_validade : $renewedValidity,
+                    ]);
 
                     CotacaoHistorico::create([
                         'cotacao_id' => $quote->id,
@@ -334,8 +424,21 @@ class ApprovalController extends Controller
                         'papel' => $user->papel,
                         'condicao' => 'Cotacao escalada para decisao da diretoria. Motivo: ' . $request->input('justificativa'),
                     ]);
+
+                    $diretores = User::whereIn('papel', ['diretor', 'administrador'])->where('ativo', true)->get();
+                    foreach ($diretores as $dir) {
+                        \App\Models\Notificacao::create([
+                            'usuario_id' => $dir->id,
+                            'titulo' => '📋 Cotação Escalada para Diretoria',
+                            'mensagem' => "A cotação {$quote->numero} foi escalada para decisão da Diretoria.",
+                            'link' => "/aprovacoes/{$quote->id}",
+                            'lida' => false,
+                        ]);
+                    }
                 } 
                 elseif ($acao === 'decidir_itens') {
+                    $obsMargemNegativa = trim((string)$request->input('observacao_margem_negativa', ''));
+
                     foreach ($request->input('itens') as $itemDec) {
                         $item = CotacaoItem::where('cotacao_id', $quote->id)
                             ->where('id', $itemDec['id'])
@@ -352,7 +455,7 @@ class ApprovalController extends Controller
                                 'usuario_id' => $user->id,
                                 'papel' => $user->papel,
                                 'condicao' => $itemDec['status'] === 'aprovado' 
-                                    ? 'Item aprovado pelo avaliador.' 
+                                    ? 'Item aprovado por ' . ($user->nome ?? 'avaliador') . '.' 
                                     : 'Item recusado. Motivo: ' . $itemDec['justificativa'],
                             ]);
 
@@ -381,7 +484,10 @@ class ApprovalController extends Controller
                             ->get();
 
                         if ($approvedItems->isEmpty()) {
-                            $quote->update(['status' => 'DEVOLVIDA']);
+                            $quote->update([
+                                'status' => 'DEVOLVIDA',
+                                'data_validade' => ($quote->data_validade && $quote->data_validade->gt($renewedValidity)) ? $quote->data_validade : $renewedValidity,
+                            ]);
                             CotacaoHistorico::create([
                                 'cotacao_id' => $quote->id,
                                 'evento' => 'TODOS_ITENS_RECUSADOS',
@@ -406,29 +512,51 @@ class ApprovalController extends Controller
                             }
 
                             $desconto = $finalSubtotal - $finalTotal;
+                            $descontoPct = $finalSubtotal > 0 ? round(($desconto / $finalSubtotal) * 100, 2) : 0;
 
-                            // Transition quote status to APROVADA and update to final totals
+                            // Transition quote status to APROVADA, update final totals, and renew validity window
                             $quote->update([
                                 'status' => 'APROVADA',
                                 'subtotal' => $finalSubtotal,
                                 'desconto' => $desconto,
                                 'total' => $finalTotal,
+                                'data_validade' => ($quote->data_validade && $quote->data_validade->gt($renewedValidity)) ? $quote->data_validade : $renewedValidity,
                             ]);
 
-                            $roleUpper = strtoupper($user->papel);
+                            $wasDirectorQueue = ($previousStatus === 'COM_DIRETOR') || $user->isDiretor();
+                            $eventoAprovacao = $wasDirectorQueue ? 'APROVADA_DIRETOR' : ('APROVADA_' . strtoupper($user->papel));
+                            $origemAprovacaoLabel = $wasDirectorQueue ? 'Diretoria' : 'Gestor';
+
+                            $condicaoAprovacao = sprintf(
+                                'Cotação aprovada pela %s (%s) com %.2f%% de desconto sobre os itens aprovados. Validade renovada até %s.',
+                                $origemAprovacaoLabel,
+                                $user->nome ?? $user->papel,
+                                $descontoPct,
+                                $quote->data_validade->format('d/m/Y H:i')
+                            );
+
+                            if ($hasNegativeMarginApproval) {
+                                $negMarginVal = $computedOverallMargin < 0 ? $computedOverallMargin : $minApprovedItemMargin;
+                                $condicaoAprovacao .= sprintf(
+                                    ' [Confirmação explícita de MARGEM NEGATIVA: %.2f%% — venda abaixo do custo%s]',
+                                    $negMarginVal,
+                                    $obsMargemNegativa !== '' ? " | Obs: {$obsMargemNegativa}" : ''
+                                );
+                            }
+
                             CotacaoHistorico::create([
                                 'cotacao_id' => $quote->id,
-                                'evento' => "APROVADA_{$roleUpper}",
+                                'evento' => $eventoAprovacao,
                                 'usuario_id' => $user->id,
                                 'papel' => $user->papel,
-                                'condicao' => 'Todos os itens foram avaliados. Cotação aprovada com totais recalculados sobre itens aprovados. Pendente emissão de PDF.',
+                                'condicao' => $condicaoAprovacao,
                             ]);
 
                             // Create Notification for Representative
                             \App\Models\Notificacao::create([
                                 'usuario_id' => $quote->representante_id,
-                                'titulo' => 'Cotação Aprovada!',
-                                'mensagem' => "A cotação {$quote->numero} foi revisada e aprovada! Gere o PDF para liberar o faturamento.",
+                                'titulo' => '✅ Cotação Aprovada pela ' . $origemAprovacaoLabel . '!',
+                                'mensagem' => "A cotação {$quote->numero} foi aprovada pela {$origemAprovacaoLabel}" . ($descontoPct > 0 ? " (desconto de " . number_format($descontoPct, 1, ',', '.') . "%)" : "") . "! Envie ao cliente ou gere o PDF.",
                                 'link' => url("/cotacoes/id/{$quote->id}"),
                                 'lida' => false,
                             ]);
@@ -468,6 +596,7 @@ class ApprovalController extends Controller
             ->whereIn('evento', [
                 'APROVADA_GESTOR',
                 'APROVADA_DIRETOR',
+                'APROVADA_ADMINISTRADOR',
                 'DEVOLVIDA_AO_REPRESENTANTE',
                 'ESCALADA_PARA_DIRETORIA',
                 'ITEM_APROVADO',

@@ -100,6 +100,26 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         </div>
     </div>
 
+    <!-- Validity Status & Auto-Extension Notice Banner -->
+    <div id="validity-approval-banner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; align-items: center; justify-content: space-between; gap: 10px;">
+        <div id="validity-approval-banner-content" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;"></div>
+    </div>
+
+    <!-- Negative Margin Critical Alert Banner -->
+    <div id="negative-margin-alert-banner" style="display: none; margin-bottom: 18px; padding: 16px 20px; border-radius: 10px; background: #fef2f2; border: 2px solid #ef4444; color: #991b1b; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <span style="font-size: 22px; line-height: 1;">🚨</span>
+            <div style="flex: 1;">
+                <div style="font-weight: 800; font-size: 14.5px; color: #991b1b; margin-bottom: 4px;" id="negative-margin-alert-title">
+                    ALERTA CRÍTICO: VENDA ABAIXO DO CUSTO (MARGEM NEGATIVA)
+                </div>
+                <div style="font-size: 13px; color: #7f1d1d; line-height: 1.45;" id="negative-margin-alert-body">
+                    Esta cotação possui itens com preço líquido inferior ao custo. A aprovação exigirá confirmação explícita de responsabilidade.
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Items Grid Cockpit -->
     <div class="card">
         <div class="card-header">
@@ -198,6 +218,37 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         </div>
     </div>
 </div>
+
+<!-- Negative Margin Confirmation Modal -->
+<div id="negative-margin-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(15, 23, 42, 0.65); align-items: center; justify-content: center; z-index: 1100; padding: 20px;">
+    <div class="auth-card" style="max-width: 540px; width: 100%; padding: 28px; border: 2px solid #ef4444; box-shadow: 0 20px 40px rgba(0,0,0,0.25);">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: #b91c1c;">
+            <span style="font-size: 24px;">🚨</span>
+            <h3 style="margin: 0; color: #b91c1c; font-size: 18px; font-weight: 800;">Confirmação Obrigatória — Margem Negativa</h3>
+        </div>
+        <p style="font-size: 13.5px; color: #334155; margin-bottom: 12px; line-height: 1.45;">
+            Você está prestes a aprovar uma venda <strong>abaixo do custo</strong> (margem negativa). Revise o resumo abaixo antes de autorizar:
+        </p>
+        <div id="negative-margin-modal-summary" style="background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 12.5px; color: #7f1d1d; max-height: 170px; overflow-y: auto;"></div>
+
+        <label style="display: flex; align-items: flex-start; gap: 10px; background: #fff1f2; border: 1px solid #fecdd3; padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 14px; font-size: 12.5px; color: #881337; font-weight: 600;">
+            <input type="checkbox" id="chk-confirm-negative-margin" onchange="toggleNegativeMarginConfirmBtn(this.checked)" style="margin-top: 2px; width: 16px; height: 16px; accent-color: #dc2626; flex-shrink: 0;">
+            <span>Estou ciente de que esta aprovação autoriza venda com margem negativa (abaixo do custo) e confirmo a exceção comercial.</span>
+        </label>
+
+        <div class="form-group" style="margin-bottom: 18px;">
+            <label for="negative-margin-obs" class="form-label" style="font-size: 12px; font-weight: 600; color: #475569;">Observação / Justificativa da Autorização (Opcional)</label>
+            <textarea id="negative-margin-obs" class="form-control" rows="2" placeholder="Ex: Liquidação estratégica de lote / negociação especial autorizada pela diretoria..." style="font-size: 12.5px;"></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline" onclick="closeNegativeMarginModal()">Cancelar e Revisar</button>
+            <button type="button" id="btn-confirm-negative-margin" class="btn btn-primary" onclick="confirmNegativeMarginApproval()" disabled style="background-color: #dc2626; border-color: #dc2626; opacity: 0.5; cursor: not-allowed; font-weight: 700;">
+                Confirmar Aprovação c/ Margem Negativa
+            </button>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -290,6 +341,9 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             document.getElementById("btn-escalar").style.display = "none";
         }
 
+        // Render Validity Status Banner while awaiting approval
+        renderValidityApprovalBanner();
+
         // Render Justifications Box
         renderJustifications();
 
@@ -298,6 +352,48 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
 
         // Render Items table
         renderDecisionItems();
+    }
+
+    function renderValidityApprovalBanner() {
+        const banner = document.getElementById("validity-approval-banner");
+        const content = document.getElementById("validity-approval-banner-content");
+        if (!banner || !content || !quote) return;
+
+        const isPendingApproval = ['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote.status);
+        if (!isPendingApproval) {
+            banner.style.display = "none";
+            return;
+        }
+
+        const wasExtended = Array.isArray(quote.historico) && quote.historico.some(h => h.evento === 'VALIDADE_ESTENDIDA_EM_APROVACAO');
+        const valDate = quote.data_validade ? new Date(quote.data_validade) : null;
+        const now = new Date();
+        const diffHours = valDate ? ((valDate.getTime() - now.getTime()) / (1000 * 60 * 60)) : 24;
+        const valStr = valDate ? valDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '24h';
+
+        banner.style.display = "flex";
+        if (wasExtended || diffHours <= 4) {
+            banner.style.background = "#fffbeb";
+            banner.style.border = "1.5px solid #f59e0b";
+            banner.style.color = "#92400e";
+            content.innerHTML = `
+                <span style="font-size: 18px;">⏰</span>
+                <div>
+                    <strong>Atenção ao Prazo Comercial:</strong> ${wasExtended ? 'Esta cotação atingiu o prazo inicial na fila e teve sua validade estendida automaticamente.' : 'O prazo inicial desta cotação está próximo do vencimento.'}
+                    A expiração automática está <strong>pausada</strong> enquanto aguarda sua análise e a validade comercial (+${quote.validade_horas || 24}h) será renovada ao aplicar a decisão (atual: ${valStr}).
+                </div>
+            `;
+        } else {
+            banner.style.background = "#f0f9ff";
+            banner.style.border = "1px solid #bae6fd";
+            banner.style.color = "#0369a1";
+            content.innerHTML = `
+                <span style="font-size: 16px;">⏸️</span>
+                <div>
+                    <strong>Validade protegida durante aprovação:</strong> A cotação não expira enquanto estiver na fila de avaliação. Ao aprovar, o prazo de validade (+${quote.validade_horas || 24}h) será renovado para envio ao cliente.
+                </div>
+            `;
+        }
     }
 
     function renderJustifications() {
@@ -376,6 +472,20 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         });
     }
 
+    function computeEffectiveItemMargin(item) {
+        const sug = parseFloat(item.preco_unit_sugerido || 0);
+        const min = parseFloat(item.preco_minimo || 0);
+        const prop = parseFloat(item.preco_unit_proposto || 0);
+        const cost = parseFloat(item.custo || 0);
+        const tax = parseFloat(item.imposto || 0);
+        const isInconsistent = (sug > 0 && min > sug) || (cost <= 0 || (sug > 0 && cost > sug)) || (tax < 0 || tax >= 100) || (prop <= 0);
+        if (!isInconsistent) {
+            const net = prop * (1 - (tax / 100));
+            return net > 0 ? ((net - cost) / net) * 100 : -100;
+        }
+        return parseFloat(item.margem_calculada || 0);
+    }
+
     function renderDecisionItems() {
         const body = document.getElementById("items-decision-body");
         body.innerHTML = "";
@@ -384,24 +494,31 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             const sug = parseFloat(item.preco_unit_sugerido || 0);
             const min = parseFloat(item.preco_minimo || 0);
             const prop = parseFloat(item.preco_unit_proposto || 0);
+            const cost = parseFloat(item.custo || 0);
             const isInconsistent = (sug > 0 && min > sug);
             const minEf = isInconsistent ? sug : min;
             const isBelowMin = prop < minEf;
             
             // Margin Color coding
-            const margin = parseFloat(item.margem_calculada || 0);
+            const margin = parseFloat(computeEffectiveItemMargin(item).toFixed(2));
+            const isNegativeMargin = margin < 0;
             let marginColor = "#ef4444"; // red
             if (margin >= 25) marginColor = "#10b981"; // green
             else if (margin >= 15) marginColor = "#d97706"; // yellow
 
-            // Bind check state
-            const linkedClass = item.vinculo ? "style='background-color: #f0fdf4; border-left:3px solid #10b981;'" : "";
+            // Bind check state or negative margin row highlight
+            let rowStyle = "";
+            if (isNegativeMargin) {
+                rowStyle = "style='background-color: #fff1f2; border-left: 4px solid #dc2626;'";
+            } else if (item.vinculo) {
+                rowStyle = "style='background-color: #f0fdf4; border-left:3px solid #10b981;'";
+            }
             const bindGroupLabel = item.vinculo ? `<br><span style="font-size:10px; color:#15803d; font-weight:600;">Grupo: ${escapeHtml(item.vinculo.grupo_vinculo)}</span>` : "";
             const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Item');
             const prodCode = item.produto ? item.produto.codigo_sankhya : '-';
 
             body.innerHTML += `
-                <tr id="item-row-${item.id}" ${linkedClass}>
+                <tr id="item-row-${item.id}" ${rowStyle}>
                     <td class="text-center">
                         <input type="checkbox" class="item-checkbox" value="${item.id}">
                     </td>
@@ -410,6 +527,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                         ${escapeHtml(prodDesc)}
                         ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha">Campanha</span>' : ''}
                         ${isInconsistent ? '<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #fcd34d; margin-left:6px; font-weight:600;" title="Preço mínimo cadastral maior que o sugerido.">⚠️ Mín > Sugerido</span>' : ''}
+                        ${isNegativeMargin ? `<span class="badge" style="background-color: #fee2e2; color: #991b1b; font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px solid #f87171; margin-left:6px; font-weight:700;" title="Venda abaixo do custo unitário (Custo: R$ ${cost.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})})">🚨 Abaixo do custo</span>` : ''}
                         ${bindGroupLabel}
                     </td>
                     <td class="text-center">${item.qtd}</td>
@@ -424,7 +542,8 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                         </div>
                     </td>
                     <td class="text-center">
-                        <span style="color: ${marginColor}; font-weight:600;">${margin}%</span>
+                        <span style="color: ${marginColor}; font-weight:${isNegativeMargin ? '800' : '600'};">${margin.toFixed(2).replace('.', ',')}%</span>
+                        ${isNegativeMargin && cost > 0 ? `<div style="font-size:10px; color:#b91c1c; font-weight:600;">Custo: R$ ${cost.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>` : ''}
                     </td>
                     <td class="text-right">R$ ${parseFloat(item.subtotal).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     <td class="text-center">
@@ -445,12 +564,21 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         calculateOverallTotals();
     }
 
+    let currentNegativeMarginState = {
+        hasNegativeMargin: false,
+        overallMargin: 0,
+        negativeItems: [],
+        estimatedLoss: 0
+    };
+
     function calculateOverallTotals() {
         let totalProposedRevenue = 0;
         let totalNetRevenue = 0;
         let totalCost = 0;
         let totalSuggestedRevenue = 0;
         let validItemsForMargin = 0;
+        const negativeItems = [];
+        let estimatedLoss = 0;
 
         quote.itens.forEach(item => {
             const row = document.getElementById(`item-row-${item.id}`);
@@ -464,7 +592,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 isRejected = true;
             }
 
-            if (isRejected) {
+            if (isRejected || item.nao_encontrado) {
                 return;
             }
 
@@ -493,6 +621,33 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 totalNetRevenue += itemNetRevenue;
                 totalCost += itemTotalCost;
                 validItemsForMargin++;
+
+                const itemMargin = itemNetRevenue > 0 ? ((itemNetRevenue - itemTotalCost) / itemNetRevenue) * 100 : -100;
+                if (itemMargin < -0.001) {
+                    const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Item');
+                    const loss = Math.max(0, itemTotalCost - itemNetRevenue);
+                    estimatedLoss += loss;
+                    negativeItems.push({
+                        id: item.id,
+                        descricao: prodDesc,
+                        qtd: qty,
+                        custo: cost,
+                        proposto: proposedPrice,
+                        margem: itemMargin,
+                        prejuizo: loss
+                    });
+                }
+            } else if (parseFloat(item.margem_calculada || 0) < -0.001) {
+                const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Item');
+                negativeItems.push({
+                    id: item.id,
+                    descricao: prodDesc,
+                    qtd: qty,
+                    custo: cost,
+                    proposto: proposedPrice,
+                    margem: parseFloat(item.margem_calculada || 0),
+                    prejuizo: 0
+                });
             }
         });
 
@@ -502,10 +657,13 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         let overallMargin = 0;
         const marginEl = document.getElementById("summary-overall-margin");
         const lowMarginBadge = document.getElementById("header-low-margin");
+        const negBanner = document.getElementById("negative-margin-alert-banner");
+        const negBannerTitle = document.getElementById("negative-margin-alert-title");
+        const negBannerBody = document.getElementById("negative-margin-alert-body");
 
         if (validItemsForMargin > 0 && totalNetRevenue > 0) {
             overallMargin = ((totalNetRevenue - totalCost) / totalNetRevenue) * 100;
-            marginEl.innerText = overallMargin.toFixed(2) + "%";
+            marginEl.innerText = overallMargin.toFixed(2).replace('.', ',') + "%";
 
             // Color code margin
             if (overallMargin >= 25) {
@@ -517,12 +675,52 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             }
 
             if (lowMarginBadge) {
-                lowMarginBadge.style.display = (overallMargin <= 15) ? "inline-block" : "none";
+                if (overallMargin < 0) {
+                    lowMarginBadge.style.display = "inline-block";
+                    lowMarginBadge.style.backgroundColor = "#fef2f2";
+                    lowMarginBadge.style.color = "#b91c1c";
+                    lowMarginBadge.style.borderColor = "#ef4444";
+                    lowMarginBadge.innerText = `🚨 MARGEM NEGATIVA (${overallMargin.toFixed(1).replace('.', ',')}%)`;
+                } else if (overallMargin <= 15) {
+                    lowMarginBadge.style.display = "inline-block";
+                    lowMarginBadge.style.backgroundColor = "rgba(245,158,11,0.1)";
+                    lowMarginBadge.style.color = "#d97706";
+                    lowMarginBadge.style.borderColor = "rgba(245,158,11,0.3)";
+                    lowMarginBadge.innerText = "⚠️ MARGEM BAIXA";
+                } else {
+                    lowMarginBadge.style.display = "none";
+                }
             }
         } else {
             marginEl.innerText = "N/D";
             marginEl.style.color = "#64748b";
             if (lowMarginBadge) lowMarginBadge.style.display = "none";
+        }
+
+        const hasNegative = (validItemsForMargin > 0 && overallMargin < -0.001) || negativeItems.length > 0;
+        currentNegativeMarginState = {
+            hasNegativeMargin: hasNegative,
+            overallMargin: overallMargin,
+            negativeItems: negativeItems,
+            estimatedLoss: Math.max(estimatedLoss, totalCost > totalNetRevenue ? (totalCost - totalNetRevenue) : 0)
+        };
+
+        if (negBanner) {
+            if (hasNegative) {
+                negBanner.style.display = "block";
+                const formattedMargin = overallMargin.toFixed(2).replace('.', ',');
+                if (negBannerTitle) {
+                    negBannerTitle.innerText = `🚨 ALERTA CRÍTICO: VENDA ABAIXO DO CUSTO (MARGEM GERAL: ${formattedMargin}%)`;
+                }
+                if (negBannerBody) {
+                    const lossStr = currentNegativeMarginState.estimatedLoss > 0
+                        ? ` · Prejuízo líquido estimado: <strong>R$ ${currentNegativeMarginState.estimatedLoss.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`
+                        : '';
+                    negBannerBody.innerHTML = `Há <strong>${negativeItems.length} item(ns)</strong> marcados para aprovação com preço líquido abaixo do custo${lossStr}. Caso deseje aprovar mesmo assim, será exigida confirmação explícita de responsabilidade.`;
+                }
+            } else {
+                negBanner.style.display = "none";
+            }
         }
 
         // Update elements in DOM
@@ -540,6 +738,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             reasonInput.style.display = "none";
             reasonInput.removeAttribute("required");
         }
+        calculateOverallTotals();
     }
 
     function toggleAllChecks(master) {
@@ -757,8 +956,61 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         }
     }
 
+    function openNegativeMarginModal() {
+        const summaryEl = document.getElementById("negative-margin-modal-summary");
+        const chk = document.getElementById("chk-confirm-negative-margin");
+        const obs = document.getElementById("negative-margin-obs");
+        if (chk) chk.checked = false;
+        if (obs) obs.value = "";
+        toggleNegativeMarginConfirmBtn(false);
+
+        if (summaryEl) {
+            const formattedOverall = currentNegativeMarginState.overallMargin.toFixed(2).replace('.', ',');
+            const lossHtml = currentNegativeMarginState.estimatedLoss > 0
+                ? `<div style="margin-top:4px;"><strong>Prejuízo líquido estimado:</strong> R$ ${currentNegativeMarginState.estimatedLoss.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>`
+                : '';
+            const itemsListHtml = currentNegativeMarginState.negativeItems.map(it => `
+                <li style="margin-bottom:4px;">
+                    <strong>${escapeHtml(it.descricao)}</strong> (${it.qtd} un) — Proposto: R$ ${it.proposto.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} | Custo: R$ ${it.custo.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} | Margem: <strong>${it.margem.toFixed(2).replace('.', ',')}%</strong>
+                </li>
+            `).join('');
+
+            summaryEl.innerHTML = `
+                <div><strong>Margem Geral da Cotação:</strong> <span style="font-size:14px; font-weight:800; color:#dc2626;">${formattedOverall}%</span></div>
+                ${lossHtml}
+                ${itemsListHtml ? `<ul style="margin: 8px 0 0 18px; padding: 0;">${itemsListHtml}</ul>` : ''}
+            `;
+        }
+
+        document.getElementById("negative-margin-modal").style.display = "flex";
+    }
+
+    function closeNegativeMarginModal() {
+        document.getElementById("negative-margin-modal").style.display = "none";
+    }
+
+    function toggleNegativeMarginConfirmBtn(checked) {
+        const btn = document.getElementById("btn-confirm-negative-margin");
+        if (!btn) return;
+        btn.disabled = !checked;
+        btn.style.opacity = checked ? "1" : "0.5";
+        btn.style.cursor = checked ? "pointer" : "not-allowed";
+    }
+
+    function confirmNegativeMarginApproval() {
+        const chk = document.getElementById("chk-confirm-negative-margin");
+        if (!chk || !chk.checked) {
+            showToast("Marque a caixa de ciência para confirmar a aprovação com margem negativa.", "warning");
+            return;
+        }
+        const obs = document.getElementById("negative-margin-obs") ? document.getElementById("negative-margin-obs").value.trim() : "";
+        closeNegativeMarginModal();
+        executeSubmitDecision(true, obs);
+    }
+
     // Submit Final Item decisions
     async function submitDecision() {
+        calculateOverallTotals();
         const itemsPayload = [];
         let hasRejectedWithoutReason = false;
 
@@ -785,6 +1037,29 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             return;
         }
 
+        if (currentNegativeMarginState.hasNegativeMargin) {
+            openNegativeMarginModal();
+            return;
+        }
+
+        await executeSubmitDecision(false, "");
+    }
+
+    async function executeSubmitDecision(confirmNegativeMargin = false, negativeMarginObs = "") {
+        const itemsPayload = [];
+        quote.itens.forEach(item => {
+            const row = document.getElementById(`item-row-${item.id}`);
+            if (row) {
+                const select = row.querySelector(".item-action-select");
+                const reason = row.querySelector(".item-rej-reason").value;
+                itemsPayload.push({
+                    id: item.id,
+                    status: select.value,
+                    justificativa: select.value === "recusado" ? reason : ""
+                });
+            }
+        });
+
         try {
             const res = await fetch(`${API_URL}/aprovacoes/${QUOTE_ID}/decisao`, {
                 method: "POST",
@@ -792,13 +1067,22 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                     "Content-Type": "application/json",
                     "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 },
-                body: JSON.stringify({ acao: 'decidir_itens', itens: itemsPayload })
+                body: JSON.stringify({
+                    acao: 'decidir_itens',
+                    itens: itemsPayload,
+                    confirmar_margem_negativa: confirmNegativeMargin,
+                    observacao_margem_negativa: negativeMarginObs
+                })
             });
 
             if (!res.ok) {
                 const errText = await res.text();
                 try {
                     const errJson = JSON.parse(errText);
+                    if (errJson.code === 'NEGATIVE_MARGIN_CONFIRMATION_REQUIRED') {
+                        openNegativeMarginModal();
+                        return;
+                    }
                     const details = errJson.messages ? Object.entries(errJson.messages).map(([key, val]) => `${val.join(', ')}`).join('. ') : null;
                     showToast("Erro de Validação: " + (details || errJson.message || errJson.error), "error");
                 } catch(e) {

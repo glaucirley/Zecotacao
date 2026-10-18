@@ -432,9 +432,16 @@ class QuoteWorkflowService
         $actingUserId = $actingUser?->id ?? $quote->representante_id;
         $actingUserPapel = $actingUser?->papel ?? 'representante';
 
+        $validityHours = (int)($quote->validade_horas ?: ParametroSistema::getVal('VALIDADE_PADRAO_HORAS', 24));
+        $newValidity = now()->addHours(max(1, $validityHours));
+        $hasNegativeMargin = ($itensComDadosValidos > 0 && $overallMargin < 0);
+
         // 8. Update quote status and log history
         if ($routeToDirector) {
-            $quote->update(['status' => 'COM_DIRETOR']);
+            $quote->update([
+                'status' => 'COM_DIRETOR',
+                'data_validade' => ($quote->data_validade && $quote->data_validade->gt($newValidity)) ? $quote->data_validade : $newValidity,
+            ]);
 
             $condicaoHistorico = '';
             if (!$hasActiveGestor) {
@@ -453,6 +460,9 @@ class QuoteWorkflowService
                     $gestorLimit
                 );
             }
+            if ($hasNegativeMargin) {
+                $condicaoHistorico .= sprintf(' [ALERTA: Margem negativa de %.2f%% — venda abaixo do custo]', $overallMargin);
+            }
 
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
@@ -467,9 +477,9 @@ class QuoteWorkflowService
             foreach ($diretores as $dir) {
                 \App\Models\Notificacao::create([
                     'usuario_id' => $dir->id,
-                    'titulo' => '📋 Cotação aguardando Diretoria',
-                    'mensagem' => "A cotação {$quote->numero} de " . ($quote->representante?->nome ?? 'Representante') . " requer aprovação da diretoria.",
-                    'link' => "/cotacoes/id/{$quote->id}",
+                    'titulo' => $hasNegativeMargin ? '🚨 Cotação c/ Margem Negativa na Diretoria' : '📋 Cotação aguardando Diretoria',
+                    'mensagem' => "A cotação {$quote->numero} de " . ($quote->representante?->nome ?? 'Representante') . ($hasNegativeMargin ? sprintf(" possui MARGEM NEGATIVA (%.1f%%) e ", $overallMargin) : " ") . "requer aprovação da diretoria.",
+                    'link' => "/aprovacoes/{$quote->id}",
                     'lida' => false,
                 ]);
             }
@@ -480,7 +490,10 @@ class QuoteWorkflowService
                 'message' => 'Cotação enviada para aprovação da Diretoria.'
             ];
         } else {
-            $quote->update(['status' => 'AGUARDANDO_GESTOR']);
+            $quote->update([
+                'status' => 'AGUARDANDO_GESTOR',
+                'data_validade' => ($quote->data_validade && $quote->data_validade->gt($newValidity)) ? $quote->data_validade : $newValidity,
+            ]);
 
             $condicaoHistorico = sprintf(
                 'Desconto aplicado (%s: %.2f%%) excede a alçada permitida do representante (%s: %.2f%%), mas está dentro do limite do gestor (%s: %.2f%%). Encaminhada para aprovação do gestor.',
@@ -491,6 +504,9 @@ class QuoteWorkflowService
                 $gestor->nome,
                 $gestorLimit
             );
+            if ($hasNegativeMargin) {
+                $condicaoHistorico .= sprintf(' [ALERTA: Margem negativa de %.2f%% — venda abaixo do custo]', $overallMargin);
+            }
 
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
@@ -503,9 +519,9 @@ class QuoteWorkflowService
             if ($gestor && $gestor->ativo) {
                 \App\Models\Notificacao::create([
                     'usuario_id' => $gestor->id,
-                    'titulo' => '📋 Cotação aguardando sua Aprovação',
-                    'mensagem' => "A cotação {$quote->numero} de {$quote->representante?->nome} foi enviada para sua aprovação.",
-                    'link' => "/cotacoes/id/{$quote->id}",
+                    'titulo' => $hasNegativeMargin ? '🚨 Cotação c/ Margem Negativa para Aprovação' : '📋 Cotação aguardando sua Aprovação',
+                    'mensagem' => "A cotação {$quote->numero} de {$quote->representante?->nome}" . ($hasNegativeMargin ? sprintf(" possui MARGEM NEGATIVA (%.1f%%) e", $overallMargin) : "") . " foi enviada para sua aprovação.",
+                    'link' => "/aprovacoes/{$quote->id}",
                     'lida' => false,
                 ]);
             }
@@ -520,6 +536,8 @@ class QuoteWorkflowService
 
     /**
      * Check and expire quotes whose validity has passed.
+     * Quotes waiting for approval (AGUARDANDO_GESTOR, COM_DIRETOR) have their expiration paused:
+     * when their deadline is reached while waiting for a decision, validity is automatically extended and the approver is notified.
      * Also reconciles any quotes orphaned in AGUARDANDO_GESTOR without an active manager.
      *
      * @return int Number of expired quotes processed
@@ -532,11 +550,70 @@ class QuoteWorkflowService
         // Reconcile Grande Conta / Priority quotes below thresholds
         self::reconcileGrandeContaPriorities();
 
-        $activeStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
-
         $now = now();
 
-        $expiredQuotes = Cotacao::whereIn('status', $activeStatuses)
+        // 1. Quotes waiting in approval queue (AGUARDANDO_GESTOR, COM_DIRETOR) must NOT expire:
+        // Instead, extend their validity and notify the responsible approver(s).
+        $overdueInApproval = Cotacao::whereIn('status', ['AGUARDANDO_GESTOR', 'COM_DIRETOR'])
+            ->where(function ($query) use ($now) {
+                $query->where(function ($q1) use ($now) {
+                    $q1->whereNotNull('data_validade')
+                       ->where('data_validade', '<', $now);
+                })->orWhere(function ($q2) use ($now) {
+                    $q2->whereNull('data_validade')
+                       ->whereRaw('DATE_ADD(COALESCE(data_emissao, created_at), INTERVAL COALESCE(validade_horas, 24) HOUR) < ?', [$now]);
+                });
+            })
+            ->with(['representante.equipe.gestor'])
+            ->get();
+
+        $defaultHours = (int) ParametroSistema::getVal('VALIDADE_PADRAO_HORAS', 24);
+
+        foreach ($overdueInApproval as $quote) {
+            $hoursToAdd = max(1, (int)($quote->validade_horas ?: $defaultHours));
+            $extendedValidity = $now->copy()->addHours($hoursToAdd);
+            $oldValidityLabel = $quote->data_validade ? $quote->data_validade->format('d/m/Y H:i') : ($hoursToAdd . 'h');
+            $newValidityLabel = $extendedValidity->format('d/m/Y H:i');
+
+            $quote->update(['data_validade' => $extendedValidity]);
+
+            CotacaoHistorico::create([
+                'cotacao_id' => $quote->id,
+                'evento' => 'VALIDADE_ESTENDIDA_EM_APROVACAO',
+                'usuario_id' => null,
+                'papel' => 'sistema',
+                'condicao' => "Prazo inicial ({$oldValidityLabel}) atingido enquanto aguardava avaliação ({$quote->status}). Validade estendida automaticamente até {$newValidityLabel} e aprovador notificado.",
+            ]);
+
+            if ($quote->status === 'AGUARDANDO_GESTOR') {
+                $gestor = $quote->representante?->equipe?->gestor;
+                if ($gestor && $gestor->ativo) {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $gestor->id,
+                        'titulo' => '⏰ Cotação Pendente — Validade Estendida',
+                        'mensagem' => "A cotação {$quote->numero} atingiu o prazo enquanto aguarda sua aprovação. A validade foi estendida até {$newValidityLabel}. Favor priorizar a análise.",
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false,
+                    ]);
+                }
+            } else {
+                $diretores = User::whereIn('papel', ['diretor', 'administrador'])->where('ativo', true)->get();
+                foreach ($diretores as $dir) {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $dir->id,
+                        'titulo' => '⏰ Cotação na Diretoria — Validade Estendida',
+                        'mensagem' => "A cotação {$quote->numero} atingiu o prazo enquanto aguarda decisão da Diretoria. A validade foi estendida até {$newValidityLabel}. Favor priorizar a análise.",
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false,
+                    ]);
+                }
+            }
+        }
+
+        // 2. Expire only quotes NOT waiting on internal approval
+        $expirableStatuses = ['EM_CRIACAO', 'DEVOLVIDA', 'APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'];
+
+        $expiredQuotes = Cotacao::whereIn('status', $expirableStatuses)
             ->where(function ($query) use ($now) {
                 $query->where(function ($q1) use ($now) {
                     $q1->whereNotNull('data_validade')

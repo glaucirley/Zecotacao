@@ -110,11 +110,28 @@
                 list.forEach(q => {
                     const date = new Date(q.created_at).toLocaleDateString('pt-BR');
                     const statusText = q.status ? q.status.replace(/_/g, ' ') : '';
+                    let hasNegMargin = false;
+                    let minMargin = 0;
+                    if (Array.isArray(q.itens)) {
+                        q.itens.forEach(it => {
+                            if (it.status_item === 'recusado' || it.nao_encontrado) return;
+                            const m = parseFloat(it.margem_calculada || 0);
+                            if (m < -0.001) {
+                                hasNegMargin = true;
+                                if (m < minMargin) minMargin = m;
+                            }
+                        });
+                    }
+                    const valDate = q.data_validade ? new Date(q.data_validade) : null;
+                    const validityInfo = (activeApprovalTab === 'pendentes' && valDate)
+                        ? `<div style="font-size:11px; color:#0369a1; font-weight:600; margin-top:2px;">⏸️ Validade protegida (${valDate.toLocaleDateString('pt-BR')} ${valDate.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})})</div>`
+                        : '';
                     body.innerHTML += `
-                        <tr>
+                        <tr ${hasNegMargin && activeApprovalTab === 'pendentes' ? 'style="background:#fff1f2;"' : ''}>
                             <td>
                                 <strong>${escapeHtml(q.numero)}</strong>
                                 ${q.prioridade ? '<br><span class="badge-status priority" style="background-color:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); font-size:10px; font-weight:700; margin-top:4px; display:inline-block; border-radius:4px; padding:2px 6px;">⚡ GRANDE CONTA</span>' : ''}
+                                ${hasNegMargin ? `<br><span class="badge-status" style="background-color:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-size:10px; font-weight:800; margin-top:4px; display:inline-block; border-radius:4px; padding:2px 6px;">🚨 MARGEM NEGATIVA (${minMargin.toFixed(1).replace('.', ',')}%)</span>` : ''}
                                 ${activeApprovalTab === 'avaliadas' ? `<br><span class="badge-status" style="font-size:10px; margin-top:4px; display:inline-block;">${escapeHtml(statusText)}</span>` : ''}
                             </td>
                             <td>${escapeHtml(q.parceiro ? q.parceiro.razao_social : 'N/A')}</td>
@@ -122,7 +139,10 @@
                                 <strong>${escapeHtml(q.representante ? q.representante.nome : 'N/A')}</strong><br>
                                 <span style="font-size: 11px; color: var(--color-text-muted);">Sankhya Code: ${escapeHtml(q.representante ? q.representante.codigo_sankhya : 'N/A')}</span>
                             </td>
-                            <td>${date}</td>
+                            <td>
+                                ${date}
+                                ${validityInfo}
+                            </td>
                             <td class="text-right" style="font-weight: 600; color: var(--color-primary);">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                             <td class="text-center">
                                 <a href="{{ url('/aprovacoes') }}/${q.id}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; font-weight: 600;">
