@@ -466,6 +466,11 @@
             requestAnimationFrame(() => toast.classList.add('show'));
             setTimeout(dismiss, 5000);
         }
+
+        try {
+            localStorage.setItem('zecotacao_internal_actor', '1');
+            document.cookie = 'zecotacao_internal=1; path=/; max-age=2592000; SameSite=Lax';
+        } catch (e) {}
     </script>
     <!-- Global Search Modal HTML -->
     <div id="global-search-overlay" class="global-search-overlay" onclick="handleSearchOverlayClick(event)">

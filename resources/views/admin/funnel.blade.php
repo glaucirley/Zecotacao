@@ -527,10 +527,11 @@
             } else {
                 q.historico.forEach(h => {
                     const hDate = new Date(h.created_at).toLocaleString('pt-BR');
+                    const resolvedRole = (h.usuario && h.usuario.papel && !['sistema', 'cliente'].includes(h.papel)) ? h.usuario.papel : h.papel;
                     histList.innerHTML += `
                         <div style="border-bottom:1px solid rgba(0,0,0,0.02); padding-bottom:4px; margin-bottom: 4px;">
                             <span style="color:var(--color-primary); font-weight:600;">[${hDate}]</span>
-                            <strong>${escapeHtml(h.usuario ? h.usuario.nome : 'Sistema')} (${escapeHtml((h.papel || '').toUpperCase())})</strong>:
+                            <strong>${escapeHtml(h.usuario ? h.usuario.nome : 'Sistema')} (${escapeHtml((resolvedRole || '').toUpperCase())})</strong>:
                             ${escapeHtml((h.evento || '').replace(/_/g, ' '))} - <span style="color:#555;">${escapeHtml(h.condicao || '')}</span>
                         </div>
                     `;

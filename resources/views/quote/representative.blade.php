@@ -1516,7 +1516,10 @@
         history.forEach(item => {
             const date = item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : '';
             const user = item.usuario ? (item.usuario.nome || item.usuario.name) : (item.papel || 'Sistema');
-            const role = item.papel ? `(${item.papel})` : '';
+            const resolvedRole = (item.usuario && item.usuario.papel && !['sistema', 'cliente'].includes(item.papel))
+                ? item.usuario.papel
+                : item.papel;
+            const role = resolvedRole ? `(${resolvedRole})` : '';
             const action = (item.evento || item.descricao || item.mensagem || 'Evento de Workflow').replace(/_/g, ' ');
             const details = item.justificativa || item.observacao || item.condicao || '';
 
@@ -2711,6 +2714,9 @@
         const saved = await saveDraft(false);
         if (!saved) return;
 
+        // Re-evaluate justification visibility after saving draft
+        updateJustificationPanelVisibility();
+
         // 2. If justifications are visible (needed), validate and upload them
         const justificationPanel = document.getElementById("justification-panel");
         const isJustRequired = justificationPanel && justificationPanel.style.display !== "none";
@@ -2722,10 +2728,13 @@
 
             const hasText = texto.length > 0;
             const hasNewFiles = Boolean((fileInput && fileInput.files && fileInput.files.length > 0) || (audioInput && audioInput.files && audioInput.files.length > 0));
-            const hasExistingJustification = Boolean(quote.justificativas && quote.justificativas.length > 0);
+            const hasExistingJustification = Boolean(
+                quote.justificativas &&
+                quote.justificativas.some(j => !j.cotacao_item_id && ((j.texto && String(j.texto).trim().length > 0) || j.audio_url))
+            );
             const hasExistingAttachments = Boolean(
                 (quote.anexos && quote.anexos.length > 0) ||
-                (quote.justificativas && quote.justificativas.some(j => j.anexos && j.anexos.length > 0))
+                (quote.justificativas && quote.justificativas.some(j => !j.cotacao_item_id && j.anexos && j.anexos.length > 0))
             );
 
             // Mandatory written text if no existing justification

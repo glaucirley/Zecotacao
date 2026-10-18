@@ -23,207 +23,209 @@ Route::get('/login', function () {
     return view('auth.login');
 })->name('login');
 
-// 2. Session-protected & Session-enabled routes
-Route::middleware([
-    \Illuminate\Cookie\Middleware\EncryptCookies::class,
-    \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-    \Illuminate\Session\Middleware\StartSession::class,
-    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-    \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
-])->group(function () {
+// 2. Web routes (already protected by Laravel's 'web' middleware group)
+
+// Representative Public URL (Accessed via Token Link)
+Route::get('/cotacoes/token/{token}', function (\Illuminate\Http\Request $request, $token) {
+    $quote = \App\Models\Cotacao::where('token_representante', $token)->first();
+    if (!$quote) {
+        abort(404, 'Cotação não encontrada ou link expirado.');
+    }
+
+    // Quando houver sessão ativa, conferir também que a cotação pertence a quem está logado
+    if (auth()->check()) {
+        if (!auth()->user()->canAccessQuote($quote)) {
+            abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
+        }
+    }
+
+    $request->session()->put('zecotacao_internal_user', true);
+    \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
+
+    return view('quote.representative', [
+        'token' => auth()->check() ? null : $token,
+        'quoteId' => $quote->id,
+        'quote' => $quote,
+        'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
+    ]);
+});
+
+// Auth route to handle standard POST submit from login form
+Route::post('/login', function (\Illuminate\Http\Request $request) {
+    $credentials = $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|string',
+    ]);
+
+    if (auth()->attempt($credentials)) {
+        $request->session()->regenerate();
+        $user = auth()->user();
+        
+        if (!$user->ativo) {
+            auth()->logout();
+            return back()->withErrors(['email' => 'Conta inativa.']);
+        }
+
+        $request->session()->put('zecotacao_internal_user', true);
+        \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
+        
+        if ($user->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        return redirect('/dashboard');
+    }
+
+    return back()->withErrors(['email' => 'E-mail ou senha incorretos.']);
+});
+
+Route::post('/logout', function (\Illuminate\Http\Request $request) {
+    auth()->logout();
+    \Illuminate\Support\Facades\Cookie::queue(\Illuminate\Support\Facades\Cookie::forget('zecotacao_internal'));
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect('/login');
+});
+
+// Protected Views
+Route::middleware('auth')->group(function () {
     
-    // Representative Public URL (Accessed via Token Link - needs session for CSRF)
-    Route::get('/cotacoes/token/{token}', function ($token) {
-        $quote = \App\Models\Cotacao::where('token_representante', $token)->first();
-        if (!$quote) {
-            abort(404, 'Cotação não encontrada ou link expirado.');
+    // Master Quotations List (All authenticated users)
+    Route::get('/cotacoes', function () {
+        if (auth()->user()->isRepresentante()) {
+            return redirect('/painel-representante');
         }
-
-        // Quando houver sessão ativa, conferir também que a cotação pertence a quem está logado
-        if (auth()->check()) {
-            if (!auth()->user()->canAccessQuote($quote)) {
-                abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
-            }
-        }
-
-        return view('quote.representative', [
-            'token' => $token,
-            'quoteId' => $quote->id,
-            'quote' => $quote,
-            'exigeAnexo' => (bool)\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true),
-        ]);
+        return view('admin.quotes');
     });
 
-    // Auth route to handle standard POST submit from login form
-    Route::post('/login', function (\Illuminate\Http\Request $request) {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
+    // Quotation Sales Funnel (Gestor, Diretor, Faturamento & Administrador)
+    Route::get('/funil', function () {
+        if (auth()->user()->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        return view('admin.funnel');
+    });
 
-        if (auth()->attempt($credentials)) {
-            $request->session()->regenerate();
-            $user = auth()->user();
-            
-            if (!$user->ativo) {
-                auth()->logout();
-                return back()->withErrors(['email' => 'Conta inativa.']);
-            }
-            
-            if ($user->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
+    // Approvals (Gestor & Diretor)
+    Route::get('/aprovacoes', function () {
+        if (auth()->user()->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        if (auth()->user()->isFaturamento()) {
+            return redirect('/faturamento');
+        }
+        return view('admin.approvals');
+    });
+    
+    Route::get('/aprovacoes/{id}', function ($id) {
+        if (auth()->user()->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        if (auth()->user()->isFaturamento()) {
+            return redirect('/faturamento');
+        }
+        return view('admin.approval_detail', ['id' => $id]);
+    });
+
+    // Billing (Faturamento, Diretor & Administrador)
+    Route::get('/faturamento', function () {
+        if (auth()->user()->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
+            return redirect('/aprovacoes');
+        }
+        return view('admin.billing');
+    });
+    
+    Route::get('/faturamento/{id}', function ($id) {
+        if (auth()->user()->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
+            return redirect('/aprovacoes');
+        }
+        return view('admin.billing_detail', ['id' => $id]);
+    });
+
+    // Parameters (Administrador and Diretor)
+    Route::get('/parametros', function () {
+        if (!auth()->user()->isAdministrador() && !auth()->user()->isDiretor()) {
+            return redirect('/aprovacoes');
+        }
+        return view('admin.parameters');
+    });
+
+    // User Management (Administrador only)
+    Route::get('/usuarios', function () {
+        if (!auth()->user()->isAdministrador()) {
+            return redirect('/aprovacoes');
+        }
+        return view('admin.users');
+    });
+
+    // Client Management (Administrador only)
+    Route::get('/clientes', function () {
+        if (!auth()->user()->isAdministrador()) {
+            return redirect('/aprovacoes');
+        }
+        return view('admin.partners');
+    });
+
+    // Product Catalog Management (Administrador only)
+    Route::get('/produtos', function () {
+        if (!auth()->user()->isAdministrador()) {
+            return redirect('/aprovacoes');
+        }
+        return view('admin.products');
+    });
+
+    // Representative Mobile Dashboard
+    Route::get('/painel-representante', function () {
+        if (!auth()->user()->isRepresentante()) {
+            return redirect('/aprovacoes');
+        }
+        return view('representative.dashboard');
+    });
+
+    // General Business Intelligence Dashboard
+    Route::get('/dashboard', function () {
+        if (auth()->user()->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        return view('admin.dashboard');
+    });
+
+    // Chat Logs Auditor (WhatsApp Web style)
+    Route::get('/conversas', function () {
+        if (!auth()->user()->hasChatAccess()) {
             return redirect('/dashboard');
         }
-
-        return back()->withErrors(['email' => 'E-mail ou senha incorretos.']);
+        return view('admin.chat_audit');
     });
 
-    Route::post('/logout', function (\Illuminate\Http\Request $request) {
-        auth()->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-        return redirect('/login');
+    // Quote Audit logs dedicated page
+    Route::get('/cotacoes/{id}/auditoria', function ($id) {
+        return view('admin.quote_audit', ['id' => $id]);
     });
 
-    // Protected Views
-    Route::middleware('auth')->group(function () {
-        
-        // Master Quotations List (All authenticated users)
-        Route::get('/cotacoes', function () {
-            if (auth()->user()->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
-            return view('admin.quotes');
-        });
+    // Authenticated View/Edit Quote by ID
+    Route::get('/cotacoes/id/{id}', function (\Illuminate\Http\Request $request, $id) {
+        $quote = is_numeric($id) ? \App\Models\Cotacao::find($id) : \App\Models\Cotacao::where('numero', $id)->first();
+        if (!$quote) {
+            abort(404, 'Cotação não encontrada.');
+        }
+        if (!auth()->user()->canAccessQuote($quote)) {
+            abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
+        }
+        $request->session()->put('zecotacao_internal_user', true);
+        \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
 
-        // Quotation Sales Funnel (Gestor, Diretor, Faturamento & Administrador)
-        Route::get('/funil', function () {
-            if (auth()->user()->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
-            return view('admin.funnel');
-        });
-
-        // Approvals (Gestor & Diretor)
-        Route::get('/aprovacoes', function () {
-            if (auth()->user()->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
-            if (auth()->user()->isFaturamento()) {
-                return redirect('/faturamento');
-            }
-            return view('admin.approvals');
-        });
-        
-        Route::get('/aprovacoes/{id}', function ($id) {
-            if (auth()->user()->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
-            if (auth()->user()->isFaturamento()) {
-                return redirect('/faturamento');
-            }
-            return view('admin.approval_detail', ['id' => $id]);
-        });
-
-        // Billing (Faturamento, Diretor & Administrador)
-        Route::get('/faturamento', function () {
-            if (auth()->user()->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
-            if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
-                return redirect('/aprovacoes');
-            }
-            return view('admin.billing');
-        });
-        
-        Route::get('/faturamento/{id}', function ($id) {
-            if (auth()->user()->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
-            if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
-                return redirect('/aprovacoes');
-            }
-            return view('admin.billing_detail', ['id' => $id]);
-        });
-
-        // Parameters (Administrador and Diretor)
-        Route::get('/parametros', function () {
-            if (!auth()->user()->isAdministrador() && !auth()->user()->isDiretor()) {
-                return redirect('/aprovacoes');
-            }
-            return view('admin.parameters');
-        });
-
-        // User Management (Administrador only)
-        Route::get('/usuarios', function () {
-            if (!auth()->user()->isAdministrador()) {
-                return redirect('/aprovacoes');
-            }
-            return view('admin.users');
-        });
-
-        // Client Management (Administrador only)
-        Route::get('/clientes', function () {
-            if (!auth()->user()->isAdministrador()) {
-                return redirect('/aprovacoes');
-            }
-            return view('admin.partners');
-        });
-
-        // Product Catalog Management (Administrador only)
-        Route::get('/produtos', function () {
-            if (!auth()->user()->isAdministrador()) {
-                return redirect('/aprovacoes');
-            }
-            return view('admin.products');
-        });
-
-        // Representative Mobile Dashboard
-        Route::get('/painel-representante', function () {
-            if (!auth()->user()->isRepresentante()) {
-                return redirect('/aprovacoes');
-            }
-            return view('representative.dashboard');
-        });
-
-        // General Business Intelligence Dashboard
-        Route::get('/dashboard', function () {
-            if (auth()->user()->isRepresentante()) {
-                return redirect('/painel-representante');
-            }
-            return view('admin.dashboard');
-        });
-
-        // Chat Logs Auditor (WhatsApp Web style)
-        Route::get('/conversas', function () {
-            if (!auth()->user()->hasChatAccess()) {
-                return redirect('/dashboard');
-            }
-            return view('admin.chat_audit');
-        });
-
-        // Quote Audit logs dedicated page
-        Route::get('/cotacoes/{id}/auditoria', function ($id) {
-            return view('admin.quote_audit', ['id' => $id]);
-        });
-
-        // Authenticated View/Edit Quote by ID
-        Route::get('/cotacoes/id/{id}', function ($id) {
-            $quote = is_numeric($id) ? \App\Models\Cotacao::find($id) : \App\Models\Cotacao::where('numero', $id)->first();
-            if (!$quote) {
-                abort(404, 'Cotação não encontrada.');
-            }
-            if (!auth()->user()->canAccessQuote($quote)) {
-                abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
-            }
-            return view('quote.representative', [
-                'quoteId' => $quote->id,
-                'quote' => $quote,
-                'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
-                'exigeAnexo' => (bool)\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true),
-            ]);
-        });
-        
+        return view('quote.representative', [
+            'quoteId' => $quote->id,
+            'quote' => $quote,
+            'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
+            'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
+        ]);
     });
+    
 });

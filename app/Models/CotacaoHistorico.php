@@ -17,6 +17,26 @@ class CotacaoHistorico extends Model
         'condicao',
     ];
 
+    protected static function booted()
+    {
+        static::creating(function (CotacaoHistorico $hist) {
+            if (!empty($hist->usuario_id) && !in_array($hist->papel, ['sistema', 'cliente'], true)) {
+                $user = User::find($hist->usuario_id);
+                if ($user && !empty($user->papel)) {
+                    $hist->papel = $user->papel;
+                }
+            }
+        });
+    }
+
+    public function getPapelAttribute($value)
+    {
+        if (!in_array($value, ['sistema', 'cliente'], true) && $this->relationLoaded('usuario') && $this->usuario && !empty($this->usuario->papel)) {
+            return $this->usuario->papel;
+        }
+        return $value;
+    }
+
     public function cotacao()
     {
         return $this->belongsTo(Cotacao::class, 'cotacao_id');

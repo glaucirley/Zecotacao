@@ -355,6 +355,11 @@
                 }
             } catch(e) {}
         });
+
+        try {
+            localStorage.setItem('zecotacao_internal_actor', '1');
+            document.cookie = 'zecotacao_internal=1; path=/; max-age=2592000; SameSite=Lax';
+        } catch (e) {}
     </script>
     @yield('scripts')
 </body>

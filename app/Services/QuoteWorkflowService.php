@@ -100,7 +100,7 @@ class QuoteWorkflowService
             CotacaoHistorico::create([
                 'cotacao_id' => $quote->id,
                 'evento' => 'CLASSIFICADA_GRANDE_CONTA',
-                'usuario_id' => $quote->representante_id,
+                'usuario_id' => null,
                 'papel' => 'sistema',
                 'condicao' => 'Cotacao identificada como Grande Conta / Prioritaria: ' . implode('; ', $reasons),
             ]);
@@ -151,7 +151,7 @@ class QuoteWorkflowService
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
                     'evento' => 'ALERTA_MARGEM_BAIXA',
-                    'usuario_id' => $quote->representante_id,
+                    'usuario_id' => null,
                     'papel' => 'sistema',
                     'condicao' => sprintf(
                         'Alerta comercial: Margem líquida estimada da cotação (%.2f%%) está abaixo ou igual ao limite de atenção comercial (%.2f%%).',
@@ -342,15 +342,22 @@ class QuoteWorkflowService
         // 5. Quote requires manual approval! Check justification requirements if below min or discount exceeds allowance
         $requiresApproval = ($hasItemsBelowMin || $calculatedDiscount > $repLimit);
         if ($requiresApproval) {
-            $exigeAnexo = ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true);
-            $hasJustification = $quote->justificativas()->exists();
+            $exigeAnexo = filter_var(ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN);
+            $hasJustification = $quote->justificativas()
+                ->whereNull('cotacao_item_id')
+                ->where(function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->whereNotNull('texto')->where('texto', '!=', '');
+                    })->orWhereNotNull('audio_url');
+                })
+                ->exists();
             $hasAttachments = $quote->anexos()->exists() || 
                 $quote->justificativas->contains(fn($j) => $j->anexos()->exists());
 
-            if (!$hasJustification && !$hasAttachments) {
+            if (!$hasJustification) {
                 $reasonMsg = $hasItemsBelowMin 
                     ? 'Um ou mais itens estão abaixo do preço mínimo.'
-                    : sprintf('O desconto aplicado (%.1f%%) está acima da alçada permitida (%.1f%%).', $calculatedDiscount, $repLimit);
+                    : sprintf('O desconto aplicado (%.2f%%) está acima da alçada permitida (%.2f%%).', $calculatedDiscount, $repLimit);
                 $anexoMsg = $exigeAnexo 
                     ? ' É obrigatório preencher a justificativa e anexar o comprovante antes do envio.' 
                     : ' É obrigatório preencher a justificativa antes do envio.';

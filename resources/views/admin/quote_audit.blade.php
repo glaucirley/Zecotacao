@@ -132,7 +132,8 @@
         quote.historico.forEach(h => {
             const date = new Date(h.created_at).toLocaleString('pt-BR');
             const userStr = h.usuario ? `${h.usuario.nome} (${h.usuario.email})` : (h.papel === 'sistema' ? 'Sistema (Regras de Alçada)' : 'Sistema n8n / WhatsApp');
-            const roleStr = h.papel ? capitalize(h.papel) : 'Integração';
+            const resolvedRole = (h.usuario && h.usuario.papel && !['sistema', 'cliente'].includes(h.papel)) ? h.usuario.papel : h.papel;
+            const roleStr = resolvedRole ? capitalize(resolvedRole) : 'Integração';
             
             // Map event to a nice badge
             let badgeClass = 'event-default';

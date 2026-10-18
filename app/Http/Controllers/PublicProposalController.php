@@ -32,6 +32,45 @@ class PublicProposalController extends Controller
     }
 
     /**
+     * Verifica se o acesso parte de um usuário interno do sistema (sessão ativa,
+     * marcador de sessão ou cookie interno de representante/admin).
+     */
+    protected function isInternalRequest(Request $request): bool
+    {
+        try {
+            if (Auth::check() || auth()->check() || auth('web')->check()) {
+                return true;
+            }
+            if ($request->hasSession() && $request->session()->get('zecotacao_internal_user')) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // Ignore session errors on stateless fallback
+        }
+
+        if ($request->cookie('zecotacao_internal') === '1' || $request->boolean('preview') || $request->boolean('is_internal')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Verifica se a proposta comercial está expirada.
+     */
+    protected function isProposalExpired(CotacaoEnvio $envio): bool
+    {
+        $quote = $envio->cotacao;
+        if (!$quote) {
+            return true;
+        }
+
+        return $quote->status === 'EXPIRADA'
+            || ($quote->data_validade && $quote->data_validade->isPast())
+            || ($envio->expiracao_em && $envio->expiracao_em->isPast());
+    }
+
+    /**
      * Exibe a proposta comercial responsiva pública para o cliente final.
      * Não registra abertura síncrona aqui para evitar falsos positivos de robôs
      * de prévia de links (ex: WhatsApp, Facebook, Telegram).
@@ -50,6 +89,7 @@ class PublicProposalController extends Controller
         }
 
         $quote = $envio->cotacao;
+        $isExpired = $this->isProposalExpired($envio);
 
         // Itens aprovados para a exibição oficial ao cliente
         $items = $quote->itens->where('status_item', 'aprovado');
@@ -65,7 +105,9 @@ class PublicProposalController extends Controller
             if (!str_starts_with($digits, '55')) {
                 $digits = '55' . $digits;
             }
-            $msgRetorno = "Olá {$quote->representante->nome}, estou visualizando a proposta {$quote->numero} e gostaria de falar com você.";
+            $msgRetorno = $isExpired
+                ? "Olá {$quote->representante->nome}, tentei acessar a proposta {$quote->numero}, mas ela está expirada. Poderia renovar para mim?"
+                : "Olá {$quote->representante->nome}, estou visualizando a proposta {$quote->numero} e gostaria de falar com você.";
             $repWhatsappUrl = "https://wa.me/{$digits}?text=" . rawurlencode($msgRetorno);
         }
 
@@ -76,7 +118,8 @@ class PublicProposalController extends Controller
                 'items' => $items,
                 'repWhatsappUrl' => $repWhatsappUrl,
                 'token' => $token,
-                'isInternalUser' => Auth::check(),
+                'isInternalUser' => $this->isInternalRequest($request),
+                'isExpired' => $isExpired,
             ])
             ->header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet')
             ->header('Referrer-Policy', 'no-referrer');
@@ -85,16 +128,16 @@ class PublicProposalController extends Controller
     /**
      * Registra a abertura real da proposta quando executada via JavaScript
      * no navegador do cliente, filtrando estritamente bots de mensageiros
-     * e acessos feitos por usuários autenticados do sistema (admin, vendedor).
+     * e acessos feitos por usuários autenticados ou internos do sistema.
      */
     public function track(Request $request, string $token)
     {
-        // 1. Ignorar aberturas feitas por usuários do sistema autenticados (admin, gestor, representante, diretor)
-        if (Auth::check() || auth()->check() || auth('web')->check()) {
+        // 1. Ignorar aberturas feitas por usuários do sistema (admin, gestor, representante, diretor)
+        if ($this->isInternalRequest($request)) {
             return response()->json([
                 'tracked' => false,
                 'reason' => 'internal_user_ignored',
-                'message' => 'Visualização por usuário autenticado do sistema não contabilizada.'
+                'message' => 'Visualização por usuário interno do sistema não contabilizada.'
             ]);
         }
 
@@ -152,6 +195,10 @@ class PublicProposalController extends Controller
 
         if (!$envio || !$envio->cotacao) {
             abort(404, 'Proposta comercial não encontrada.');
+        }
+
+        if ($this->isProposalExpired($envio)) {
+            return redirect()->route('public.proposal', ['token' => $token]);
         }
 
         $pdf = $this->pdfService->generateQuotePdf($envio->cotacao);

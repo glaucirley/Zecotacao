@@ -412,7 +412,7 @@ class QuoteController extends Controller
         return response()->json([
             'success' => true,
             'data' => $quote,
-            'exige_anexo_justificativa' => (bool)\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true)
+            'exige_anexo_justificativa' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN)
         ]);
     }
 
@@ -510,7 +510,14 @@ class QuoteController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Cotação atualizada com sucesso.',
-                'data' => $quote->fresh(['itens.produto'])
+                'data' => $quote->fresh([
+                    'parceiro',
+                    'representante.equipe.gestor',
+                    'itens.produto',
+                    'justificativas.anexos',
+                    'anexos',
+                    'historico.usuario',
+                ])
             ]);
 
         } catch (\Throwable $e) {

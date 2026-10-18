@@ -9,11 +9,12 @@
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
     <meta name="referrer" content="no-referrer">
     
-    <!-- Prévia Rica no WhatsApp e Redes Sociais (Open Graph) -->
+    <!-- Prévia Rica no WhatsApp e Redes Sociais (Open Graph - apenas número da proposta) -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Central Veterinária">
-    <meta property="og:title" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
-    <meta property="og:description" content="Proposta comercial para {{ $quote->parceiro?->nome_fantasia ?: $quote->parceiro?->razao_social ?: 'Cliente' }} no valor de R$ {{ number_format((float)$quote->total, 2, ',', '.') }}. Clique para visualizar os itens e condições.">
+    <meta property="og:title" content="Proposta Comercial {{ $quote->numero }}">
+    <meta property="og:description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
+    <meta name="description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:image" content="{{ asset('images/logo.png') }}">
     <meta property="og:image:secure_url" content="{{ asset('images/logo.png') }}">
@@ -365,17 +366,23 @@
 </head>
 <body>
 
+    @php
+        $expired = !empty($isExpired)
+            || $quote->status === 'EXPIRADA'
+            || ($quote->data_validade && $quote->data_validade->isPast())
+            || (isset($envio) && $envio->expiracao_em && $envio->expiracao_em->isPast());
+        $internalUserName = Auth::check() ? (Auth::user()->nome . ' (' . Auth::user()->papel . ')') : 'Usuário Interno / Representante';
+    @endphp
+
     <div class="container">
 
-        @if(!empty($isInternalUser))
-            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; color: #1e40af; font-size: 12.5px; font-weight: 600; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow-sm);">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <div>
-                    <div><strong>Modo de Pré-visualização Interna:</strong> Você está conectado como {{ Auth::user()->nome }} ({{ Auth::user()->papel }}).</div>
-                    <div style="font-size: 11.5px; color: #3b82f6; font-weight: 500; margin-top: 2px;">Esta visualização não conta no rastreamento e não confirma o contato do cliente.</div>
-                </div>
+        <div id="internal-preview-banner" style="background: #eff6ff; border: 1.5px solid #bfdbfe; color: #1e40af; font-size: 12.5px; font-weight: 600; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: {{ !empty($isInternalUser) ? 'flex' : 'none' }}; align-items: center; gap: 10px; box-shadow: var(--shadow-sm);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div>
+                <div><strong>Modo de Pré-visualização Interna:</strong> Você está conectado como {{ $internalUserName }}.</div>
+                <div style="font-size: 11.5px; color: #3b82f6; font-weight: 500; margin-top: 2px;">Esta visualização não conta no rastreamento e não confirma o contato do cliente.</div>
             </div>
-        @endif
+        </div>
 
         <!-- Header da Marca -->
         <header class="brand-header">
@@ -387,147 +394,174 @@
                 </div>
             </div>
             <div>
-                <span class="quote-badge-top">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Aprovada
-                </span>
+                @if($expired)
+                    <span class="quote-badge-top" style="background: #fee2e2; color: #b91c1c; border-color: #fecaca;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        Expirada
+                    </span>
+                @else
+                    <span class="quote-badge-top">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        Aprovada
+                    </span>
+                @endif
             </div>
         </header>
 
-        @if($quote->status === 'EXPIRADA' || ($quote->data_validade && $quote->data_validade->isPast()))
-            <div class="expired-banner">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span>Esta proposta comercial excedeu o prazo de validade original. Consulte seu representante para renovação das condições.</span>
-            </div>
-        @endif
-
-        <!-- Card de Destaque / Total -->
-        <div class="hero-card">
-            <div class="hero-sub">Proposta Comercial</div>
-            <div class="hero-quote-num">
-                <span>#{{ $quote->numero }}</span>
-            </div>
-
-            <div class="hero-total-box">
-                <div>
-                    <div class="hero-total-label">Valor Total da Proposta</div>
-                    <div class="hero-total-val">R$ {{ number_format((float)$quote->total, 2, ',', '.') }}</div>
+        @if($expired)
+            <!-- Tela Exclusiva de Proposta Expirada (Sem Selo Aprovada, Sem Preços e Sem Download de PDF) -->
+            <div class="section-card" style="text-align: center; padding: 32px 24px; border: 1.5px solid #fecaca; background: #fffafb;">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 10.5px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Validade</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #ffffff;">
-                        {{ $quote->data_validade ? $quote->data_validade->format('d/m/Y') : now()->addHours($quote->validade_horas ?: 24)->format('d/m/Y') }}
+                <div style="font-size: 12px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                    Proposta #{{ $quote->numero }}
+                </div>
+                <h2 style="font-size: 19px; font-weight: 800; color: #7f1d1d; margin-bottom: 10px;">
+                    Proposta Comercial Expirada
+                </h2>
+                <p style="font-size: 13.5px; color: #475569; max-width: 480px; margin: 0 auto 18px; line-height: 1.55;">
+                    Esta proposta comercial excedeu o prazo de validade original{{ $quote->data_validade ? ' (' . $quote->data_validade->format('d/m/Y \à\s H:i') . ')' : '' }} e suas condições e valores não estão mais disponíveis para consulta ou emissão de PDF.
+                </p>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; text-align: left; max-width: 440px; margin: 0 auto;">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Cliente</div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark); margin-bottom: 10px;">{{ $quote->parceiro->razao_social }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Representante Comercial</div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark);">{{ $quote->representante->nome }}</div>
+                </div>
+                <p style="font-size: 12.5px; color: #64748b; margin-top: 16px;">
+                    Fale com seu representante comercial pelo botão abaixo para solicitar a renovação da proposta.
+                </p>
+            </div>
+        @else
+            <!-- Card de Destaque / Total -->
+            <div class="hero-card">
+                <div class="hero-sub">Proposta Comercial</div>
+                <div class="hero-quote-num">
+                    <span>#{{ $quote->numero }}</span>
+                </div>
+
+                <div class="hero-total-box">
+                    <div>
+                        <div class="hero-total-label">Valor Total da Proposta</div>
+                        <div class="hero-total-val">R$ {{ number_format((float)$quote->total, 2, ',', '.') }}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 10.5px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Validade</div>
+                        <div style="font-size: 13px; font-weight: 700; color: #ffffff;">
+                            {{ $quote->data_validade ? $quote->data_validade->format('d/m/Y') : now()->addHours($quote->validade_horas ?: 24)->format('d/m/Y') }}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Dados do Cliente -->
-        <div class="section-card">
-            <h2 class="section-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                Cliente
-            </h2>
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">Razão Social / Nome</span>
-                    <span class="info-value">{{ $quote->parceiro->razao_social }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">CNPJ / CPF</span>
-                    <span class="info-value">{{ $quote->parceiro->cnpj ?: 'Não informado' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Cidade / UF</span>
-                    <span class="info-value">{{ $quote->parceiro->cidade ?: 'Uberlândia' }}/{{ $quote->parceiro->uf ?: 'MG' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Representante Comercial</span>
-                    <span class="info-value">{{ $quote->representante->nome }}</span>
+            <!-- Dados do Cliente -->
+            <div class="section-card">
+                <h2 class="section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Cliente
+                </h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Razão Social / Nome</span>
+                        <span class="info-value">{{ $quote->parceiro->razao_social }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">CNPJ / CPF</span>
+                        <span class="info-value">{{ $quote->parceiro->cnpj ?: 'Não informado' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Cidade / UF</span>
+                        <span class="info-value">{{ $quote->parceiro->cidade ?: 'Uberlândia' }}/{{ $quote->parceiro->uf ?: 'MG' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Representante Comercial</span>
+                        <span class="info-value">{{ $quote->representante->nome }}</span>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Condições Comerciais -->
-        <div class="section-card">
-            <h2 class="section-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                Condições Comerciais
-            </h2>
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">Condição de Pagamento</span>
-                    <span class="info-value">{{ $quote->forma_pagamento ?: 'À Combinar' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Prazo de Entrega</span>
-                    <span class="info-value">{{ $quote->prazo_entrega ?: 'Imediato' }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Tipo de Frete</span>
-                    <span class="info-value">{{ $quote->frete_tipo === 'FOB' ? 'FOB (Por conta do destinatário)' : 'CIF (Frete incluso)' }}</span>
-                </div>
-                @if($quote->transportadora)
+            <!-- Condições Comerciais -->
+            <div class="section-card">
+                <h2 class="section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    Condições Comerciais
+                </h2>
+                <div class="info-grid">
                     <div class="info-item">
-                        <span class="info-label">Transportadora</span>
-                        <span class="info-value">{{ $quote->transportadora }}</span>
+                        <span class="info-label">Condição de Pagamento</span>
+                        <span class="info-value">{{ $quote->forma_pagamento ?: 'À Combinar' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Prazo de Entrega</span>
+                        <span class="info-value">{{ $quote->prazo_entrega ?: 'Imediato' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Tipo de Frete</span>
+                        <span class="info-value">{{ $quote->frete_tipo === 'FOB' ? 'FOB (Por conta do destinatário)' : 'CIF (Frete incluso)' }}</span>
+                    </div>
+                    @if($quote->transportadora)
+                        <div class="info-item">
+                            <span class="info-label">Transportadora</span>
+                            <span class="info-value">{{ $quote->transportadora }}</span>
+                        </div>
+                    @endif
+                </div>
+
+                @if($quote->observacao_cliente)
+                    <div style="margin-top: 14px; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;">
+                        <span class="info-label" style="display:block; margin-bottom: 2px;">Observações da Proposta</span>
+                        <span style="font-size: 12.5px; color: var(--text-dark);">{{ $quote->observacao_cliente }}</span>
                     </div>
                 @endif
             </div>
 
-            @if($quote->observacao_cliente)
-                <div style="margin-top: 14px; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;">
-                    <span class="info-label" style="display:block; margin-bottom: 2px;">Observações da Proposta</span>
-                    <span style="font-size: 12.5px; color: var(--text-dark);">{{ $quote->observacao_cliente }}</span>
-                </div>
-            @endif
-        </div>
+            <!-- Itens da Proposta -->
+            <div class="section-card">
+                <h2 class="section-title" style="justify-content: space-between;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        Produtos Cotados
+                    </span>
+                    <span style="font-size: 11.5px; color: var(--text-muted); font-weight: 600;">{{ $items->count() }} {{ $items->count() === 1 ? 'item' : 'itens' }}</span>
+                </h2>
 
-        <!-- Itens da Proposta -->
-        <div class="section-card">
-            <h2 class="section-title" style="justify-content: space-between;">
-                <span style="display: flex; align-items: center; gap: 8px;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                    Produtos Cotados
-                </span>
-                <span style="font-size: 11.5px; color: var(--text-muted); font-weight: 600;">{{ $items->count() }} {{ $items->count() === 1 ? 'item' : 'itens' }}</span>
-            </h2>
-
-            <div>
-                @foreach($items as $item)
-                    <div class="item-row">
-                        <div class="item-desc-box">
-                            <div class="item-name">{{ $item->produto->descricao }}</div>
-                            <div class="item-meta">
-                                Cód: {{ $item->produto->codigo_sankhya }} · {{ $item->qtd }} {{ $item->produto->unidade }}
+                <div>
+                    @foreach($items as $item)
+                        <div class="item-row">
+                            <div class="item-desc-box">
+                                <div class="item-name">{{ $item->produto->descricao }}</div>
+                                <div class="item-meta">
+                                    Cód: {{ $item->produto->codigo_sankhya }} · {{ $item->qtd }} {{ $item->produto->unidade }}
+                                </div>
+                            </div>
+                            <div class="item-calc-box">
+                                <div class="item-subtotal">R$ {{ number_format((float)$item->subtotal, 2, ',', '.') }}</div>
+                                <div class="item-unit-price">R$ {{ number_format((float)$item->preco_unit_proposto, 2, ',', '.') }} un</div>
                             </div>
                         </div>
-                        <div class="item-calc-box">
-                            <div class="item-subtotal">R$ {{ number_format((float)$item->subtotal, 2, ',', '.') }}</div>
-                            <div class="item-unit-price">R$ {{ number_format((float)$item->preco_unit_proposto, 2, ',', '.') }} un</div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
+                    @endforeach
+                </div>
 
-            <!-- Resumo Financeiro -->
-            <div class="totals-block">
-                @if($quote->desconto > 0.009)
-                    <div class="total-line">
-                        <span>Subtotal de Tabela:</span>
-                        <span>R$ {{ number_format((float)$quote->subtotal, 2, ',', '.') }}</span>
+                <!-- Resumo Financeiro -->
+                <div class="totals-block">
+                    @if($quote->desconto > 0.009)
+                        <div class="total-line">
+                            <span>Subtotal de Tabela:</span>
+                            <span>R$ {{ number_format((float)$quote->subtotal, 2, ',', '.') }}</span>
+                        </div>
+                        <div class="total-line discount">
+                            <span>Desconto Comercial:</span>
+                            <span>− R$ {{ number_format((float)$quote->desconto, 2, ',', '.') }}</span>
+                        </div>
+                    @endif
+                    <div class="total-line final">
+                        <span>Total da Proposta:</span>
+                        <span>R$ {{ number_format((float)$quote->total, 2, ',', '.') }}</span>
                     </div>
-                    <div class="total-line discount">
-                        <span>Desconto Comercial:</span>
-                        <span>− R$ {{ number_format((float)$quote->desconto, 2, ',', '.') }}</span>
-                    </div>
-                @endif
-                <div class="total-line final">
-                    <span>Total da Proposta:</span>
-                    <span>R$ {{ number_format((float)$quote->total, 2, ',', '.') }}</span>
                 </div>
             </div>
-        </div>
+        @endif
 
         <div style="text-align: center; color: var(--text-muted); font-size: 11.5px; padding: 10px 0 20px;">
             Central Veterinária · Distribuidora de Produtos Veterinários Ltda.<br>
@@ -537,35 +571,52 @@
     </div>
 
     <!-- Barra de Ações Fixa no Rodapé (Mobile First) -->
-    <div class="floating-footer">
-        <a href="/p/{{ $token }}/pdf" class="btn-action btn-pdf" target="_blank" rel="noopener">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <span>Baixar PDF</span>
-        </a>
+    @if(!$expired || $repWhatsappUrl)
+        <div class="floating-footer">
+            @if(!$expired)
+                <a href="/p/{{ $token }}/pdf" class="btn-action btn-pdf" target="_blank" rel="noopener">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>Baixar PDF</span>
+                </a>
+            @endif
 
-        @if($repWhatsappUrl)
-            <a href="{{ $repWhatsappUrl }}" class="btn-action btn-whatsapp" target="_blank" rel="noopener">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                <span>Falar no WhatsApp</span>
-            </a>
-        @endif
-    </div>
+            @if($repWhatsappUrl)
+                <a href="{{ $repWhatsappUrl }}" class="btn-action btn-whatsapp" target="_blank" rel="noopener">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                    <span>{{ $expired ? 'Solicitar Renovação no WhatsApp' : 'Falar no WhatsApp' }}</span>
+                </a>
+            @endif
+        </div>
+    @endif
 
     <!-- Rastreamento de visualização real pelo navegador do cliente (ignora crawlers e usuários internos) -->
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const isInternal = @json(!empty($isInternalUser));
-            if (isInternal || navigator.webdriver) return;
+            let hasInternalLocalFlag = false;
+            try {
+                hasInternalLocalFlag = localStorage.getItem('zecotacao_internal_actor') === '1'
+                    || document.cookie.includes('zecotacao_internal=1');
+            } catch (e) {}
+
+            const isInternal = @json(!empty($isInternalUser)) || hasInternalLocalFlag;
+            if (isInternal) {
+                const banner = document.getElementById('internal-preview-banner');
+                if (banner) banner.style.display = 'flex';
+                return;
+            }
+            if (navigator.webdriver) return;
             try {
                 fetch('/p/{{ $token }}/track', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
                         screen: `${window.screen?.width}x${window.screen?.height}`,
-                        tz: Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+                        tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                        is_internal: isInternal
                     })
                 }).catch(() => {});
             } catch(e) {}
