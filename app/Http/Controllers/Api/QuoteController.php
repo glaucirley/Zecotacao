@@ -34,20 +34,25 @@ class QuoteController extends Controller
         \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
 
         // Lightweight eager loading for listing performance
-        $query = Cotacao::with([
+        $hasNaoEncontradoCol = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'nao_encontrado');
+        $withRelations = [
             'parceiro:id,codigo_sankhya,razao_social,nome_fantasia,cnpj',
             'representante:id,nome,email,equipe_id',
             'representante.equipe:id,nome',
-            'itens' => function ($q) {
+        ];
+        $withCounts = ['itens'];
+
+        if ($hasNaoEncontradoCol) {
+            $withRelations['itens'] = function ($q) {
                 $q->where('nao_encontrado', true)
                   ->select('id', 'cotacao_id', 'produto_id', 'qtd', 'nao_encontrado', 'descricao_original', 'observacao_ia');
-            }
-        ])->withCount([
-            'itens',
-            'itens as itens_nao_encontrados_count' => function ($q) {
+            };
+            $withCounts['itens as itens_nao_encontrados_count'] = function ($q) {
                 $q->where('nao_encontrado', true);
-            }
-        ])->orderBy('created_at', 'desc');
+            };
+        }
+
+        $query = Cotacao::with($withRelations)->withCount($withCounts)->orderBy('created_at', 'desc');
 
         // Access Control
         if ($user->isGestor()) {
