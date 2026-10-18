@@ -3410,6 +3410,17 @@
             }
         }
 
+        // Abrir a janela/aba no clique (síncrono, antes do await) para evitar bloqueio de pop-up no celular
+        let waWindow = null;
+        if (canal === 'WHATSAPP') {
+            waWindow = window.open('about:blank', '_blank');
+            if (waWindow && waWindow.document) {
+                try {
+                    waWindow.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abrindo WhatsApp...</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:90vh;color:#334155;font-size:15px;">Redirecionando para o WhatsApp...</body></html>');
+                } catch (e) {}
+            }
+        }
+
         try {
             if (btnWa) btnWa.disabled = true;
             if (btnShare) btnShare.disabled = true;
@@ -3424,7 +3435,13 @@
             if (res.ok && data.success) {
                 if (canal === 'WHATSAPP') {
                     if (data.url_whatsapp) {
-                        window.open(data.url_whatsapp, '_blank');
+                        if (waWindow && !waWindow.closed) {
+                            waWindow.location.href = data.url_whatsapp;
+                        } else {
+                            window.location.href = data.url_whatsapp;
+                        }
+                    } else if (waWindow && !waWindow.closed) {
+                        waWindow.close();
                     }
                     showToast("WhatsApp aberto com a proposta pronta para envio!", "success");
                 } else if (canal === 'WEB_SHARE') {
@@ -3439,9 +3456,15 @@
                 }, 1200);
 
             } else {
+                if (waWindow && !waWindow.closed) {
+                    waWindow.close();
+                }
                 showToast("Erro no envio: " + (data.error || data.message || "Falha na comunicação"), "error");
             }
         } catch (e) {
+            if (waWindow && !waWindow.closed) {
+                waWindow.close();
+            }
             showToast("Erro de conexão ao processar envio.", "error");
         } finally {
             if (btnWa) btnWa.disabled = false;
