@@ -15,9 +15,12 @@ class PdfService
      */
     public function generateQuotePdf(Cotacao $quote)
     {
-        // Load only approved items for outputting to the PDF
+        // Load only approved and found items for outputting to the PDF
         $items = $quote->itens()
             ->where('status_item', 'aprovado')
+            ->where(function ($q) {
+                $q->where('nao_encontrado', false)->orWhereNull('nao_encontrado');
+            })
             ->with('produto')
             ->get();
 

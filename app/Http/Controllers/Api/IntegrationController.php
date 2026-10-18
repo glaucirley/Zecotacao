@@ -23,17 +23,88 @@ class IntegrationController extends Controller
         $rawInput = $request->all();
 
         // Pre-process numeric fields to handle PT-BR commas and 3-decimal strings from n8n / Sankhya
-        if (array_key_exists('subtotal', $rawInput)) $rawInput['subtotal'] = $this->sanitizeFloat($rawInput['subtotal']);
-        if (array_key_exists('desconto', $rawInput)) $rawInput['desconto'] = $this->sanitizeFloat($rawInput['desconto']);
-        if (array_key_exists('total', $rawInput))    $rawInput['total']    = $this->sanitizeFloat($rawInput['total']);
+        $rawInput['subtotal'] = array_key_exists('subtotal', $rawInput) ? $this->sanitizeFloat($rawInput['subtotal']) : 0.00;
+        $rawInput['desconto'] = array_key_exists('desconto', $rawInput) ? $this->sanitizeFloat($rawInput['desconto']) : 0.00;
+        $rawInput['total']    = array_key_exists('total', $rawInput)    ? $this->sanitizeFloat($rawInput['total'])    : 0.00;
+
+        if (!isset($rawInput['itens']) || !is_array($rawInput['itens'])) {
+            $rawInput['itens'] = [];
+        }
+
+        // Merge any root-level unfound items arrays sent by n8n / AI into $rawInput['itens']
+        $unfoundRootKeys = ['itens_nao_encontrados', 'produtos_nao_encontrados', 'nao_encontrados', 'itens_pendentes'];
+        foreach ($unfoundRootKeys as $rootKey) {
+            if (!empty($rawInput[$rootKey]) && is_array($rawInput[$rootKey])) {
+                foreach ($rawInput[$rootKey] as $rawUnfound) {
+                    if (is_string($rawUnfound) && trim($rawUnfound) !== '') {
+                        $rawInput['itens'][] = [
+                            'descricao' => trim($rawUnfound),
+                            'descricao_original' => trim($rawUnfound),
+                            'qtd' => 1,
+                            'unidade' => 'UN',
+                            'nao_encontrado' => true,
+                            'observacao_ia' => 'Item solicitado pelo cliente não encontrado automaticamente pela IA no catálogo.',
+                        ];
+                    } elseif (is_array($rawUnfound)) {
+                        $descOrig = $rawUnfound['descricao_original']
+                            ?? $rawUnfound['descricao']
+                            ?? $rawUnfound['produto']
+                            ?? $rawUnfound['termo_buscado']
+                            ?? $rawUnfound['termo']
+                            ?? $rawUnfound['nome']
+                            ?? $rawUnfound['item']
+                            ?? 'Item solicitado pelo cliente';
+                        $qtdUnfound = $rawUnfound['qtd'] ?? $rawUnfound['quantidade'] ?? 1;
+                        $obsIa = $rawUnfound['observacao_ia']
+                            ?? $rawUnfound['observacao']
+                            ?? $rawUnfound['motivo']
+                            ?? 'Item solicitado pelo cliente não encontrado automaticamente pela IA no catálogo.';
+
+                        $rawInput['itens'][] = array_merge($rawUnfound, [
+                            'descricao' => $rawUnfound['descricao'] ?? $descOrig,
+                            'descricao_original' => $descOrig,
+                            'qtd' => max(1, (int)round($this->sanitizeFloat($qtdUnfound))),
+                            'unidade' => $rawUnfound['unidade'] ?? 'UN',
+                            'nao_encontrado' => true,
+                            'observacao_ia' => $obsIa,
+                        ]);
+                    }
+                }
+            }
+        }
 
         if (isset($rawInput['itens']) && is_array($rawInput['itens'])) {
             foreach ($rawInput['itens'] as $idx => $item) {
-                $isNaoEncontrado = !empty($item['nao_encontrado']) || !empty($item['item_nao_encontrado']) || !empty($item['produto_nao_encontrado']) || !empty($item['nao_localizado']);
-                if ($isNaoEncontrado || empty($item['codigo_sankhya'])) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                // Fallback description and quantity fields if AI used alternative keys
+                if (empty($item['descricao'])) {
+                    $item['descricao'] = $item['descricao_original']
+                        ?? $item['produto']
+                        ?? $item['nome']
+                        ?? $item['termo_buscado']
+                        ?? $item['item']
+                        ?? 'Item solicitado pelo cliente';
+                    $rawInput['itens'][$idx]['descricao'] = $item['descricao'];
+                }
+                if (!isset($item['qtd']) && isset($item['quantidade'])) {
+                    $item['qtd'] = $item['quantidade'];
+                }
+
+                $rawCode = trim((string)($item['codigo_sankhya'] ?? ''));
+                $isCodeMissing = ($rawCode === '' || $rawCode === '0' || strtolower($rawCode) === 'null' || strtolower($rawCode) === 'n/a' || strtolower($rawCode) === 'nao_encontrado' || str_starts_with($rawCode, 'SEM_CODIGO'));
+                $isNaoEncontrado = !empty($item['nao_encontrado'])
+                    || !empty($item['item_nao_encontrado'])
+                    || !empty($item['produto_nao_encontrado'])
+                    || !empty($item['nao_localizado'])
+                    || $isCodeMissing;
+
+                if ($isNaoEncontrado) {
                     $rawInput['itens'][$idx]['nao_encontrado'] = true;
-                    if (empty($rawInput['itens'][$idx]['codigo_sankhya'])) {
-                        $rawInput['itens'][$idx]['codigo_sankhya'] = 'SEM_CODIGO_' . substr(md5($item['descricao'] ?? Str::random(8)), 0, 8);
+                    if ($isCodeMissing) {
+                        $rawInput['itens'][$idx]['codigo_sankhya'] = 'SEM_CODIGO_' . substr(md5(($item['descricao_original'] ?? $item['descricao']) ?? Str::random(8)), 0, 8);
                     }
                     if (empty($rawInput['itens'][$idx]['unidade'])) {
                         $rawInput['itens'][$idx]['unidade'] = 'UN';
@@ -54,11 +125,11 @@ class IntegrationController extends Controller
                         $rawInput['itens'][$idx]['descricao_original'] = $item['descricao'] ?? 'Item solicitado pelo cliente';
                     }
                     if (empty($rawInput['itens'][$idx]['observacao_ia'])) {
-                        $rawInput['itens'][$idx]['observacao_ia'] = 'Item não identificado automaticamente no catálogo pela IA';
+                        $rawInput['itens'][$idx]['observacao_ia'] = $item['observacao'] ?? $item['motivo'] ?? 'Item não identificado automaticamente no catálogo pela IA';
                     }
                 }
 
-                if (array_key_exists('qtd', $item))                  $rawInput['itens'][$idx]['qtd']                  = (int)$this->sanitizeFloat($item['qtd']);
+                $rawInput['itens'][$idx]['qtd'] = isset($item['qtd']) ? max(1, (int)round($this->sanitizeFloat($item['qtd']))) : 1;
                 if (array_key_exists('preco_unit_sugerido', $item)) $rawInput['itens'][$idx]['preco_unit_sugerido'] = $this->sanitizeFloat($item['preco_unit_sugerido']);
                 if (array_key_exists('preco_minimo', $item))        $rawInput['itens'][$idx]['preco_minimo']        = $this->sanitizeFloat($item['preco_minimo']);
                 if (array_key_exists('preco_unit_proposto', $item)) $rawInput['itens'][$idx]['preco_unit_proposto'] = $this->sanitizeFloat($item['preco_unit_proposto']);
@@ -226,7 +297,12 @@ class IntegrationController extends Controller
                 foreach ($data['itens'] as $item) {
                     $itemCode = (string)($item['codigo_sankhya'] ?? '');
                     if (empty($itemCode) || str_starts_with($itemCode, 'SEM_CODIGO')) {
-                        $itemCode = 'SEM_CODIGO_' . substr(md5($item['descricao'] ?? Str::random(8)), 0, 8);
+                        $itemCode = 'SEM_CODIGO_' . substr(md5(($item['descricao_original'] ?? $item['descricao']) ?? Str::random(8)), 0, 8);
+                        $unfoundItemCodes[$itemCode] = true;
+                    }
+
+                    if (!empty($item['nao_encontrado'])) {
+                        $unfoundItemCodes[$itemCode] = true;
                     }
 
                     if (isset($resolvedProductsCache[$itemCode])) {
@@ -235,8 +311,13 @@ class IntegrationController extends Controller
                         $product = null;
 
                         // A. Check local DB first if not explicitly marked as not found
-                        if (empty($item['nao_encontrado'])) {
+                        if (empty($unfoundItemCodes[$itemCode])) {
                             $product = $localProducts[$itemCode] ?? null;
+
+                            // Check if this local product was previously created as a fallback for a missing code
+                            if ($product && !$product->ativo && \App\Models\ProdutoNaoEncontrado::where('codigo_sankhya', $itemCode)->exists()) {
+                                $unfoundItemCodes[$itemCode] = true;
+                            }
 
                             // B. If not in local DB, attempt Sankhya sync
                             if (!$product) {
@@ -249,8 +330,8 @@ class IntegrationController extends Controller
                             }
                         }
 
-                        // C. If product code does NOT exist anywhere, register in ProdutoNaoEncontrado and create local fallback
-                        if (!$product) {
+                        // C. If product code does NOT exist anywhere (or is marked unfound), register in ProdutoNaoEncontrado and create local fallback
+                        if (!$product || !empty($unfoundItemCodes[$itemCode])) {
                             $unfoundItemCodes[$itemCode] = true;
                             if (!isset($registeredMissingCodes[$itemCode])) {
                                 \App\Models\ProdutoNaoEncontrado::registrar(
@@ -261,16 +342,18 @@ class IntegrationController extends Controller
                                 $registeredMissingCodes[$itemCode] = true;
                             }
 
-                            $productData = [
-                                'codigo_sankhya'  => $itemCode,
-                                'descricao'       => $item['descricao'] ?? ('Produto ' . $itemCode),
-                                'unidade'         => $item['unidade'] ?? 'UN',
-                                'ativo'           => true,
-                            ];
-                            if (\Illuminate\Support\Facades\Schema::hasColumn('produtos', 'custo_variavel')) {
-                                $productData['custo_variavel'] = (float)($item['custo'] ?? 0);
+                            if (!$product) {
+                                $productData = [
+                                    'codigo_sankhya'  => $itemCode,
+                                    'descricao'       => $item['descricao'] ?? ('Produto ' . $itemCode),
+                                    'unidade'         => $item['unidade'] ?? 'UN',
+                                    'ativo'           => false,
+                                ];
+                                if (\Illuminate\Support\Facades\Schema::hasColumn('produtos', 'custo_variavel')) {
+                                    $productData['custo_variavel'] = (float)($item['custo'] ?? 0);
+                                }
+                                $product = Produto::firstOrCreate(['codigo_sankhya' => $itemCode], $productData);
                             }
-                            $product = Produto::firstOrCreate(['codigo_sankhya' => $itemCode], $productData);
                         }
 
                         $resolvedProductsCache[$itemCode] = $product;
@@ -338,13 +421,17 @@ class IntegrationController extends Controller
                 }
 
                 // 6. Recreate Quote Items
+                $unfoundCount = 0;
                 foreach ($data['itens'] as $item) {
                     $itemCode = (string)($item['codigo_sankhya'] ?? '');
-                    if (empty($itemCode) || !isset($productIdsMap[$itemCode])) {
-                        $itemCode = 'SEM_CODIGO_' . substr(md5($item['descricao'] ?? Str::random(8)), 0, 8);
+                    if (empty($itemCode) || str_starts_with($itemCode, 'SEM_CODIGO') || !isset($productIdsMap[$itemCode])) {
+                        $itemCode = 'SEM_CODIGO_' . substr(md5(($item['descricao_original'] ?? $item['descricao']) ?? Str::random(8)), 0, 8);
                     }
 
                     $isUnfound = !empty($item['nao_encontrado']) || isset($unfoundItemCodes[$itemCode]) || str_starts_with($itemCode, 'SEM_CODIGO');
+                    if ($isUnfound) {
+                        $unfoundCount++;
+                    }
 
                     CotacaoItem::create([
                         'cotacao_id' => $quote->id,
@@ -371,6 +458,9 @@ class IntegrationController extends Controller
                 // 7. Write Audit Trail (Historico)
                 $event = $existingQuote ? 'ATUALIZADA_VIA_INTEGRACAO' : 'CRIADA_VIA_INTEGRACAO';
                 $cond = $existingQuote ? 'Cotação atualizada via N8N payload' : 'Cotação importada com sucesso via N8N';
+                if ($unfoundCount > 0) {
+                    $cond .= " ({$unfoundCount} item(ns) não encontrado(s) pela IA aguardando inclusão manual)";
+                }
                 
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
@@ -381,10 +471,14 @@ class IntegrationController extends Controller
                 ]);
 
                 // Create Notification for Representative
+                $notifMsg = "A cotação {$quote->numero} para " . ($partner->razao_social ?? 'Cliente') . " foi criada via WhatsApp e está pronta para edição.";
+                if ($unfoundCount > 0) {
+                    $notifMsg .= " Atenção: {$unfoundCount} item(ns) solicitado(s) pelo cliente não foram encontrados pela IA e aguardam sua inclusão manual.";
+                }
                 \App\Models\Notificacao::create([
                     'usuario_id' => $representative->id,
-                    'titulo' => 'Nova Cotação Recebida!',
-                    'mensagem' => "A cotação {$quote->numero} para " . ($partner->razao_social ?? 'Cliente') . " foi criada via WhatsApp e está pronta para edição.",
+                    'titulo' => $unfoundCount > 0 ? '⚠️ Nova Cotação (Itens não encontrados pela IA)' : 'Nova Cotação Recebida!',
+                    'mensagem' => $notifMsg,
                     'link' => url("/cotacoes/id/{$quote->id}"),
                     'lida' => false,
                 ]);

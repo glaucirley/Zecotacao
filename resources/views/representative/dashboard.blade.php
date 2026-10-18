@@ -1655,14 +1655,24 @@
                 const validityBadge = getCardValidityBadge(q.data_validade, q.status);
                 const valStr = parseFloat(q.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
                 const partnerName = (q.parceiro && q.parceiro.razao_social) ? q.parceiro.razao_social : 'Cliente não informado';
+                const unfoundCnt = parseInt(q.itens_nao_encontrados_count || 0);
+                const unfoundNames = (Array.isArray(q.itens) && q.itens.length > 0)
+                    ? q.itens.map(it => it.descricao_original || 'Item').join(', ')
+                    : '';
                 
                 container.innerHTML += `
-                    <a href="${PUBLIC_URL}/cotacoes/id/${q.id}" class="quote-card">
+                    <a href="${PUBLIC_URL}/cotacoes/id/${q.id}" class="quote-card" style="${unfoundCnt > 0 ? 'border-color:#fda4af; background:#fffafb;' : ''}">
                         <div class="card-row-top" style="align-items: center;">
                             <span class="quote-num">${escapeHtml(q.numero)}</span>
                             <span class="status-badge" style="background:${stInfo.bg}; color:${stInfo.color}; border:1px solid ${stInfo.border};">${escapeHtml(stInfo.label)}</span>
                         </div>
                         <div class="client-name" style="margin: 6px 0;">${escapeHtml(partnerName)}</div>
+                        ${unfoundCnt > 0 ? `
+                            <div style="margin-bottom: 8px; padding: 5px 9px; background: #ffe4e6; border: 1px solid #fecdd3; border-radius: 7px; font-size: 11.5px; color: #9f1239; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                                <span>⚠️ ${unfoundCnt} ${unfoundCnt === 1 ? 'item não encontrado pela IA' : 'itens não encontrados pela IA'}${unfoundNames ? `: "${escapeHtml(unfoundNames)}"` : ''}</span>
+                                <span style="text-decoration: underline; white-space: nowrap; font-size: 11px;">Incluir →</span>
+                            </div>
+                        ` : ''}
                         <div class="card-row-bottom" style="align-items: center;">
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <span class="quote-date">${dateStr}</span>

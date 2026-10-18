@@ -37,7 +37,16 @@ class QuoteController extends Controller
         $query = Cotacao::with([
             'parceiro:id,codigo_sankhya,razao_social,nome_fantasia,cnpj',
             'representante:id,nome,email,equipe_id',
-            'representante.equipe:id,nome'
+            'representante.equipe:id,nome',
+            'itens' => function ($q) {
+                $q->where('nao_encontrado', true)
+                  ->select('id', 'cotacao_id', 'produto_id', 'qtd', 'nao_encontrado', 'descricao_original', 'observacao_ia');
+            }
+        ])->withCount([
+            'itens',
+            'itens as itens_nao_encontrados_count' => function ($q) {
+                $q->where('nao_encontrado', true);
+            }
         ])->orderBy('created_at', 'desc');
 
         // Access Control
@@ -441,11 +450,27 @@ class QuoteController extends Controller
             'itens' => 'nullable|array',
             'itens.*.id' => 'required_with:itens|integer',
             'itens.*.qtd' => 'required_with:itens|integer|min:1',
-            'itens.*.preco_unit_proposto' => 'required_with:itens|numeric|min:0.01',
+            'itens.*.preco_unit_proposto' => 'required_with:itens|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
+        }
+
+        // Validate that found items have price >= 0.01 (unfound items have placeholder price 0.00)
+        if ($request->has('itens')) {
+            foreach ($request->input('itens') as $idx => $itemData) {
+                $existingItem = CotacaoItem::where('cotacao_id', $quote->id)
+                    ->where('id', $itemData['id'])
+                    ->first();
+                if ($existingItem && !$existingItem->nao_encontrado && (float)($itemData['preco_unit_proposto'] ?? 0) < 0.01) {
+                    return response()->json([
+                        'error' => 'Erro de validação',
+                        'message' => 'O preço proposto para itens válidos do catálogo deve ser maior que zero.',
+                        'messages' => ["itens.{$idx}.preco_unit_proposto" => ['O preço proposto deve ser de no mínimo R$ 0,01.']]
+                    ], 422);
+                }
+            }
         }
 
         try {
@@ -468,10 +493,20 @@ class QuoteController extends Controller
                             ->first();
 
                         if ($item) {
+                            $qtd = (int)$itemData['qtd'];
+                            if ($item->nao_encontrado) {
+                                $item->update([
+                                    'qtd' => $qtd,
+                                    'preco_unit_proposto' => 0.00,
+                                    'subtotal' => 0.00,
+                                ]);
+                                continue;
+                            }
+
                             // If price or quantity is changed, the item goes back to 'pendente' for review
                             $status = $item->status_item;
                             $hasChanged = (float)$item->preco_unit_proposto !== (float)$itemData['preco_unit_proposto'] 
-                                       || (int)$item->qtd !== (int)$itemData['qtd'];
+                                       || (int)$item->qtd !== $qtd;
 
                             if ($hasChanged && in_array($status, ['recusado', 'aprovado'])) {
                                 $status = 'pendente';
@@ -480,7 +515,6 @@ class QuoteController extends Controller
                             $precoProposto = round((float)$itemData['preco_unit_proposto'], 2);
                             $precoSugerido = round((float)$item->preco_unit_sugerido, 2);
                             $ajuste = $precoSugerido > 0 ? round((($precoProposto - $precoSugerido) / $precoSugerido) * 100, 2) : 0.00;
-                            $qtd = (int)$itemData['qtd'];
 
                             $item->update([
                                 'qtd' => $qtd,
@@ -531,7 +565,7 @@ class QuoteController extends Controller
     }
 
     /**
-     * Add a new item to the quotation.
+     * Add a new item to the quotation (optionally replacing an unfound AI item).
      */
     public function addItem(Request $request)
     {
@@ -554,6 +588,7 @@ class QuoteController extends Controller
             'imposto' => 'nullable|numeric',
             'campanha_id' => 'nullable|string',
             'mostrar_selo_campanha' => 'nullable|boolean',
+            'substituir_item_id' => 'nullable|integer',
         ]);
 
         if ($validator->fails()) {
@@ -571,7 +606,7 @@ class QuoteController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $quote) {
+            DB::transaction(function () use ($request, $quote, $produto) {
                 $precoProposto = round((float)$request->input('preco_unit_proposto'), 2);
                 $precoSugerido = round((float)$request->input('preco_unit_sugerido'), 2);
                 $precoMinimo = round((float)$request->input('preco_minimo'), 2);
@@ -579,8 +614,19 @@ class QuoteController extends Controller
                 $ajuste = $precoSugerido > 0 ? round((($precoProposto - $precoSugerido) / $precoSugerido) * 100, 2) : 0.00;
                 $qtd = (int)$request->input('qtd');
 
-                // Determine display order (add to end)
+                // Check if replacing an unfound item
+                $replacedUnfoundItem = null;
+                if ($request->filled('substituir_item_id')) {
+                    $replacedUnfoundItem = CotacaoItem::where('cotacao_id', $quote->id)
+                        ->where('id', (int)$request->input('substituir_item_id'))
+                        ->first();
+                }
+
+                // Determine display order (keep replaced item's order or add to end)
                 $maxOrder = CotacaoItem::where('cotacao_id', $quote->id)->max('ordem_exibicao') ?? 0;
+                $displayOrder = ($replacedUnfoundItem && $replacedUnfoundItem->ordem_exibicao > 0)
+                    ? $replacedUnfoundItem->ordem_exibicao
+                    : ($maxOrder + 1);
 
                 $item = CotacaoItem::create([
                     'cotacao_id' => $quote->id,
@@ -598,8 +644,15 @@ class QuoteController extends Controller
                     'imposto' => $request->filled('imposto') ? round((float)$request->input('imposto'), 2) : null,
                     'campanha_id' => $request->input('campanha_id'),
                     'mostrar_selo_campanha' => $request->input('mostrar_selo_campanha', false),
-                    'ordem_exibicao' => $maxOrder + 1,
+                    'ordem_exibicao' => $displayOrder,
+                    'nao_encontrado' => false,
                 ]);
+
+                $replacedDesc = null;
+                if ($replacedUnfoundItem) {
+                    $replacedDesc = $replacedUnfoundItem->descricao_original ?: ($replacedUnfoundItem->produto?->descricao ?? "ID {$replacedUnfoundItem->id}");
+                    $replacedUnfoundItem->delete();
+                }
 
                 if ($isInconsistente) {
                     \App\Services\QuoteWorkflowService::notifyAdminsAboutInconsistentItems($quote, [$item]);
@@ -608,19 +661,32 @@ class QuoteController extends Controller
                 $this->recalculateQuoteTotals($quote);
 
                 $actor = Auth::user() ?: $quote->representante;
+                $condicaoMsg = $replacedDesc
+                    ? sprintf(
+                        'Item não encontrado pela IA ("%s") incluído manualmente como "%s" (Cód. %s, Qtd: %d) por %s.',
+                        $replacedDesc,
+                        $produto->descricao,
+                        $produto->codigo_sankhya,
+                        $qtd,
+                        $actor?->nome ?? 'representante'
+                    )
+                    : 'Item adicionado à cotação por ' . ($actor?->nome ?? 'representante') . '.';
+
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
-                    'evento' => 'ITEM_ADICIONADO',
+                    'evento' => $replacedDesc ? 'ITEM_IA_INCLUIDO_MANUALMENTE' : 'ITEM_ADICIONADO',
                     'usuario_id' => $actor?->id ?? $quote->representante_id,
                     'papel' => $actor?->papel ?? 'representante',
-                    'condicao' => 'Item adicionado à cotação por ' . ($actor?->nome ?? 'representante') . '.',
+                    'condicao' => $condicaoMsg,
                 ]);
             });
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item adicionado com sucesso.',
-                'data' => $quote->fresh(['itens.produto'])
+                'message' => $request->filled('substituir_item_id')
+                    ? 'Produto incluído manualmente em substituição ao item não encontrado pela IA.'
+                    : 'Item adicionado com sucesso.',
+                'data' => $quote->fresh(['itens.produto', 'historico.usuario'])
             ]);
 
         } catch (\Throwable $e) {
@@ -1040,7 +1106,7 @@ class QuoteController extends Controller
         $quote->refresh();
 
         foreach ($quote->itens as $item) {
-            if ($item->status_item === 'recusado') {
+            if ($item->status_item === 'recusado' || $item->nao_encontrado) {
                 continue;
             }
             $subtotal += $item->qtd * max((float)$item->preco_unit_sugerido, (float)$item->preco_unit_proposto);
@@ -1166,7 +1232,7 @@ class QuoteController extends Controller
             $q->where('ativo', true)
               ->orWhere('ativo', 1)
               ->orWhereNull('ativo');
-        });
+        })->where('codigo_sankhya', 'not like', 'SEM_CODIGO%');
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
@@ -1215,7 +1281,7 @@ class QuoteController extends Controller
         foreach ($rawProducts as $p) {
             $desc = trim($p->descricao ?? '');
             $cod = trim($p->codigo_sankhya ?? '');
-            if ($cod === '0' || $cod === '' || $cod === '^' || $desc === '^' || $desc === '' || strlen($desc) < 2 || str_starts_with($desc, '^') || str_starts_with(strtolower($desc), '<sem')) {
+            if ($cod === '0' || $cod === '' || $cod === '^' || str_starts_with($cod, 'SEM_CODIGO') || $desc === '^' || $desc === '' || strlen($desc) < 2 || str_starts_with($desc, '^') || str_starts_with(strtolower($desc), '<sem')) {
                 continue;
             }
 

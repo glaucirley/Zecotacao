@@ -1459,6 +1459,13 @@
             const clientNameEscaped = escapeHtml(clientName);
             const clientSubEscaped = escapeHtml(clientSub || ('Cód: ' + (p.codigo_sankhya || 'N/A')));
             const quoteNumEscaped = escapeHtml(q.numero || ('#' + q.id));
+            const unfoundCnt = parseInt(q.itens_nao_encontrados_count || 0);
+            const unfoundNames = (Array.isArray(q.itens) && q.itens.length > 0)
+                ? q.itens.map(it => it.descricao_original || 'Item').join(', ')
+                : '';
+            const unfoundBadgeHtml = unfoundCnt > 0
+                ? `<div style="margin-top:4px;"><span style="display:inline-flex; align-items:center; gap:4px; background:#ffe4e6; color:#9f1239; border:1px solid #fecdd3; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:6px;" title="${escapeHtml(unfoundNames ? 'Itens solicitados: ' + unfoundNames : 'Itens aguardando inclusão manual')}">⚠️ ${unfoundCnt} ${unfoundCnt === 1 ? 'item não encontrado pela IA' : 'itens não encontrados pela IA'}</span></div>`
+                : '';
 
             // Desktop Table Row
             body.innerHTML += `
@@ -1471,6 +1478,7 @@
                             <div style="min-width:0; overflow:hidden;">
                                 <div style="font-weight:700; color:#0f172a; font-size:13px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${clientNameEscaped}">${clientNameEscaped}</div>
                                 <div style="font-size:11px; color:#64748b; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${clientSubEscaped}</div>
+                                ${unfoundBadgeHtml}
                             </div>
                         </div>
                     </td>
@@ -1521,7 +1529,7 @@
             // Mobile Card
             if (mobileContainer) {
                 mobileContainer.innerHTML += `
-                    <div class="quote-card-mobile" onclick="window.location.href='{{ url('/cotacoes/id') }}/${q.id}'" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:14px 16px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:10px;">
+                    <div class="quote-card-mobile" onclick="window.location.href='{{ url('/cotacoes/id') }}/${q.id}'" style="background:#ffffff; border:1px solid ${unfoundCnt > 0 ? '#fda4af' : '#e2e8f0'}; border-radius:14px; padding:14px 16px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:10px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                             <span class="quote-pill-badge" style="font-size:12px; font-weight:700; color:#2563eb; background:#eff6ff; padding:3px 8px; border-radius:6px; border:1px solid #bfdbfe;">
                                 ${quoteNumEscaped}
@@ -1535,6 +1543,7 @@
                         <div>
                             <div style="font-size:14px; font-weight:700; color:#0f172a; line-height:1.3;">${clientNameEscaped}</div>
                             <div style="font-size:11.5px; color:#64748b; margin-top:3px;">${clientSubEscaped}</div>
+                            ${unfoundBadgeHtml}
                         </div>
 
                         <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#475569; padding-top:8px; border-top:1px dashed #e2e8f0;">

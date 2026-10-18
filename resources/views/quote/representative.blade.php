@@ -878,6 +878,25 @@
         </div>
     </div>
 
+    <!-- Dedicated Panel: Itens Não Encontrados pela IA -->
+    <div id="ai-unfound-items-panel" class="card" style="display: none; margin-bottom: 16px; padding: 16px; background: #fff1f2; border: 1.5px solid #fda4af; border-radius: 12px; box-shadow: 0 2px 8px rgba(225, 29, 72, 0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+            <div>
+                <h3 style="font-size: 15.5px; margin: 0; font-weight: 800; color: #9f1239; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.5" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span>Itens Não Encontrados pela IA</span>
+                    <span id="ai-unfound-count-badge" style="background: #e11d48; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px;">0</span>
+                </h3>
+                <p style="font-size: 12.5px; color: #be123c; margin: 4px 0 0 0; line-height: 1.4;">
+                    Os itens abaixo foram solicitados pelo cliente, mas a IA não localizou correspondência exata no catálogo. Caso necessário, clique em <strong>Incluir Manualmente</strong> para buscar o produto correspondente no catálogo ou dispense o item.
+                </p>
+            </div>
+        </div>
+        <div id="ai-unfound-items-list" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Preenchido via JS -->
+        </div>
+    </div>
+
     <!-- Items Section Card -->
     <div class="card" style="margin-bottom: 16px; padding: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
@@ -915,10 +934,21 @@
         </div>
 
         <!-- Add Item Row -->
-        <div id="add-item-form-container" style="margin-top: 16px; background-color: var(--color-bg); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
-            <h4 style="font-size: 13.5px; margin-bottom: 10px; color: var(--color-primary); display: flex; align-items: center; gap: 6px;">
+        <div id="add-item-form-container" style="margin-top: 16px; background-color: var(--color-bg); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--color-border); transition: all 0.2s ease;">
+            <div id="replacing-unfound-banner" style="display: none; margin-bottom: 12px; padding: 10px 12px; background: #fff1f2; border: 1px solid #fda4af; border-radius: 8px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <div style="font-size: 12.5px; color: #9f1239; line-height: 1.35;">
+                    <strong>🔄 Incluindo manualmente item não encontrado pela IA:</strong>
+                    <span id="replacing-unfound-desc" style="font-weight: 700; text-decoration: underline;"></span>
+                    <span id="replacing-unfound-qty" style="font-size: 11.5px; color: #be123c; margin-left: 4px;"></span>
+                </div>
+                <button type="button" onclick="cancelManualInclusionReplacement()" style="background: #ffffff; border: 1px solid #fda4af; color: #be123c; border-radius: 6px; padding: 4px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer;">
+                    Cancelar vínculo
+                </button>
+            </div>
+
+            <h4 id="add-item-form-title" style="font-size: 13.5px; margin-bottom: 10px; color: var(--color-primary); display: flex; align-items: center; gap: 6px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                Adicionar Produto
+                <span>Adicionar Produto Manualmente</span>
             </h4>
             
             <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
@@ -957,7 +987,7 @@
                     <input type="number" id="new-item-proposto" class="form-control text-right" step="0.01" min="0.01" inputmode="decimal" style="font-weight: 700; color: var(--color-primary);" oninput="calculateNewItemSubtotal()">
                 </div>
                 <div>
-                    <button type="button" class="btn btn-secondary" onclick="addNewItem()" style="padding: 9px 16px; font-weight: 600; font-size: 13px;">
+                    <button type="button" id="btn-add-new-item" class="btn btn-secondary" onclick="addNewItem()" style="padding: 9px 16px; font-weight: 600; font-size: 13px;">
                         + Adicionar
                     </button>
                 </div>
@@ -1926,8 +1956,13 @@
         return { repLimit, gestorLimit, hasGestor, gestorNome: gestor?.nome };
     }
 
+    let replacingUnfoundItemId = null;
+
     function getItemPriceTagHtml(item) {
         if (!item) return '';
+        if (item.nao_encontrado) {
+            return `<span class="badge-price-tag tag-below-min" style="background:#ffe4e6; color:#be123c; border:1px solid #fecdd3; font-weight:700;">⚠️ Aguardando inclusão manual</span>`;
+        }
         const propPrice = parseFloat(item.preco_unit_proposto || 0);
         const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
         const minEf = getItemEffectiveMin(item);
@@ -1979,7 +2014,7 @@
 
         if (quote && quote.itens) {
             quote.itens.forEach(i => {
-                if (i.status_item === 'recusado') return;
+                if (i.status_item === 'recusado' || i.nao_encontrado) return;
                 const minEf = getItemEffectiveMin(i);
                 const prop = parseFloat(i.preco_unit_proposto || 0);
                 const sug = parseFloat(i.preco_unit_sugerido || 0);
@@ -2027,8 +2062,159 @@
         }
     }
 
+    function renderUnfoundItemsPanel() {
+        const panel = document.getElementById("ai-unfound-items-panel");
+        const listEl = document.getElementById("ai-unfound-items-list");
+        const countBadge = document.getElementById("ai-unfound-count-badge");
+        if (!panel || !listEl) return;
+
+        const unfoundItems = (quote && Array.isArray(quote.itens))
+            ? quote.itens.filter(i => Boolean(i.nao_encontrado) && i.status_item !== 'recusado')
+            : [];
+
+        if (unfoundItems.length === 0) {
+            panel.style.display = "none";
+            listEl.innerHTML = "";
+            if (replacingUnfoundItemId) {
+                cancelManualInclusionReplacement();
+            }
+            return;
+        }
+
+        panel.style.display = "block";
+        if (countBadge) {
+            countBadge.innerText = `${unfoundItems.length} ${unfoundItems.length === 1 ? 'item' : 'itens'}`;
+        }
+
+        listEl.innerHTML = "";
+        unfoundItems.forEach(item => {
+            const rawDesc = item.descricao_original || (item.produto ? item.produto.descricao : 'Item solicitado pelo cliente');
+            const obsIa = item.observacao_ia || 'Item não identificado automaticamente no catálogo pela IA';
+            const un = (item.produto && item.produto.unidade) ? item.produto.unidade : 'UN';
+            const isBeingReplaced = (replacingUnfoundItemId === item.id);
+
+            const card = document.createElement("div");
+            card.style.cssText = `background: #ffffff; border: 1.5px solid ${isBeingReplaced ? '#2563eb' : '#fecdd3'}; border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: 0 1px 2px rgba(0,0,0,0.03);`;
+            card.innerHTML = `
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-weight: 800; font-size: 14px; color: #881337;">"${escapeHtml(rawDesc)}"</span>
+                        <span style="background: #ffe4e6; color: #be123c; border: 1px solid #fda4af; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                            Qtd solicitada: ${item.qtd} ${escapeHtml(un)}
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; color: #9f1239; margin-top: 4px;">
+                        <strong>Observação da IA:</strong> ${escapeHtml(obsIa)}
+                    </div>
+                </div>
+                ${!isEditingLocked ? `
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" onclick="startManualInclusionForUnfoundItem(${item.id})" style="background: #2563eb; color: #ffffff; border: none; border-radius: 8px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                            <span>Incluir Manualmente</span>
+                        </button>
+                        <button type="button" onclick="deleteItem(${item.id})" style="background: #ffffff; color: #be123c; border: 1px solid #fda4af; border-radius: 8px; padding: 7px 11px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Dispensar/remover item da cotação">
+                            <span>Dispensar</span>
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            listEl.appendChild(card);
+        });
+    }
+
+    function startManualInclusionForUnfoundItem(itemId) {
+        if (isEditingLocked) {
+            showToast("Esta cotação está bloqueada para edições.", 'warning');
+            return;
+        }
+        const item = quote.itens.find(i => i.id === itemId);
+        if (!item) return;
+
+        replacingUnfoundItemId = item.id;
+        const rawDesc = item.descricao_original || (item.produto ? item.produto.descricao : '');
+
+        // Update banner inside #add-item-form-container
+        const banner = document.getElementById("replacing-unfound-banner");
+        const descEl = document.getElementById("replacing-unfound-desc");
+        const qtyEl = document.getElementById("replacing-unfound-qty");
+        const formContainer = document.getElementById("add-item-form-container");
+        const btnAdd = document.getElementById("btn-add-new-item");
+
+        if (banner && descEl && qtyEl) {
+            banner.style.display = "flex";
+            descEl.innerText = `"${rawDesc}"`;
+            qtyEl.innerText = `(Qtd solicitada: ${item.qtd})`;
+        }
+        if (formContainer) {
+            formContainer.style.borderColor = "#2563eb";
+            formContainer.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.15)";
+        }
+        if (btnAdd) {
+            btnAdd.innerText = "✓ Incluir e Substituir";
+            btnAdd.style.background = "#2563eb";
+            btnAdd.style.color = "#ffffff";
+        }
+
+        // Pre-fill requested quantity
+        const qtdInput = document.getElementById("new-item-qtd");
+        if (qtdInput) {
+            qtdInput.value = item.qtd || 1;
+        }
+
+        // Extract a helpful initial search term from the client's requested description
+        const cleanTerm = String(rawDesc)
+            .replace(/^\d+\s*(un|und|unid|unidades|cx|caixas|pc|pç|pct|kg|l|lt|sacos|sc|frascos|galao|gl)\b\s*(de\s+)?/i, '')
+            .trim();
+        const searchWords = cleanTerm.split(/\s+/).filter(w => w.length >= 2).slice(0, 3).join(' ');
+
+        const searchInput = document.getElementById("add-product-search-input");
+        if (searchInput) {
+            document.getElementById("selected-product-id").value = "";
+            searchInput.value = searchWords || cleanTerm;
+            document.getElementById("clear-selected-prod-btn").style.display = searchInput.value ? "block" : "none";
+        }
+
+        renderUnfoundItemsPanel();
+
+        if (formContainer) {
+            formContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setTimeout(() => {
+            if (searchInput) {
+                searchInput.focus();
+                if (searchInput.value.trim().length >= 1) {
+                    fetchSearchProductsForAdd(searchInput.value.trim());
+                }
+            }
+        }, 250);
+    }
+
+    function cancelManualInclusionReplacement() {
+        replacingUnfoundItemId = null;
+        const banner = document.getElementById("replacing-unfound-banner");
+        const formContainer = document.getElementById("add-item-form-container");
+        const btnAdd = document.getElementById("btn-add-new-item");
+        if (banner) banner.style.display = "none";
+        if (formContainer) {
+            formContainer.style.borderColor = "var(--color-border)";
+            formContainer.style.boxShadow = "none";
+        }
+        if (btnAdd) {
+            btnAdd.innerText = "+ Adicionar";
+            btnAdd.style.background = "";
+            btnAdd.style.color = "";
+        }
+        const panel = document.getElementById("ai-unfound-items-panel");
+        if (panel && panel.style.display !== "none") {
+            renderUnfoundItemsPanel();
+        }
+    }
+
     // Render Compact 3-Line Cards (Point 1)
     function renderItems() {
+        renderUnfoundItemsPanel();
+
         const container = document.getElementById("items-cards-container");
         if (!container) return;
         container.innerHTML = "";
@@ -2133,8 +2319,8 @@
                         <!-- LINHA 1: descrição em destaque + código + unidade + etiqueta status + lixeira -->
                         <div class="item-line-1">
                             <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
-                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${escapeHtml(prodDesc)}</span>
-                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">#${escapeHtml(prodCode)} · ${escapeHtml(prodUn)}</span>
+                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${escapeHtml(isUnfound ? (item.descricao_original || prodDesc) : prodDesc)}</span>
+                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">${isUnfound ? 'Sem código no catálogo' : '#' + escapeHtml(prodCode)} · ${escapeHtml(prodUn)}</span>
                                 ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
                                 ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
                                 ${isUnfound ? `
@@ -2156,9 +2342,8 @@
                                 ` : '')}
                                 ${isUnfound ? `
                                     <div style="width:100%; margin-top:8px; padding:8px 12px; background:#fff1f2; border:1px dashed #fda4af; border-radius:8px; font-size:12px; color:#9f1239;">
-                                        <strong>⚠️ Item solicitado pelo cliente via WhatsApp:</strong> "${escapeHtml(item.descricao_original || prodDesc)}"
+                                        <strong>⚠️ Item solicitado pelo cliente:</strong> "${escapeHtml(item.descricao_original || prodDesc)}"
                                         ${item.observacao_ia ? `<div style="font-size:11px; color:#be123c; margin-top:2px;">Obs IA: ${escapeHtml(item.observacao_ia)}</div>` : ''}
-                                        <div style="font-size:11px; color:#64748b; margin-top:4px;">💡 <em>Se necessário, remova este item ou selecione o produto correspondente na busca de produtos abaixo.</em></div>
                                     </div>
                                 ` : (item.descricao_original ? `
                                     <div style="width:100%; font-size:11.5px; color:#64748b; margin-top:2px;">
@@ -2175,7 +2360,7 @@
                             </div>
                         </div>
 
-                        <!-- LINHA 2: quantidade (–/+) à esquerda e preço proposto à direita -->
+                        <!-- LINHA 2: quantidade (–/+) à esquerda e preço proposto (ou ação de inclusão manual) à direita -->
                         <div class="item-line-2">
                             ${!isItemLocked ? `
                                 <div class="qty-stepper">
@@ -2191,7 +2376,13 @@
                                 </div>
                             `}
 
-                            ${!isItemLocked ? `
+                            ${isUnfound ? (
+                                !isItemLocked ? `
+                                    <button type="button" onclick="startManualInclusionForUnfoundItem(${item.id})" style="background:#2563eb; color:#ffffff; border:none; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
+                                        🔍 + Incluir Manualmente no Catálogo
+                                    </button>
+                                ` : `<span style="font-size:12px; color:#be123c; font-weight:700;">Não cotado</span>`
+                            ) : (!isItemLocked ? `
                                 <div class="item-price-proposto-wrap">
                                     <span class="price-currency">R$</span>
                                     <input type="number" class="price-input ${isBelowMin ? 'price-below-min' : ''}" 
@@ -2206,15 +2397,19 @@
                                     <span style="font-size:11px; color:${isRejected ? '#991b1b' : '#64748b'}; font-weight:700; text-transform:uppercase;">Preço:</span>
                                     <span style="font-weight:700; font-size:14px; color:${isRejected ? '#991b1b; text-decoration:line-through;' : '#0f172a;'}; padding:4px 10px; background:${isRejected ? '#fee2e2' : '#f1f5f9'}; border:1px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}; border-radius:6px;">R$ ${propPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
-                            `}
+                            `)}
                         </div>
 
                         <!-- LINHA 3: Sug. R$ X · Mín. R$ Y e selo à direita -->
                         <div class="item-line-3">
                             <div class="item-benchmarks">
-                                <span>Sug. R$ ${formatCurrency(item.preco_unit_sugerido)}</span>
-                                <span>·</span>
-                                <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
+                                ${isUnfound ? `
+                                    <span style="color:#be123c; font-weight:600;">Selecione o item equivalente no catálogo para definir preço</span>
+                                ` : `
+                                    <span>Sug. R$ ${formatCurrency(item.preco_unit_sugerido)}</span>
+                                    <span>·</span>
+                                    <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
+                                `}
                             </div>
                             <div id="price-tag-wrap-${item.id}">
                                 ${isRejected ? `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">Desconsiderado do total</span>` : priceTagHtml}
@@ -2298,7 +2493,7 @@
         let total = 0;
 
         quote.itens.forEach(item => {
-            if (item.status_item === 'recusado') {
+            if (item.status_item === 'recusado' || item.nao_encontrado) {
                 return;
             }
             subtotal += item.qtd * Math.max(parseFloat(item.preco_unit_sugerido), parseFloat(item.preco_unit_proposto));
@@ -2449,7 +2644,9 @@
         document.getElementById("new-item-sugerido").value = "";
         document.getElementById("new-item-minimo").value = "";
         document.getElementById("new-item-proposto").value = "";
-        document.getElementById("new-item-qtd").value = "1";
+        if (!replacingUnfoundItemId) {
+            document.getElementById("new-item-qtd").value = "1";
+        }
         document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ 0,00";
         
         const badge = document.getElementById("selected-product-badge");
@@ -2512,6 +2709,7 @@
             return;
         }
 
+        const wasReplacing = Boolean(replacingUnfoundItemId);
         const payload = {
             produto_id: parseInt(productId),
             qtd: parseInt(document.getElementById("new-item-qtd").value) || 1,
@@ -2521,6 +2719,7 @@
             margem_calculada: 30.00,
             custo: minimo * 0.7,
             imposto: 18.00,
+            substituir_item_id: replacingUnfoundItemId || null,
         };
 
         try {
@@ -2532,8 +2731,16 @@
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
                 quote.itens = data.data.itens;
+                if (data.data.historico) {
+                    quote.historico = data.data.historico;
+                    renderAuditTrail();
+                }
+                cancelManualInclusionReplacement();
                 renderItems();
                 clearSelectedProduct();
+                if (wasReplacing) {
+                    showToast("Produto incluído manualmente no lugar do item não encontrado pela IA!", 'success');
+                }
             } else {
                 showToast("Erro ao adicionar item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)), 'error');
             }
@@ -2547,7 +2754,11 @@
             showToast("Esta cotação não permite remoção de itens no status atual (" + quote.status.replace(/_/g, ' ') + ").", 'warning');
             return;
         }
-        if (!confirm("Deseja realmente remover este item?")) return;
+        const targetItem = quote?.itens?.find(i => i.id === itemId);
+        const confirmMsg = targetItem && targetItem.nao_encontrado
+            ? `Deseja dispensar/remover o item não encontrado "${targetItem.descricao_original || 'Item'}" desta cotação?`
+            : "Deseja realmente remover este item?";
+        if (!confirm(confirmMsg)) return;
 
         try {
             const res = await fetch(`${QUOTE_BASE_URL}/itens/${itemId}`, {
@@ -2555,6 +2766,9 @@
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
+                if (replacingUnfoundItemId === itemId) {
+                    cancelManualInclusionReplacement();
+                }
                 quote.itens = data.data.itens;
                 renderItems();
             } else {
@@ -2707,6 +2921,15 @@
     async function submitQuote() {
         if (isEditingLocked) {
             showToast("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + " e não permite novo envio.", 'warning');
+            return;
+        }
+
+        const pendingUnfound = (quote && Array.isArray(quote.itens))
+            ? quote.itens.filter(i => Boolean(i.nao_encontrado) && i.status_item !== 'recusado')
+            : [];
+        if (pendingUnfound.length > 0) {
+            showToast(`Existem ${pendingUnfound.length} item(ns) não encontrado(s) pela IA pendentes. Clique em "Incluir Manualmente" para substituí-los pelo produto do catálogo ou em "Dispensar" antes de enviar.`, 'warning');
+            document.getElementById("ai-unfound-items-panel")?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 

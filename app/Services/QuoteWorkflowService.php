@@ -30,6 +30,21 @@ class QuoteWorkflowService
             ];
         }
 
+        // Check for unresolved items not found by the AI
+        $unfoundPending = $quote->itens->filter(function ($it) {
+            return (bool)$it->nao_encontrado && $it->status_item !== 'recusado';
+        });
+
+        if ($unfoundPending->isNotEmpty()) {
+            $count = $unfoundPending->count();
+            $names = $unfoundPending->map(fn($it) => '"' . ($it->descricao_original ?: ($it->produto?->descricao ?? 'Item')) . '"')->take(3)->implode(', ');
+            return [
+                'success' => false,
+                'error' => 'UNRESOLVED_UNFOUND_ITEMS',
+                'message' => "Existem {$count} item(ns) não encontrado(s) pela IA pendentes ({$names}). Clique em '+ Incluir Manualmente' para substituí-los por produtos do catálogo ou dispense os itens que não serão cotados antes de enviar."
+            ];
+        }
+
         // Calculate totals for priority assessment and overall margin
         $totalQuantity = 0;
         $totalNetRevenue = 0.00;
@@ -37,7 +52,7 @@ class QuoteWorkflowService
         $itensComDadosValidos = 0;
 
         foreach ($quote->itens as $item) {
-            if ($item->status_item === 'recusado') {
+            if ($item->status_item === 'recusado' || $item->nao_encontrado) {
                 continue;
             }
 
