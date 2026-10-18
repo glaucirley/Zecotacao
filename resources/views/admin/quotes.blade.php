@@ -1367,13 +1367,13 @@
         // Reps options
         repSelect.innerHTML = '<option value="">Vendedor</option>';
         repsMap.forEach((name, id) => {
-            repSelect.innerHTML += `<option value="${id}">${name}</option>`;
+            repSelect.innerHTML += `<option value="${id}">${escapeHtml(name)}</option>`;
         });
 
         // Teams options
         teamSelect.innerHTML = '<option value="">Equipe</option>';
         teamsMap.forEach((name, id) => {
-            teamSelect.innerHTML += `<option value="${id}">${name}</option>`;
+            teamSelect.innerHTML += `<option value="${id}">${escapeHtml(name)}</option>`;
         });
     }
 
@@ -1730,15 +1730,15 @@
             itemsBody.innerHTML += `
                 <tr>
                     <td>
-                        <strong>${desc}</strong>
+                        <strong>${escapeHtml(desc)}</strong>
                         ${item.nao_encontrado ? '<span style="display:inline-block; margin-left:6px; background:#fff1f2; color:#be123c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fecdd3;">⚠️ Não encontrado pela IA</span>' : ''}
-                        ${item.descricao_original ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Original: "${item.descricao_original}" ${item.observacao_ia ? `<span style="color:#be123c;">(${item.observacao_ia})</span>` : ''}</div>` : ''}
+                        ${item.descricao_original ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Original: "${escapeHtml(item.descricao_original)}" ${item.observacao_ia ? `<span style="color:#be123c;">(${escapeHtml(item.observacao_ia)})</span>` : ''}</div>` : ''}
                     </td>
                     <td class="text-center">${item.quantidade}</td>
                     <td class="text-right">R$ ${vlrSug.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
                     <td class="text-right">R$ ${vlrProp.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
                     <td class="text-center" style="color:${adjColor}; font-weight:bold;">${adjText}</td>
-                    <td class="text-center"><span class="badge-status ${item.status ? item.status.toLowerCase() : 'pendente'}">${item.status || 'APROVADO'}</span></td>
+                    <td class="text-center"><span class="badge-status ${item.status ? item.status.toLowerCase() : 'pendente'}">${escapeHtml(item.status || 'APROVADO')}</span></td>
                 </tr>
             `;
         });
@@ -2308,7 +2308,7 @@
             container.style.display = "block";
             container.innerHTML = `
                 <div style="font-size:11px; color:#64748b; padding:8px; text-align:center;">
-                    ${query ? (isSearching ? `🔍 Buscando "${query}"...` : `Nenhum produto para "${query}".`) : 'Digite para buscar...'}
+                    ${query ? (isSearching ? `🔍 Buscando "${escapeHtml(query)}"...` : `Nenhum produto para "${escapeHtml(query)}".`) : 'Digite para buscar...'}
                 </div>
             `;
             return;
@@ -2334,9 +2334,9 @@
                 selectAdminRowProduct(rowId, p.id);
             };
             itemDiv.innerHTML = `
-                <div style="font-weight:700; color:#1e293b;">${p.descricao}</div>
+                <div style="font-weight:700; color:#1e293b;">${escapeHtml(p.descricao)}</div>
                 <div style="font-size:10.5px; color:#64748b; display:flex; justify-content:space-between; margin-top:2px;">
-                    <span>Cód: ${codeStr}${brandStr}</span>
+                    <span>Cód: ${escapeHtml(codeStr)}${escapeHtml(brandStr)}</span>
                     <span style="color:${isQuotable ? 'var(--color-primary)' : '#ef4444'}; font-weight:700;">${priceStr}</span>
                 </div>
             `;

@@ -205,22 +205,22 @@
             const activeText = p.ativo ? "Ativo" : "Inativo";
             
             const contactInfo = `
-                <strong>Tel:</strong> ${p.telefone || '-'}<br>
-                <span style="font-size:11px; color:var(--color-text-muted);">${p.email || '-'}</span>
+                <strong>Tel:</strong> ${escapeHtml(p.telefone || '-')}<br>
+                <span style="font-size:11px; color:var(--color-text-muted);">${escapeHtml(p.email || '-')}</span>
             `;
 
             const pUf = (p.uf === '2' || (p.cidade && p.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (p.uf || '');
-            const location = p.cidade ? `${p.cidade} / ${pUf}` : '-';
+            const location = p.cidade ? `${escapeHtml(p.cidade)} / ${escapeHtml(pUf)}` : '-';
 
             body.innerHTML += `
                 <tr>
                     <td>
-                        <strong>${p.razao_social}</strong><br>
-                        <span style="font-size:12px; color:var(--color-text-muted);">${p.nome_fantasia || '-'}</span>
+                        <strong>${escapeHtml(p.razao_social)}</strong><br>
+                        <span style="font-size:12px; color:var(--color-text-muted);">${escapeHtml(p.nome_fantasia || '-')}</span>
                     </td>
-                    <td><strong>${p.cnpj || '-'}</strong></td>
+                    <td><strong>${escapeHtml(p.cnpj || '-')}</strong></td>
                     <td>
-                        <strong>${p.codigo_sankhya}</strong>
+                        <strong>${escapeHtml(p.codigo_sankhya)}</strong>
                         <div style="font-size: 10px; color: #16a34a; font-weight:600;">Sankhya ERP</div>
                     </td>
                     <td>${contactInfo}</td>
@@ -396,7 +396,7 @@
         btn.disabled = true;
         btn.innerText = "⏳ Importando clientes... Aguarde";
         feedback.style.display = "block";
-        feedback.innerHTML = `<div style="color:var(--color-primary); font-weight:600;">🔄 Processando arquivo "${file.name}"... Por favor aguarde alguns instantes.</div>`;
+        feedback.innerHTML = `<div style="color:var(--color-primary); font-weight:600;">🔄 Processando arquivo "${escapeHtml(file.name)}"... Por favor aguarde alguns instantes.</div>`;
 
         try {
             const res = await fetch(`${API_URL}/clientes/importar-arquivo`, {

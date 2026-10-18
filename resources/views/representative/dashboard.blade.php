@@ -1454,8 +1454,8 @@
                 defaultTitle = 'Atenção';
             }
 
-            const toastTitle = title || defaultTitle;
-            const formattedMsg = String(message || '').replace(/\n/g, '<br>');
+            const toastTitle = escapeHtml(title || defaultTitle);
+            const formattedMsg = escapeHtml(String(message || '')).replace(/\n/g, '<br>');
 
             toast.innerHTML = `
                 <span class="app-toast-icon">${icon}</span>
@@ -1659,10 +1659,10 @@
                 container.innerHTML += `
                     <a href="${PUBLIC_URL}/cotacoes/id/${q.id}" class="quote-card">
                         <div class="card-row-top" style="align-items: center;">
-                            <span class="quote-num">${q.numero}</span>
-                            <span class="status-badge" style="background:${stInfo.bg}; color:${stInfo.color}; border:1px solid ${stInfo.border};">${stInfo.label}</span>
+                            <span class="quote-num">${escapeHtml(q.numero)}</span>
+                            <span class="status-badge" style="background:${stInfo.bg}; color:${stInfo.color}; border:1px solid ${stInfo.border};">${escapeHtml(stInfo.label)}</span>
                         </div>
-                        <div class="client-name" style="margin: 6px 0;">${partnerName}</div>
+                        <div class="client-name" style="margin: 6px 0;">${escapeHtml(partnerName)}</div>
                         <div class="card-row-bottom" style="align-items: center;">
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <span class="quote-date">${dateStr}</span>
@@ -1811,9 +1811,9 @@
                     const unreadClass = n.lida ? '' : 'unread';
 
                     container.innerHTML += `
-                        <div class="notification-item ${unreadClass}" onclick="openNotification(${n.id}, '${n.link || ''}')">
+                        <div class="notification-item ${unreadClass}" onclick="openNotification(${n.id}, '${escapeHtml(n.link || '')}')">
                             <div class="notification-header">
-                                <span class="notification-title">${n.titulo}</span>
+                                <span class="notification-title">${escapeHtml(n.titulo)}</span>
                                 <div style="display:flex; align-items:center; gap:8px;">
                                     <span class="notification-time">${dateStr} às ${timeStr}</span>
                                     ${!n.lida ? `
@@ -1825,7 +1825,7 @@
                                     `}
                                 </div>
                             </div>
-                            <div class="notification-body">${n.mensagem}</div>
+                            <div class="notification-body">${escapeHtml(n.mensagem)}</div>
                         </div>
                     `;
                 } else if (item.type === 'group_expired') {
@@ -1865,8 +1865,8 @@
                             </div>
                             <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
                                 ${quotesDetails.map(q => `
-                                    <a href="${q.link || 'javascript:void(0)'}" onclick="event.stopPropagation(); markSingleRead(${q.id});" style="font-size:11px; font-weight:600; text-decoration:none; padding:3px 8px; border-radius:6px; background:${q.lida ? '#f1f5f9' : '#fee2e2'}; color:${q.lida ? '#475569' : '#b91c1c'}; border:1px solid ${q.lida ? '#cbd5e1' : '#fca5a5'}; display:inline-flex; align-items:center; gap:3px;">
-                                        ${q.num} ↗
+                                    <a href="${escapeHtml(q.link || 'javascript:void(0)')}" onclick="event.stopPropagation(); markSingleRead(${q.id});" style="font-size:11px; font-weight:600; text-decoration:none; padding:3px 8px; border-radius:6px; background:${q.lida ? '#f1f5f9' : '#fee2e2'}; color:${q.lida ? '#475569' : '#b91c1c'}; border:1px solid ${q.lida ? '#cbd5e1' : '#fca5a5'}; display:inline-flex; align-items:center; gap:3px;">
+                                        ${escapeHtml(q.num)} ↗
                                     </a>
                                 `).join('')}
                             </div>
@@ -2139,7 +2139,7 @@
                         const select = document.getElementById("checkin-partner-select");
                         select.innerHTML = '<option value="">-- Selecione o Parceiro --</option>';
                         data.data.forEach(p => {
-                            select.innerHTML += `<option value="${p.id}">${p.razao_social} (${p.codigo_sankhya})</option>`;
+                            select.innerHTML += `<option value="${p.id}">${escapeHtml(p.razao_social)} (${escapeHtml(p.codigo_sankhya)})</option>`;
                         });
                         checkinPartnersLoaded = true;
                     }
@@ -2275,7 +2275,7 @@
                         listEl.innerHTML += `
                             <div class="checkin-item">
                                 <div class="checkin-item-left">
-                                    <span class="checkin-item-title">${c.parceiro.razao_social}</span>
+                                    <span class="checkin-item-title">${escapeHtml(c.parceiro ? c.parceiro.razao_social : 'Parceiro')}</span>
                                     <span class="checkin-item-date">Visita em ${date}</span>
                                     <span class="checkin-item-coords">📍 Lat: ${parseFloat(c.latitude).toFixed(5)}, Lng: ${parseFloat(c.longitude).toFixed(5)}</span>
                                 </div>
@@ -2995,9 +2995,9 @@
                     <div style="flex-grow:1; padding-right:8px;">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span style="background:#16a34a; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;">No Pedido</span>
-                            <div class="product-item-title">${prod.descricao}</div>
+                            <div class="product-item-title">${escapeHtml(prod.descricao)}</div>
                         </div>
-                        <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                        <div class="product-item-price" style="margin-top:2px;">Cód: ${escapeHtml(codeStr)}${escapeHtml(brandStr)} &bull; ${priceStr}</div>
                     </div>
                     <div style="display:flex; align-items:center; gap:4px; background:#ffffff; border:1px solid #86efac; border-radius:8px; padding:3px 6px;">
                         <button type="button" onclick="changeQtyFromCatalog(${prod.id}, -1)" style="width:26px; height:26px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
@@ -3010,8 +3010,8 @@
                 rowEl.style.backgroundColor = "#f8fafc";
                 rowEl.innerHTML = `
                     <div style="flex-grow:1; padding-right:8px;">
-                        <div class="product-item-title">${prod.descricao}</div>
-                        <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                        <div class="product-item-title">${escapeHtml(prod.descricao)}</div>
+                        <div class="product-item-price" style="margin-top:2px;">Cód: ${escapeHtml(codeStr)}${escapeHtml(brandStr)} &bull; ${priceStr}</div>
                     </div>
                     <button type="button" class="btn-add-prod" onclick="addToCart(${prod.id})">+ Adicionar</button>
                 `;
@@ -3027,7 +3027,7 @@
             if (!products || products.length === 0) {
                 container.innerHTML = `
                     <div style="text-align:center; padding:18px; background:#f8fafc; border-radius:10px; border:1px dashed var(--color-border);">
-                        <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:8px;">Nenhum produto encontrado para "<strong>${query}</strong>".</div>
+                        <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:8px;">Nenhum produto encontrado para "<strong>${escapeHtml(query)}</strong>".</div>
                         <button type="button" onclick="clearProdSearch()" style="background:#e2e8f0; color:#334155; border:none; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">Limpar Pesquisa e Ver Todos</button>
                     </div>
                 `;
@@ -3050,9 +3050,9 @@
                             <div style="flex-grow:1; padding-right:8px;">
                                 <div style="display:flex; align-items:center; gap:6px;">
                                     <span style="background:#16a34a; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;">No Pedido</span>
-                                    <div class="product-item-title">${p.descricao}</div>
+                                    <div class="product-item-title">${escapeHtml(p.descricao)}</div>
                                 </div>
-                                <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                                <div class="product-item-price" style="margin-top:2px;">Cód: ${escapeHtml(codeStr)}${escapeHtml(brandStr)} &bull; ${priceStr}</div>
                             </div>
                             <div style="display:flex; align-items:center; gap:4px; background:#ffffff; border:1px solid #86efac; border-radius:8px; padding:3px 6px;">
                                 <button type="button" onclick="changeQtyFromCatalog(${p.id}, -1)" style="width:26px; height:26px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
@@ -3065,8 +3065,8 @@
                     container.innerHTML += `
                         <div class="product-item-row" id="prod-row-${p.id}">
                             <div style="flex-grow:1; padding-right:8px;">
-                                <div class="product-item-title">${p.descricao}</div>
-                                <div class="product-item-price" style="margin-top:2px;">Cód: ${codeStr}${brandStr} &bull; ${priceStr}</div>
+                                <div class="product-item-title">${escapeHtml(p.descricao)}</div>
+                                <div class="product-item-price" style="margin-top:2px;">Cód: ${escapeHtml(codeStr)}${escapeHtml(brandStr)} &bull; ${priceStr}</div>
                             </div>
                             <button type="button" class="btn-add-prod" onclick="addToCart(${p.id})">+ Adicionar</button>
                         </div>
@@ -3230,10 +3230,10 @@
                             <div class="cart-item-top" style="display:flex; justify-content:space-between; align-items:flex-start;">
                                 <div style="flex-grow:1; padding-right:8px;">
                                     <div style="font-weight:700; font-size:13px; color:var(--color-text); line-height:1.25;">
-                                        <span style="display:inline-block; background:#e2e8f0; color:#475569; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-right:4px;">#${index + 1}</span>${item.name}
+                                        <span style="display:inline-block; background:#e2e8f0; color:#475569; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px; margin-right:4px;">#${index + 1}</span>${escapeHtml(item.name)}
                                     </div>
                                     <div style="font-size:11px; color:var(--color-text-muted); margin-top:3px;">
-                                        Cód: ${item.sku || 'N/A'} &bull; Unid: ${item.unit}
+                                        Cód: ${escapeHtml(item.sku || 'N/A')} &bull; Unid: ${escapeHtml(item.unit)}
                                     </div>
                                 </div>
                                 <button type="button" onclick="removeFromCart(${index})" title="Remover item" style="background:#fee2e2; border:none; color:#ef4444; width:28px; height:28px; border-radius:8px; cursor:pointer; font-weight:bold; font-size:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">

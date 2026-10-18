@@ -203,20 +203,20 @@
                    || (c.cotacao ? ('Cotação ' + c.cotacao.numero) : (formatPhone(c.telefone_cliente) || 'Cliente WhatsApp')));
             const shortMsg = c.mensagem.length > 30 ? c.mensagem.substring(0, 30) + '...' : c.mensagem;
             const formattedPhone = formatPhone(c.telefone_cliente);
-            const quoteBadge = c.cotacao ? `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:700; border:1px solid #bae6fd;">${c.cotacao.numero}</span>` : '';
+            const quoteBadge = c.cotacao ? `<span style="font-size:10px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:700; border:1px solid #bae6fd;">${escapeHtml(c.cotacao.numero)}</span>` : '';
 
             container.innerHTML += `
-                <div class="contact-card ${activeClass}" onclick="selectContact('${c.telefone_cliente}', '${dispName.replace(/'/g, "\\'")}')">
+                <div class="contact-card ${activeClass}" onclick="selectContact(${escapeHtml(JSON.stringify(c.telefone_cliente))}, ${escapeHtml(JSON.stringify(dispName))})">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 13px; color: var(--color-text);">${dispName}</strong>
+                        <strong style="font-size: 13px; color: var(--color-text);">${escapeHtml(dispName)}</strong>
                         <span style="font-size: 10px; color: var(--color-text-muted);">${friendlyTime}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                        <span style="font-size: 11px; color: var(--color-text-muted);">${formattedPhone}</span>
+                        <span style="font-size: 11px; color: var(--color-text-muted);">${escapeHtml(formattedPhone)}</span>
                         ${quoteBadge}
                     </div>
                     <span style="font-size: 12px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
-                        ${c.direcao === 'sent' ? '✓ ' : ''}${shortMsg}
+                        ${c.direcao === 'sent' ? '✓ ' : ''}${escapeHtml(shortMsg)}
                     </span>
                 </div>
             `;

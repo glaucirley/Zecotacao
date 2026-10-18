@@ -624,9 +624,9 @@
         }
 
         teamsList.forEach(t => {
-            modalSelect.innerHTML += `<option value="${t.id}">${t.nome}</option>`;
+            modalSelect.innerHTML += `<option value="${t.id}">${escapeHtml(t.nome)}</option>`;
             if (filterSelect) {
-                filterSelect.innerHTML += `<option value="${t.id}">${t.nome}</option>`;
+                filterSelect.innerHTML += `<option value="${t.id}">${escapeHtml(t.nome)}</option>`;
             }
         });
     }

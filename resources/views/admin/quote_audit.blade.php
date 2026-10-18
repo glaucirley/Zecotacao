@@ -156,10 +156,10 @@
             tbody.innerHTML += `
                 <tr>
                     <td style="white-space: nowrap;"><strong>${date}</strong></td>
-                    <td>${userStr}</td>
-                    <td><span style="font-weight:600; color:#555;">${roleStr}</span></td>
-                    <td><span class="event-badge ${badgeClass}">${cleanEvent}</span></td>
-                    <td style="color:var(--color-text); line-height:1.45;">${h.condicao || '-'}</td>
+                    <td>${escapeHtml(userStr)}</td>
+                    <td><span style="font-weight:600; color:#555;">${escapeHtml(roleStr)}</span></td>
+                    <td><span class="event-badge ${badgeClass}">${escapeHtml(cleanEvent)}</span></td>
+                    <td style="color:var(--color-text); line-height:1.45;">${escapeHtml(h.condicao || '-')}</td>
                 </tr>
             `;
         });

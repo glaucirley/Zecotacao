@@ -323,7 +323,7 @@
                 // Filter only representatives (case-insensitive)
                 const reps = usersList.filter(u => String(u.papel || '').toLowerCase() === 'representante');
                 reps.forEach(r => {
-                    select.innerHTML += `<option value="${r.id}">${r.nome}</option>`;
+                    select.innerHTML += `<option value="${r.id}">${escapeHtml(r.nome)}</option>`;
                 });
             }
         } catch(e) {
@@ -425,15 +425,17 @@
                     const date = new Date(q.created_at).toLocaleDateString('pt-BR');
                     const val = parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2});
                     const priorityTag = q.prioridade ? '<span style="font-size:10px; font-weight:700; color:#ef4444;">⚡ GRANDE CONTA</span>' : '';
+                    const partnerName = q.parceiro ? q.parceiro.razao_social : 'Cliente N/D';
+                    const repName = q.representante ? q.representante.nome : 'N/D';
                     
                     listContainer.innerHTML += `
                         <div class="kanban-card" onclick="openDetailModal(${q.id})">
                             <div class="card-top">
-                                <strong>#${q.numero}</strong>
+                                <strong>#${escapeHtml(q.numero)}</strong>
                                 <span>${date}</span>
                             </div>
-                            <div class="card-title">${q.parceiro.razao_social}</div>
-                            <div class="card-rep">Vendedor: ${q.representante.nome}</div>
+                            <div class="card-title">${escapeHtml(partnerName)}</div>
+                            <div class="card-rep">Vendedor: ${escapeHtml(repName)}</div>
                             <div class="card-bottom">
                                 <span class="card-price">R$ ${val}</span>
                                 ${priorityTag}
@@ -451,8 +453,8 @@
 
         const filtered = rawQuotes.filter(q => {
             const matchesSearch = query === "" || 
-                q.numero.toLowerCase().includes(query) || 
-                q.parceiro.razao_social.toLowerCase().includes(query);
+                (q.numero || '').toLowerCase().includes(query) || 
+                (q.parceiro?.razao_social || '').toLowerCase().includes(query);
             
             const matchesSeller = sellerId === "" || q.representante_id == sellerId;
 
@@ -474,9 +476,9 @@
 
             const q = data.data;
             document.getElementById("modal-quote-num").innerText = q.numero;
-            document.getElementById("modal-client").innerText = q.parceiro.razao_social;
-            document.getElementById("modal-cnpj").innerText = q.parceiro.cnpj || '-';
-            document.getElementById("modal-rep").innerText = q.representante.nome;
+            document.getElementById("modal-client").innerText = q.parceiro ? q.parceiro.razao_social : '-';
+            document.getElementById("modal-cnpj").innerText = q.parceiro?.cnpj || '-';
+            document.getElementById("modal-rep").innerText = q.representante ? q.representante.nome : '-';
             document.getElementById("modal-date").innerText = new Date(q.created_at).toLocaleDateString('pt-BR');
             document.getElementById("modal-payment").innerText = q.forma_pagamento || 'Faturamento Direto';
             document.getElementById("modal-delivery").innerText = q.prazo_entrega ? `${q.prazo_entrega} dias` : '-';
@@ -499,14 +501,15 @@
             q.itens.forEach(it => {
                 const adjClass = it.ajuste_percentual < 0 ? 'color: var(--status-recusada);' : 'color: var(--color-primary);';
                 const adjSign = it.ajuste_percentual > 0 ? '+' : '';
+                const itemDesc = it.produto ? it.produto.descricao : (it.descricao_original || 'Item');
                 itemsBody.innerHTML += `
                     <tr>
-                        <td><strong>${it.produto.descricao}</strong></td>
+                        <td><strong>${escapeHtml(itemDesc)}</strong></td>
                         <td class="text-center">${it.qtd}</td>
                         <td class="text-right">R$ ${parseFloat(it.preco_unit_sugerido).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td class="text-right">R$ ${parseFloat(it.preco_unit_proposto).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         <td class="text-center" style="font-weight:600; ${adjClass}">${adjSign}${parseFloat(it.ajuste_percentual).toFixed(2)}%</td>
-                        <td class="text-center"><span style="text-transform:uppercase; font-size:10px; font-weight:700;">${it.status_item}</span></td>
+                        <td class="text-center"><span style="text-transform:uppercase; font-size:10px; font-weight:700;">${escapeHtml(it.status_item)}</span></td>
                     </tr>
                 `;
             });
@@ -527,8 +530,8 @@
                     histList.innerHTML += `
                         <div style="border-bottom:1px solid rgba(0,0,0,0.02); padding-bottom:4px; margin-bottom: 4px;">
                             <span style="color:var(--color-primary); font-weight:600;">[${hDate}]</span>
-                            <strong>${h.usuario ? h.usuario.nome : 'Sistema'} (${h.papel.toUpperCase()})</strong>:
-                            ${h.evento.replace(/_/g, ' ')} - <span style="color:#555;">${h.condicao || ''}</span>
+                            <strong>${escapeHtml(h.usuario ? h.usuario.nome : 'Sistema')} (${escapeHtml((h.papel || '').toUpperCase())})</strong>:
+                            ${escapeHtml((h.evento || '').replace(/_/g, ' '))} - <span style="color:#555;">${escapeHtml(h.condicao || '')}</span>
                         </div>
                     `;
                 });

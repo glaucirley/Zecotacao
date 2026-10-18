@@ -681,7 +681,7 @@
             slaList.innerHTML = data.sla_alerts.map(a => `
                 <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #fecdd3; flex-wrap: wrap; gap: 8px;">
                     <div>
-                        <strong>${a.numero}</strong> (${a.client}) - Vendedor: <em>${a.rep}</em>
+                        <strong>${escapeHtml(a.numero)}</strong> (${escapeHtml(a.client)}) - Vendedor: <em>${escapeHtml(a.rep)}</em>
                     </div>
                     <div>
                         <span class="badge-status priority" style="background-color: #fee2e2; color: #dc2626;">Parada há ${a.hours_stuck}h (SLA: ${a.threshold}h)</span>
@@ -878,8 +878,8 @@
                 sellers.forEach(s => {
                     tbody.innerHTML += `
                         <tr>
-                            <td><strong>${s.name}</strong></td>
-                            <td>${s.team}</td>
+                            <td><strong>${escapeHtml(s.name)}</strong></td>
+                            <td>${escapeHtml(s.team)}</td>
                             <td style="text-align: right; font-weight: 600; color: var(--color-primary);">R$ ${s.value_billed.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
                             <td style="text-align: center; font-weight: 600;">${s.conversao.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}%</td>
                         </tr>
@@ -942,8 +942,8 @@
                 partners.forEach(p => {
                     tbody.innerHTML += `
                         <tr>
-                            <td><strong>${p.name}</strong></td>
-                            <td>${p.code}</td>
+                            <td><strong>${escapeHtml(p.name)}</strong></td>
+                            <td>${escapeHtml(p.code)}</td>
                             <td style="text-align: right; font-weight: 600; color: var(--color-primary);">R$ ${p.value.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
                         </tr>
                     `;
@@ -964,7 +964,7 @@
                 prod.most_quoted.forEach(p => {
                     demandBody.innerHTML += `
                         <tr>
-                            <td><strong>${p.name}</strong><br><span style="font-size:10px; color:var(--color-text-muted);">Cód: ${p.code}</span></td>
+                            <td><strong>${escapeHtml(p.name)}</strong><br><span style="font-size:10px; color:var(--color-text-muted);">Cód: ${escapeHtml(p.code)}</span></td>
                             <td style="text-align: center;">${p.quotes}</td>
                             <td style="text-align: center;">${p.qty}</td>
                             <td style="text-align: right; font-weight: 600; color: var(--color-primary);">R$ ${p.value.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
@@ -982,7 +982,7 @@
                 prod.high_discounts.forEach(p => {
                     pressureBody.innerHTML += `
                         <tr>
-                            <td><strong>${p.name}</strong><br><span style="font-size:10px; color:var(--color-text-muted);">Cód: ${p.code}</span></td>
+                            <td><strong>${escapeHtml(p.name)}</strong><br><span style="font-size:10px; color:var(--color-text-muted);">Cód: ${escapeHtml(p.code)}</span></td>
                             <td style="text-align: center; font-weight: 600; color: var(--status-perdida);">${p.requests}</td>
                             <td style="text-align: center; font-weight: 600; color: var(--status-perdida);">${p.avg_discount}%</td>
                         </tr>
@@ -999,7 +999,7 @@
                 prod.high_rejections.forEach(p => {
                     lossBody.innerHTML += `
                         <tr>
-                            <td><strong>${p.name}</strong><br><span style="font-size:10px; color:var(--color-text-muted);">Cód: ${p.code}</span></td>
+                            <td><strong>${escapeHtml(p.name)}</strong><br><span style="font-size:10px; color:var(--color-text-muted);">Cód: ${escapeHtml(p.code)}</span></td>
                             <td style="text-align: center; font-weight: 600; color: var(--status-perdida);">${p.lost_quotes}</td>
                             <td style="text-align: center; font-weight: 600;">${p.lost_qty}</td>
                         </tr>
@@ -1018,11 +1018,11 @@
                         const date = p.updated_at ? new Date(p.updated_at).toLocaleString('pt-BR') : 'Sem data';
                         missingBody.innerHTML += `
                             <tr>
-                                <td><strong>${p.code}</strong></td>
-                                <td>${p.name}</td>
+                                <td><strong>${escapeHtml(p.code)}</strong></td>
+                                <td>${escapeHtml(p.name)}</td>
                                 <td style="text-align: center; font-weight: 700; color: var(--status-devolvida);">${p.requests}</td>
                                 <td>
-                                    <strong>${p.last_requester}</strong><br>
+                                    <strong>${escapeHtml(p.last_requester)}</strong><br>
                                     <span style="font-size:11px; color:var(--color-text-muted);">Solicitado em: ${date}</span>
                                 </td>
                             </tr>
@@ -1092,8 +1092,8 @@
                     const date = new Date(c.created_at).toLocaleString('pt-BR');
                     tbody.innerHTML += `
                         <tr>
-                            <td><strong>${c.usuario.nome}</strong><br><span style="font-size:11px; color:var(--color-text-muted);">${c.usuario.email}</span></td>
-                            <td><strong>${c.parceiro.razao_social}</strong><br><span style="font-size:11px; color:var(--color-text-muted);">Sankhya: ${c.parceiro.codigo_sankhya}</span></td>
+                            <td><strong>${escapeHtml(c.usuario ? c.usuario.nome : 'N/A')}</strong><br><span style="font-size:11px; color:var(--color-text-muted);">${escapeHtml(c.usuario ? c.usuario.email : '')}</span></td>
+                            <td><strong>${escapeHtml(c.parceiro ? c.parceiro.razao_social : 'N/A')}</strong><br><span style="font-size:11px; color:var(--color-text-muted);">Sankhya: ${escapeHtml(c.parceiro ? c.parceiro.codigo_sankhya : '-')}</span></td>
                             <td>${date}</td>
                             <td><span style="font-family:monospace; font-size:11px; background:#f1f5f9; padding:2px 6px; border-radius:4px;">📍 Lat: ${parseFloat(c.latitude).toFixed(5)}, Lng: ${parseFloat(c.longitude).toFixed(5)}</span></td>
                             <td class="text-center">
@@ -1105,7 +1105,7 @@
                     `;
                 });
             } else {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--status-perdida);">Erro ao carregar dados: ${data.error}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--status-perdida);">Erro ao carregar dados: ${escapeHtml(data.error)}</td></tr>`;
             }
         } catch(e) {
             console.error(e);

@@ -125,21 +125,21 @@
                     if (q.pedido_externo) {
                         const confClass = q.pedido_externo.status_conferencia === 'conforme' ? 'background-color:#d1fae5; color:#065f46;' : 'background-color:#fee2e2; color:#991b1b;';
                         orderMarkup = `
-                            <strong>Nº: ${q.pedido_externo.numero_pedido_externo}</strong><br>
+                            <strong>Nº: ${escapeHtml(q.pedido_externo.numero_pedido_externo)}</strong><br>
                             <span style="font-size:12px; color:var(--color-text-muted);">Valor: R$ ${parseFloat(q.pedido_externo.valor_pedido).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span><br>
                             <span style="display:inline-block; margin-top:4px; font-size:10px; font-weight:700; text-transform:uppercase; padding:2px 6px; border-radius:4px; ${confClass}">
-                                ${q.pedido_externo.status_conferencia}
+                                ${escapeHtml(q.pedido_externo.status_conferencia)}
                             </span>
                         `;
                     }
 
                     body.innerHTML += `
                         <tr>
-                            <td><strong>${q.numero}</strong><br><span style="font-size:11px; color:var(--color-text-muted);">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span></td>
-                            <td>${q.parceiro ? q.parceiro.razao_social : '-'}</td>
-                            <td>${q.representante ? q.representante.nome : '-'}</td>
+                            <td><strong>${escapeHtml(q.numero)}</strong><br><span style="font-size:11px; color:var(--color-text-muted);">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span></td>
+                            <td>${escapeHtml(q.parceiro ? q.parceiro.razao_social : '-')}</td>
+                            <td>${escapeHtml(q.representante ? q.representante.nome : '-')}</td>
                             <td>
-                                <span class="badge-status ${statusClass}">${statusText}</span>
+                                <span class="badge-status ${statusClass}">${escapeHtml(statusText)}</span>
                             </td>
                             <td>${orderMarkup}</td>
                             <td class="text-center">

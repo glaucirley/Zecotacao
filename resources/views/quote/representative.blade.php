@@ -1522,17 +1522,18 @@
 
             const row = document.createElement("div");
             row.style.cssText = "display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12.5px;";
+            const cleanUserInitial = String(user).replace(/<[^>]*>/g, '').trim().charAt(0).toUpperCase() || 'U';
             row.innerHTML = `
                 <div style="width: 28px; height: 28px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;">
-                    ${user.charAt(0).toUpperCase()}
+                    ${escapeHtml(cleanUserInitial)}
                 </div>
                 <div style="flex-grow: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
-                        <span style="font-weight: 700; color: #0f172a;">${user} <span style="font-weight: 500; color: #64748b; font-size: 11.5px;">${role}</span></span>
+                        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(user)} <span style="font-weight: 500; color: #64748b; font-size: 11.5px;">${escapeHtml(role)}</span></span>
                         <span style="color: #94a3b8; font-size: 11px;">📅 ${date}</span>
                     </div>
-                    <div style="color: #2563eb; font-weight: 600; margin-top: 2px;">${action}</div>
-                    ${details ? `<div style="color: #475569; margin-top: 4px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px;">${details}</div>` : ''}
+                    <div style="color: #2563eb; font-weight: 600; margin-top: 2px;">${escapeHtml(action)}</div>
+                    ${details ? `<div style="color: #475569; margin-top: 4px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px;">${escapeHtml(details)}</div>` : ''}
                 </div>
             `;
             container.appendChild(row);
@@ -1683,7 +1684,7 @@
                 } else if (quote.status === 'EXPIRADA') {
                     bannerText.innerHTML = "<strong>Cotação Expirada:</strong> Prazo de validade comercial ultrapassado.";
                 } else {
-                    bannerText.innerHTML = "<strong>Modo Somente Leitura:</strong> Cotação com status " + quote.status.replace(/_/g, ' ') + ".";
+                    bannerText.innerHTML = "<strong>Modo Somente Leitura:</strong> Cotação com status " + escapeHtml(quote.status.replace(/_/g, ' ')) + ".";
                 }
             } else {
                 banner.style.display = "none";
@@ -2129,12 +2130,12 @@
                         <!-- LINHA 1: descrição em destaque + código + unidade + etiqueta status + lixeira -->
                         <div class="item-line-1">
                             <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
-                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${prodDesc}</span>
-                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">#${prodCode} · ${prodUn}</span>
+                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${escapeHtml(prodDesc)}</span>
+                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">#${escapeHtml(prodCode)} · ${escapeHtml(prodUn)}</span>
                                 ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
                                 ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
                                 ${isUnfound ? `
-                                    <span class="badge" style="background:#ffe4e6; color:#9f1239; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; border:1px solid #fecdd3; display:inline-flex; align-items:center; gap:4px;" title="${item.observacao_ia || 'Item não encontrado no catálogo pelo assistente IA'}">
+                                    <span class="badge" style="background:#ffe4e6; color:#9f1239; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; border:1px solid #fecdd3; display:inline-flex; align-items:center; gap:4px;" title="${escapeHtml(item.observacao_ia || 'Item não encontrado no catálogo pelo assistente IA')}">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                                         Não encontrado pela IA
                                     </span>
@@ -2152,13 +2153,13 @@
                                 ` : '')}
                                 ${isUnfound ? `
                                     <div style="width:100%; margin-top:8px; padding:8px 12px; background:#fff1f2; border:1px dashed #fda4af; border-radius:8px; font-size:12px; color:#9f1239;">
-                                        <strong>⚠️ Item solicitado pelo cliente via WhatsApp:</strong> "${item.descricao_original || prodDesc}"
-                                        ${item.observacao_ia ? `<div style="font-size:11px; color:#be123c; margin-top:2px;">Obs IA: ${item.observacao_ia}</div>` : ''}
+                                        <strong>⚠️ Item solicitado pelo cliente via WhatsApp:</strong> "${escapeHtml(item.descricao_original || prodDesc)}"
+                                        ${item.observacao_ia ? `<div style="font-size:11px; color:#be123c; margin-top:2px;">Obs IA: ${escapeHtml(item.observacao_ia)}</div>` : ''}
                                         <div style="font-size:11px; color:#64748b; margin-top:4px;">💡 <em>Se necessário, remova este item ou selecione o produto correspondente na busca de produtos abaixo.</em></div>
                                     </div>
                                 ` : (item.descricao_original ? `
                                     <div style="width:100%; font-size:11.5px; color:#64748b; margin-top:2px;">
-                                        <span style="font-weight:600; color:#475569;">Pedido original:</span> "${item.descricao_original}"
+                                        <span style="font-weight:600; color:#475569;">Pedido original:</span> "${escapeHtml(item.descricao_original)}"
                                     </div>
                                 ` : '')}
                             </div>
@@ -2219,7 +2220,7 @@
 
                         ${isRejected && motivoTexto ? `
                             <div style="margin-top: 4px; padding: 6px 10px; background: #fff5f5; border-radius: 6px; font-size: 11.5px; color: #991b1b; border: 1px dashed #fca5a5; display: flex; align-items: center; gap: 6px;">
-                                <strong>Motivo da recusa:</strong> <span>${motivoTexto}</span>
+                                <strong>Motivo da recusa:</strong> <span>${escapeHtml(motivoTexto)}</span>
                             </div>
                         ` : ''}
                     </div>
@@ -2362,7 +2363,7 @@
                 currentSearchedProducts = data.data;
                 renderAddProductSearchResults(data.data);
             } else {
-                menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Nenhum produto encontrado para "${query}".</div>`;
+                menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Nenhum produto encontrado para "${escapeHtml(query)}".</div>`;
             }
         } catch (e) {
             menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Erro de conexão.</div>`;
@@ -2395,9 +2396,9 @@
 
             div.innerHTML = `
                 <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px;">
-                    <span class="prod-code">${p.codigo_sankhya}</span>
-                    <span class="prod-title">${p.descricao}</span>
-                    ${p.marca ? `<span style="font-size: 11px; color: #64748b; margin-left: 6px;">(${p.marca})</span>` : ''}
+                    <span class="prod-code">${escapeHtml(p.codigo_sankhya)}</span>
+                    <span class="prod-title">${escapeHtml(p.descricao)}</span>
+                    ${p.marca ? `<span style="font-size: 11px; color: #64748b; margin-left: 6px;">(${escapeHtml(p.marca)})</span>` : ''}
                 </div>
                 <div class="prod-price" style="${isQuotable ? '' : 'color: #ef4444; font-size: 11px;'}">${sugText}</div>
             `;
@@ -2666,7 +2667,7 @@
             }
 
             const sizeKb = Math.round(file.size / 1024);
-            fileSummaries.push(`📁 ${name} (${sizeKb} KB)`);
+            fileSummaries.push(`📁 ${escapeHtml(name)} (${sizeKb} KB)`);
         }
 
         if (preview) {
@@ -2695,7 +2696,7 @@
         if (preview) {
             preview.style.display = "block";
             preview.style.color = "#047857";
-            preview.innerHTML = `🎵 ${file.name} (${Math.round(file.size / 1024)} KB)`;
+            preview.innerHTML = `🎵 ${escapeHtml(file.name)} (${Math.round(file.size / 1024)} KB)`;
         }
         return true;
     }
@@ -3088,7 +3089,7 @@
             const timeStr = openDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             const contactName = envAberto.nome_contato_snapshot || (envAberto.contato ? envAberto.contato.nome_contato : 'Cliente');
             
-            textEl.innerHTML = `<strong>Visualizada pelo cliente em ${dateStr} às ${timeStr}</strong> · Contato Confirmado (${contactName})`;
+            textEl.innerHTML = `<strong>Visualizada pelo cliente em ${dateStr} às ${timeStr}</strong> · Contato Confirmado (${escapeHtml(contactName)})`;
         } else if (env && env.canal === 'WHATSAPP') {
             // Prioridade 2: Enviada via WhatsApp e aguardando primeira abertura
             banner.style.background = "#eff6ff";
@@ -3100,7 +3101,7 @@
             const rawTel = (env.contato && env.contato.telefone_formatado) ? env.contato.telefone_formatado : (env.telefone_destino || env.telefone || '');
             const tel = formatPhoneNumber(rawTel);
             
-            textEl.innerHTML = `Enviada para <strong>${contactName}</strong> · ${tel} · <em>aguardando abertura</em>`;
+            textEl.innerHTML = `Enviada para <strong>${escapeHtml(contactName)}</strong> · ${escapeHtml(tel)} · <em>aguardando abertura</em>`;
         } else if (env) {
             // Prioridade 3: Compartilhado nativamente como arquivo PDF
             banner.style.background = "#f1f5f9";
@@ -3210,11 +3211,11 @@
                     <input type="radio" name="delivery_contact_choice" value="${contactKey}" ${isChecked ? 'checked' : ''} onchange="onContactSelectionChange(this.value)">
                     <div>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <strong style="font-size: 13.5px; color: #0f172a;">${c.nome_contato}</strong>
-                            ${c.cargo ? `<span style="font-size: 11px; color: #64748b;">(${c.cargo})</span>` : ''}
+                            <strong style="font-size: 13.5px; color: #0f172a;">${escapeHtml(c.nome_contato)}</strong>
+                            ${c.cargo ? `<span style="font-size: 11px; color: #64748b;">(${escapeHtml(c.cargo)})</span>` : ''}
                         </div>
                         <div style="font-size: 12px; color: #475569; font-weight: 600; margin-top: 2px;">
-                            ${c.telefone_formatado || c.telefone}
+                            ${escapeHtml(c.telefone_formatado || c.telefone)}
                         </div>
                     </div>
                 </div>

@@ -529,9 +529,9 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
         approvedList.forEach(item => {
             body.innerHTML += `
                 <tr>
-                    <td><strong>${item.produto.codigo_sankhya}</strong></td>
-                    <td>${item.produto.descricao} ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha">Campanha</span>' : ''}</td>
-                    <td class="text-center">${item.produto.unidade}</td>
+                    <td><strong>${escapeHtml(item.produto ? item.produto.codigo_sankhya : '-')}</strong></td>
+                    <td>${escapeHtml(item.produto ? item.produto.descricao : (item.descricao_original || 'Item'))} ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha">Campanha</span>' : ''}</td>
+                    <td class="text-center">${escapeHtml(item.produto ? item.produto.unidade : '-')}</td>
                     <td class="text-center">${item.qtd}</td>
                     <td class="text-right">R$ ${parseFloat(item.preco_unit_proposto).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                 </tr>

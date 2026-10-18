@@ -326,7 +326,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 j.anexos.forEach(a => {
                     attachmentsMarkup += `
                         <a href="${a.arquivo_url}" target="_blank" class="btn btn-outline" style="padding: 4px 8px; font-size:11px;">
-                            Ver Anexo (${a.tipo})
+                            Ver Anexo (${escapeHtml(a.tipo)})
                         </a>
                     `;
                 });
@@ -345,10 +345,10 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             container.innerHTML += `
                 <div style="border: 1px solid var(--color-border); padding: 12px; border-radius: var(--radius-md); background-color: var(--color-bg); margin-bottom: 12px;">
                     <div style="display:flex; justify-content:space-between; font-size:11px; color: var(--color-text-muted); margin-bottom: 6px;">
-                        <strong>Contexto: ${itemDesc}</strong>
+                        <strong>Contexto: ${escapeHtml(itemDesc)}</strong>
                         <span>${date}</span>
                     </div>
-                    <p style="font-size:13px; white-space:pre-line;">${j.texto || '(Sem justificativa em texto)'}</p>
+                    <p style="font-size:13px; white-space:pre-line;">${escapeHtml(j.texto || '(Sem justificativa em texto)')}</p>
                     ${audioMarkup}
                     ${attachmentsMarkup}
                 </div>
@@ -369,8 +369,8 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             const date = new Date(h.created_at).toLocaleString('pt-BR');
             container.innerHTML += `
                 <li class="stepper-item">
-                    <div class="stepper-time">${date} | Papel: ${h.papel}</div>
-                    <div class="stepper-desc"><strong>${h.evento.replace(/_/g, ' ')}</strong> - ${h.condicao || ''}</div>
+                    <div class="stepper-time">${date} | Papel: ${escapeHtml(h.papel)}</div>
+                    <div class="stepper-desc"><strong>${escapeHtml((h.evento || '').replace(/_/g, ' '))}</strong> - ${escapeHtml(h.condicao || '')}</div>
                 </li>
             `;
         });
@@ -396,16 +396,18 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
 
             // Bind check state
             const linkedClass = item.vinculo ? "style='background-color: #f0fdf4; border-left:3px solid #10b981;'" : "";
-            const bindGroupLabel = item.vinculo ? `<br><span style="font-size:10px; color:#15803d; font-weight:600;">Grupo: ${item.vinculo.grupo_vinculo}</span>` : "";
+            const bindGroupLabel = item.vinculo ? `<br><span style="font-size:10px; color:#15803d; font-weight:600;">Grupo: ${escapeHtml(item.vinculo.grupo_vinculo)}</span>` : "";
+            const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Item');
+            const prodCode = item.produto ? item.produto.codigo_sankhya : '-';
 
             body.innerHTML += `
                 <tr id="item-row-${item.id}" ${linkedClass}>
                     <td class="text-center">
                         <input type="checkbox" class="item-checkbox" value="${item.id}">
                     </td>
-                    <td><strong>${item.produto.codigo_sankhya}</strong></td>
+                    <td><strong>${escapeHtml(prodCode)}</strong></td>
                     <td>
-                        ${item.produto.descricao}
+                        ${escapeHtml(prodDesc)}
                         ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha">Campanha</span>' : ''}
                         ${isInconsistent ? '<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #fcd34d; margin-left:6px; font-weight:600;" title="Preço mínimo cadastral maior que o sugerido.">⚠️ Mín > Sugerido</span>' : ''}
                         ${bindGroupLabel}
@@ -418,7 +420,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                     <td class="text-right">
                         <div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">
                             <span style="font-weight:600; ${isBelowMin ? 'color:#dc2626;' : ''}">R$ ${parseFloat(item.preco_unit_proposto).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                            <button class="btn btn-outline" style="padding: 2px 6px; font-size:10px;" onclick="openSimulatePrice(${item.id}, '${item.produto.descricao}', ${item.preco_unit_proposto})">Simular</button>
+                            <button class="btn btn-outline" style="padding: 2px 6px; font-size:10px;" onclick="openSimulatePrice(${item.id}, ${escapeHtml(JSON.stringify(prodDesc))}, ${item.preco_unit_proposto})">Simular</button>
                         </div>
                     </td>
                     <td class="text-center">

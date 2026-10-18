@@ -113,14 +113,14 @@
                     body.innerHTML += `
                         <tr>
                             <td>
-                                <strong>${q.numero}</strong>
+                                <strong>${escapeHtml(q.numero)}</strong>
                                 ${q.prioridade ? '<br><span class="badge-status priority" style="background-color:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); font-size:10px; font-weight:700; margin-top:4px; display:inline-block; border-radius:4px; padding:2px 6px;">⚡ GRANDE CONTA</span>' : ''}
-                                ${activeApprovalTab === 'avaliadas' ? `<br><span class="badge-status" style="font-size:10px; margin-top:4px; display:inline-block;">${statusText}</span>` : ''}
+                                ${activeApprovalTab === 'avaliadas' ? `<br><span class="badge-status" style="font-size:10px; margin-top:4px; display:inline-block;">${escapeHtml(statusText)}</span>` : ''}
                             </td>
-                            <td>${q.parceiro ? q.parceiro.razao_social : 'N/A'}</td>
+                            <td>${escapeHtml(q.parceiro ? q.parceiro.razao_social : 'N/A')}</td>
                             <td>
-                                <strong>${q.representante ? q.representante.nome : 'N/A'}</strong><br>
-                                <span style="font-size: 11px; color: var(--color-text-muted);">Sankhya Code: ${q.representante ? q.representante.codigo_sankhya : 'N/A'}</span>
+                                <strong>${escapeHtml(q.representante ? q.representante.nome : 'N/A')}</strong><br>
+                                <span style="font-size: 11px; color: var(--color-text-muted);">Sankhya Code: ${escapeHtml(q.representante ? q.representante.codigo_sankhya : 'N/A')}</span>
                             </td>
                             <td>${date}</td>
                             <td class="text-right" style="font-weight: 600; color: var(--color-primary);">R$ ${parseFloat(q.total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>

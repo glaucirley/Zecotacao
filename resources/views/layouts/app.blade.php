@@ -611,7 +611,7 @@
                                     <a href="${r.url}" class="search-result-item" onclick="closeGlobalSearch()">
                                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                             <div class="search-result-title">${escapeHtml(r.title)}</div>
-                                            <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: ${b.bg}; color: ${b.color}; flex-shrink: 0;">${b.text}</span>
+                                            <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: ${b.bg}; color: ${b.color}; flex-shrink: 0;">${escapeHtml(b.text)}</span>
                                         </div>
                                         <div class="search-result-sub">${escapeHtml(r.subtitle)}</div>
                                     </a>
@@ -636,8 +636,15 @@
         }
 
         function escapeHtml(str) {
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
+        window.escapeHtml = escapeHtml;
 
         // Universal Confirmation Modal (Promise + Callback compatible)
         let onConfirmCallback = null;
