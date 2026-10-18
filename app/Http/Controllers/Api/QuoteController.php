@@ -291,7 +291,8 @@ class QuoteController extends Controller
                         'status_item' => 'pendente',
                         'custo' => $custo,
                         'imposto' => $imposto,
-                        'margem_calculada' => $margem
+                        'margem_calculada' => $margem,
+                        'validade' => $prod->validade_proxima
                     ]);
 
                     $subtotal += $qtd * max($sugerido, $precoProposto);
@@ -678,6 +679,7 @@ class QuoteController extends Controller
                     'margem_calculada' => $request->filled('margem_calculada') ? round((float)$request->input('margem_calculada'), 2) : null,
                     'custo' => $request->filled('custo') ? round((float)$request->input('custo'), 2) : null,
                     'imposto' => $request->filled('imposto') ? round((float)$request->input('imposto'), 2) : null,
+                    'validade' => $produto->validade_proxima,
                     'campanha_id' => $request->input('campanha_id'),
                     'mostrar_selo_campanha' => $request->input('mostrar_selo_campanha', false),
                     'ordem_exibicao' => $displayOrder,

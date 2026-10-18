@@ -247,6 +247,13 @@ class ParameterController extends Controller
                 \Illuminate\Support\Facades\Log::error("Async Sync Conditions Error: " . $e->getMessage());
             }
 
+            // 6. Sync Product Validades View
+            try {
+                $db->syncAllProductValidades();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Async Sync Validades Error: " . $e->getMessage());
+            }
+
             \Illuminate\Support\Facades\Log::info("Async Sankhya Catalog Sync Completed Successfully!");
             exit;
         }
@@ -262,6 +269,7 @@ class ParameterController extends Controller
         $repCount = 0;
         $priceItemCount = 0;
         $condCount = 0;
+        $validadeCount = 0;
         $warnings = [];
 
         // 1. Sync Products
@@ -318,7 +326,16 @@ class ParameterController extends Controller
             $warnings[] = "Condições de Pagamento (View TIPONEG_APP não encontrada no Oracle)";
         }
 
-        if ($prodCount == 0 && $partnerCount == 0 && $repCount == 0 && $priceItemCount == 0 && $condCount == 0) {
+        // 6. Sync Product Validades View
+        try {
+            $validadeRows = $db->fetchValidadesFromView();
+            $validadeCount = $db->saveValidadesFromViewRows($validadeRows);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Sync Error (Validades): " . $e->getMessage());
+            $warnings[] = "Validades (View VGF_VALIDADEAPP não encontrada no Oracle)";
+        }
+
+        if ($prodCount == 0 && $partnerCount == 0 && $repCount == 0 && $priceItemCount == 0 && $condCount == 0 && $validadeCount == 0) {
             return response()->json([
                 'success' => false,
                 'error' => 'Erro na sincronização',
@@ -327,7 +344,7 @@ class ParameterController extends Controller
             ], 500);
         }
 
-        $msg = "Sincronização efetuada com sucesso: {$prodCount} produtos, {$partnerCount} clientes, {$repCount} representantes, {$priceItemCount} itens de preço e {$condCount} condições de pagamento.";
+        $msg = "Sincronização efetuada com sucesso: {$prodCount} produtos, {$partnerCount} clientes, {$repCount} representantes, {$priceItemCount} itens de preço, {$condCount} condições de pagamento e {$validadeCount} validades atualizadas.";
         if (count($warnings) > 0) {
             $msg .= " Avisos: " . implode(" | ", $warnings);
         }

@@ -698,4 +698,87 @@ class SankhyaDatabaseService
             return null;
         }
     }
+
+    /**
+     * Fetch product expiration dates from Sankhya VGF_VALIDADEAPP view.
+     *
+     * @param array|null $codProds Optional array of CODPROD to filter
+     * @return array
+     */
+    public function fetchValidadesFromView(?array $codProds = null): array
+    {
+        $conn = $this->connect();
+
+        $where = '';
+        $params = [];
+        if (!empty($codProds)) {
+            $inPlaceholders = [];
+            foreach (array_values($codProds) as $idx => $cod) {
+                $ph = ":cp_{$idx}";
+                $inPlaceholders[] = $cod;
+            }
+            $where = " WHERE CODPROD IN (" . implode(',', $inPlaceholders) . ")";
+        }
+
+        try {
+            $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM SANKHYA.VGF_VALIDADEAPP" . $where);
+            $stmt->execute($params);
+            return $stmt->fetchAll();
+        } catch (\PDOException $e) {
+            $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM VGF_VALIDADEAPP" . $where);
+            $stmt->execute($params);
+            return $stmt->fetchAll();
+        }
+    }
+
+    /**
+     * Bulk save/sync product validade_proxima from VGF_VALIDADEAPP view rows.
+     *
+     * @param array $rows
+     * @return int
+     */
+    public function saveValidadesFromViewRows(array $rows): int
+    {
+        $count = 0;
+        foreach ($rows as $row) {
+            $codProd = (string)($row['CODPROD'] ?? $row['codprod'] ?? '');
+            $dtValRaw = $row['DTVAL'] ?? $row['dtval'] ?? null;
+
+            if (empty($codProd) || empty($dtValRaw)) {
+                continue;
+            }
+
+            $dtVal = null;
+            try {
+                $dtVal = \Carbon\Carbon::parse($dtValRaw)->format('Y-m-d');
+            } catch (\Exception $e) {
+                continue;
+            }
+
+            if ($dtVal) {
+                $updated = Produto::where('codigo_sankhya', $codProd)
+                    ->update(['validade_proxima' => $dtVal]);
+                if ($updated) {
+                    $count++;
+                }
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * Sync all product expiration dates from Sankhya VGF_VALIDADEAPP view.
+     *
+     * @return int
+     */
+    public function syncAllProductValidades(): int
+    {
+        try {
+            $rows = $this->fetchValidadesFromView();
+            return $this->saveValidadesFromViewRows($rows);
+        } catch (\Exception $e) {
+            Log::error("Sankhya Service - Failed product validades sync: " . $e->getMessage());
+            throw $e;
+        }
+    }
 }

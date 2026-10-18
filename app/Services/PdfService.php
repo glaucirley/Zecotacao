@@ -30,6 +30,45 @@ class PdfService
 
         $quote->load(['parceiro', 'representante.equipe']);
 
+        // Resolve expiration dates (validade) for items missing validade
+        $missingCodProds = [];
+        foreach ($items as $it) {
+            if (!$it->validade && (!$it->produto || !$it->produto->validade_proxima)) {
+                if ($it->produto && $it->produto->codigo_sankhya) {
+                    $missingCodProds[] = (string)$it->produto->codigo_sankhya;
+                }
+            }
+        }
+
+        if (!empty($missingCodProds)) {
+            try {
+                $db = resolve(SankhyaDatabaseService::class);
+                $rows = $db->fetchValidadesFromView($missingCodProds);
+                if (!empty($rows)) {
+                    $db->saveValidadesFromViewRows($rows);
+                    foreach ($items as $it) {
+                        if ($it->produto) {
+                            $it->produto->refresh();
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("PdfService - Could not fetch live validades: " . $e->getMessage());
+            }
+        }
+
+        // Snapshot validade on items if empty but present on produto
+        foreach ($items as $it) {
+            if (empty($it->validade) && $it->produto && $it->produto->validade_proxima) {
+                try {
+                    $it->validade = $it->produto->validade_proxima;
+                    $it->save();
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            }
+        }
+
         // Recalculate totals based strictly on approved items to guarantee accuracy in the PDF
         $approvedSubtotal = 0;
         $approvedTotal = 0;

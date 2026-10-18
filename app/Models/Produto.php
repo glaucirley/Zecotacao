@@ -27,6 +27,7 @@ class Produto extends Model
         'custo_variavel',
         'ncm',
         'unidade',
+        'validade_proxima',
         'metadados_sankhya',
         'ativo',
     ];
@@ -37,8 +38,25 @@ class Produto extends Model
         'margem_lucro' => 'float',
         'custo_variavel' => 'float',
         'ativo' => 'boolean',
+        'validade_proxima' => 'date',
         'metadados_sankhya' => 'array',
     ];
+
+    protected $appends = [
+        'validade_formatada',
+    ];
+
+    public function getValidadeFormatadaAttribute(): string
+    {
+        if (!$this->validade_proxima) {
+            return '--';
+        }
+        try {
+            return \Carbon\Carbon::parse($this->validade_proxima)->format('m/Y');
+        } catch (\Throwable $e) {
+            return '--';
+        }
+    }
 
     public function itensCotacao()
     {

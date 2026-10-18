@@ -22,6 +22,7 @@ class CotacaoItem extends Model
         'nao_encontrado',
         'descricao_original',
         'observacao_ia',
+        'validade',
         'margem_calculada',
         'custo',
         'imposto',
@@ -39,6 +40,7 @@ class CotacaoItem extends Model
         'margem_calculada' => 'decimal:2',
         'custo' => 'decimal:2',
         'imposto' => 'decimal:2',
+        'validade' => 'date',
         'mostrar_selo_campanha' => 'boolean',
         'inconsistente' => 'boolean',
         'nao_encontrado' => 'boolean',
@@ -47,7 +49,21 @@ class CotacaoItem extends Model
     protected $appends = [
         'inconsistente',
         'preco_minimo_efetivo',
+        'validade_formatada',
     ];
+
+    public function getValidadeFormatadaAttribute(): string
+    {
+        $val = $this->validade ?? $this->produto?->validade_proxima;
+        if (!$val) {
+            return '--';
+        }
+        try {
+            return \Carbon\Carbon::parse($val)->format('m/Y');
+        } catch (\Throwable $e) {
+            return '--';
+        }
+    }
 
     public function getInconsistenteAttribute(): bool
     {
@@ -85,6 +101,12 @@ class CotacaoItem extends Model
         static::saving(function ($model) {
             if (!static::hasInconsistenteColumn()) {
                 unset($model->attributes['inconsistente']);
+            }
+            if (empty($model->validade) && $model->produto_id) {
+                $prod = $model->produto ?? Produto::find($model->produto_id);
+                if ($prod && $prod->validade_proxima) {
+                    $model->validade = $prod->validade_proxima;
+                }
             }
         });
     }

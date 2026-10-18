@@ -302,8 +302,8 @@
                             <div class="prod-campaign-subtext">Campanha: {{ $item->campanha_id ?: 'Condição Especial Aplicada' }}</div>
                         @endif
                     </td>
-                    <td class="text-center" style="color: #64748b;">
-                        {{ isset($item->produto->validade) ? $item->produto->validade : '--' }}
+                    <td class="text-center" style="color: #475569; font-weight: 500;">
+                        {{ $item->validade_formatada ?? '--' }}
                     </td>
                     <td class="text-center" style="font-weight: bold; color: #475569;">{{ $item->produto->unidade ?? 'UN' }}</td>
                     <td class="text-center" style="font-weight: bold; color: #0f172a;">{{ $item->qtd }}</td>
