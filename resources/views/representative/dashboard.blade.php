@@ -3334,11 +3334,19 @@
                 btn.innerHTML = origText;
                 btn.disabled = false;
 
-                if (res.ok && (data?.id || data?.success || data?.data)) {
+                const newQuoteId = data?.data?.id || data?.id;
+                if (res.ok && (newQuoteId || data?.success)) {
                     selectedPartner = null;
                     quoteCartItems = [];
                     clearQuoteFormError();
                     closeNewQuoteModal();
+
+                    if (newQuoteId) {
+                        showToast("Cotação gerada com sucesso! Abrindo...", "success");
+                        window.location.href = `${PUBLIC_URL}/cotacoes/id/${newQuoteId}`;
+                        return;
+                    }
+
                     showToast("Cotação criada com sucesso!", "success");
                     loadQuotes(); // Refresh quotes list
                     switchTab('quotes');
