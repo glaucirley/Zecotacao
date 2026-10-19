@@ -90,8 +90,8 @@ class ContactValidationService
             ];
         }
 
-        // Rejeitar número de qualquer usuário interno do sistema (representante, gestor, diretor, admin)
-        $isInternalUser = User::all()->contains(function ($user) use ($nationalDigits, $normalized) {
+        // Identificar se pertence a um usuário interno da empresa (representante, gestor, diretor, admin)
+        $matchedUser = User::all()->first(function ($user) use ($nationalDigits) {
             if (!$user->telefone) return false;
             $userDigits = preg_replace('/\D/', '', $user->telefone);
             $userDigits = ltrim($userDigits, '0');
@@ -101,18 +101,14 @@ class ContactValidationService
             return $userDigits === $nationalDigits;
         });
 
-        if ($isInternalUser) {
-            return [
-                'valid' => false,
-                'normalized' => $normalized,
-                'error' => 'Este número pertence a um usuário interno da equipe comercial e não pode ser cadastrado como contato do cliente.',
-                'warning' => null,
-            ];
-        }
-
-        // Alerta informativo (sem bloquear) se já estiver cadastrado em outro cliente
         $warning = null;
-        if ($currentParceiroId) {
+        $isInternal = false;
+
+        if ($matchedUser) {
+            $isInternal = true;
+            $warning = "Aviso: Este número pertence ao colaborador interno {$matchedUser->nome} ({$matchedUser->papel}) e será usado para envio/teste sem ser vinculado como contato permanente do cliente.";
+        } elseif ($currentParceiroId) {
+            // Alerta informativo (sem bloquear) se já estiver cadastrado em outro cliente
             $otherContact = ClienteContato::where('telefone', $normalized)
                 ->where('parceiro_id', '!=', $currentParceiroId)
                 ->with('parceiro')
@@ -126,6 +122,7 @@ class ContactValidationService
         return [
             'valid' => true,
             'normalized' => $normalized,
+            'is_internal' => $isInternal,
             'error' => null,
             'warning' => $warning,
         ];

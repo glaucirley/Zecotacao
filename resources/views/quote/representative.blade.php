@@ -4242,6 +4242,11 @@
                         waWindow.close();
                     }
                     showToast("WhatsApp aberto com a proposta pronta para envio!", "success");
+                    if (data.warning) {
+                        setTimeout(() => {
+                            showToast(data.warning, "info");
+                        }, 2200);
+                    }
                 } else if (canal === 'WEB_SHARE') {
                     await shareViaWebShare(`${QUOTE_BASE_URL}/pdf`, quote.numero);
                 }

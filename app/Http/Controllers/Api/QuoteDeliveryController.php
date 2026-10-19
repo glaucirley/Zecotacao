@@ -194,19 +194,13 @@ class QuoteDeliveryController extends Controller
             ]);
 
             $msg = $e->getMessage();
-            $isBusinessMessage = (
-                str_contains($msg, 'permissão') ||
-                str_contains($msg, 'não permitido') ||
-                str_contains($msg, 'válido') ||
-                str_contains($msg, 'fixo') ||
-                str_contains($msg, 'WhatsApp') ||
-                str_contains($msg, 'celular') ||
-                str_contains($msg, 'DDD')
-            );
+            $isTechnicalDbError = ($e instanceof \Illuminate\Database\QueryException || str_contains($msg, 'SQLSTATE'));
 
             return response()->json([
                 'success' => false,
-                'error' => $isBusinessMessage ? $msg : 'Não foi possível preparar o envio da proposta no momento. Por favor, tente novamente.',
+                'error' => $isTechnicalDbError
+                    ? 'Ocorreu um erro no banco de dados ao registrar o envio. Por favor, tente novamente.'
+                    : $msg,
             ], 422);
         }
     }

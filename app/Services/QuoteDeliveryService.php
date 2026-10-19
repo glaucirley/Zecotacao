@@ -206,6 +206,7 @@ class QuoteDeliveryService
         $normalizedPhone = null;
         $warning = null;
         $contato = null;
+        $isInternal = false;
 
         if ($canal === 'WHATSAPP') {
             $validation = $this->validator->validate($rawPhone, $quote->parceiro_id);
@@ -214,6 +215,7 @@ class QuoteDeliveryService
             }
             $normalizedPhone = $validation['normalized'];
             $warning = $validation['warning'];
+            $isInternal = (bool)($validation['is_internal'] ?? false);
         }
 
         // 5. Gerar token criptográfico único para rastreamento de abertura (armazenando apenas o hash SHA-256 no banco)
@@ -276,7 +278,7 @@ class QuoteDeliveryService
         // 7. Gravar envio, atualizar contato e registrar histórico dentro de transação atômica
         return DB::transaction(function () use (
             $quote, $user, $data, $canal, $normalizedPhone, $contactName, $partnerDefaultName,
-            $tokenHash, $linkProposta, $mensagemFinal, $urlWhatsapp, $warning
+            $tokenHash, $linkProposta, $mensagemFinal, $urlWhatsapp, $warning, $isInternal
         ) {
             $contato = null;
 
@@ -287,28 +289,33 @@ class QuoteDeliveryService
                         ->first();
                 }
 
-                if (!$contato) {
+                // Se não for contato existente E não for número interno de colaborador, cadastrar/atualizar em cliente_contatos
+                if (!$contato && !$isInternal) {
                     $contato = ClienteContato::firstOrNew([
                         'parceiro_id' => $quote->parceiro_id,
                         'telefone' => $normalizedPhone,
                     ]);
-                }
 
-                $effectiveName = $contactName ?: ($contato->nome_contato ?: ($partnerDefaultName ?: 'Cliente'));
-                if (empty($contato->nome_contato) && !empty($effectiveName)) {
-                    $contato->nome_contato = $effectiveName;
-                }
+                    $effectiveName = $contactName ?: ($contato->nome_contato ?: ($partnerDefaultName ?: 'Cliente'));
+                    if (empty($contato->nome_contato) && !empty($effectiveName)) {
+                        $contato->nome_contato = $effectiveName;
+                    }
 
-                if (!$contato->exists) {
-                    $contato->codigo_sankhya_parc = $quote->parceiro?->codigo_sankhya;
-                    $contato->origem = 'REPRESENTANTE';
-                    $contato->criado_por = $user->id;
-                    $contato->status = 'ATIVO';
-                }
+                    if (!$contato->exists) {
+                        $contato->codigo_sankhya_parc = $quote->parceiro?->codigo_sankhya;
+                        $contato->origem = 'REPRESENTANTE';
+                        $contato->criado_por = $user->id;
+                        $contato->status = 'ATIVO';
+                    }
 
-                $contato->qtd_envios = ($contato->qtd_envios ?? 0) + 1;
-                $contato->ultimo_envio_em = now();
-                $contato->save();
+                    $contato->qtd_envios = ($contato->qtd_envios ?? 0) + 1;
+                    $contato->ultimo_envio_em = now();
+                    $contato->save();
+                } elseif ($contato) {
+                    $contato->qtd_envios = ($contato->qtd_envios ?? 0) + 1;
+                    $contato->ultimo_envio_em = now();
+                    $contato->save();
+                }
             } else {
                 if (!empty($data['contato_id'])) {
                     $contato = ClienteContato::find($data['contato_id']);
@@ -335,7 +342,7 @@ class QuoteDeliveryService
 
             // Gravar histórico da cotação
             $eventoHistorico = $canal === 'WHATSAPP' ? 'PROPOSTA_ENVIADA_WHATSAPP' : 'PROPOSTA_COMPARTILHADA_PDF';
-            $telFormatado = $contato ? $contato->telefone_formatado : $normalizedPhone;
+            $telFormatado = $contato ? $contato->telefone_formatado : static::formatPhoneNumber($normalizedPhone);
             $histName = $envio->nome_contato_snapshot;
 
             CotacaoHistorico::create([
