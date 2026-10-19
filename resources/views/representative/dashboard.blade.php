@@ -3154,7 +3154,24 @@
             const parsed = parseFloat(String(val).replace(',', '.'));
             if (!isNaN(parsed) && parsed >= 0) {
                 quoteCartItems[index].price = parsed;
+            } else if (String(val).trim() === '') {
+                quoteCartItems[index].price = 0;
             }
+
+            const item = quoteCartItems[index];
+            const unitPrice = item.price || 0;
+            const subtotal = unitPrice * (item.qty || 1);
+
+            const calcEl = document.getElementById(`cart-item-calc-${index}`);
+            if (calcEl) {
+                calcEl.innerHTML = `${item.qty} un &times; R$ ${unitPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            }
+
+            const subtotalEl = document.getElementById(`cart-item-subtotal-${index}`);
+            if (subtotalEl) {
+                subtotalEl.innerText = `Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            }
+
             renderCartTotalOnly();
         }
 
@@ -3231,7 +3248,7 @@
             if (listEl) {
                 listEl.innerHTML = "";
                 quoteCartItems.forEach((item, index) => {
-                    const subtotal = item.price * item.qty;
+                    const subtotal = (item.price || 0) * (item.qty || 1);
                     listEl.innerHTML += `
                         <div class="cart-item-card" data-cart-idx="${index}">
                             <div class="cart-item-top" style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -3259,8 +3276,8 @@
                                 </div>
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:4px; border-top:1px dashed #e2e8f0;">
-                                <span style="font-size:11px; color:#64748b;">${item.qty} un &times; R$ ${item.price.toFixed(2)}</span>
-                                <span style="font-size:13px; color:var(--color-primary); font-weight:800;">Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                <span id="cart-item-calc-${index}" style="font-size:11px; color:#64748b;">${item.qty} un &times; R$ ${(item.price || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                <span id="cart-item-subtotal-${index}" style="font-size:13px; color:var(--color-primary); font-weight:800;">Subtotal: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                             </div>
                         </div>
                     `;
