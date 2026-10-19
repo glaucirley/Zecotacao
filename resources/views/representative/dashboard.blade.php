@@ -1518,16 +1518,13 @@
                 switchTab(tabParam);
             }
             
-            // Start Notification Poller (every 10 seconds)
-            setInterval(pollNotifications, 10000);
-            pollNotifications(true); // first quiet run
+            // Start Notification Poller (every 30 seconds)
+            setInterval(pollNotifications, 30000);
+            pollNotifications(true); // first quiet run (loads notifications and updates badge)
         });
 
         async function loadData() {
-            await Promise.all([
-                loadQuotes(),
-                loadNotifications()
-            ]);
+            await loadQuotes();
         }
 
         function getFriendlyStatusInfo(status) {

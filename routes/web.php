@@ -42,10 +42,28 @@ Route::get('/cotacoes/token/{token}', function (\Illuminate\Http\Request $reques
     $request->session()->put('zecotacao_internal_user', true);
     \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
 
+    try {
+        $quote->load([
+            'parceiro',
+            'representante.equipe.gestor',
+            'itens.produto',
+            'justificativas.anexos',
+            'anexos',
+            'historico.usuario',
+            'ultimoEnvio.contato',
+            'ultimoEnvioAberto.contato',
+            'ultimoEnvioWhatsApp.contato',
+            'envios.contato'
+        ]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning("Erro ao hidratar relações iniciais da cotação ID {$quote->id}: " . $e->getMessage());
+    }
+
     return view('quote.representative', [
         'token' => auth()->check() ? null : $token,
         'quoteId' => $quote->id,
         'quote' => $quote,
+        'initialQuoteJson' => $quote->toJson(),
         'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
     ]);
 });
@@ -217,12 +235,27 @@ Route::middleware('auth')->group(function () {
         if (!auth()->user()->canAccessQuote($quote)) {
             abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
         }
-        $request->session()->put('zecotacao_internal_user', true);
-        \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
+        try {
+            $quote->load([
+                'parceiro',
+                'representante.equipe.gestor',
+                'itens.produto',
+                'justificativas.anexos',
+                'anexos',
+                'historico.usuario',
+                'ultimoEnvio.contato',
+                'ultimoEnvioAberto.contato',
+                'ultimoEnvioWhatsApp.contato',
+                'envios.contato'
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Erro ao hidratar relações iniciais da cotação ID {$quote->id}: " . $e->getMessage());
+        }
 
         return view('quote.representative', [
             'quoteId' => $quote->id,
             'quote' => $quote,
+            'initialQuoteJson' => $quote->toJson(),
             'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
             'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
         ]);

@@ -30,11 +30,19 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Não autenticado.'], 401);
         }
 
-        // Trigger automatic expiration check for overdue quotes
-        \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
+        // Trigger automatic expiration check for overdue quotes (throttled to at most once every 60s)
+        if (\Illuminate\Support\Facades\Cache::add('quote_expiration_check_lock', true, 60)) {
+            try {
+                \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Erro ao verificar expiração de cotações: ' . $e->getMessage());
+            }
+        }
 
-        // Lightweight eager loading for listing performance
-        $hasNaoEncontradoCol = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'nao_encontrado');
+        // Lightweight eager loading for listing performance (cached for 24h)
+        $hasNaoEncontradoCol = \Illuminate\Support\Facades\Cache::remember('col_cotacao_itens_nao_encontrado', 86400, function () {
+            return \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'nao_encontrado');
+        });
         $withRelations = [
             'parceiro:id,codigo_sankhya,razao_social,nome_fantasia,cnpj',
             'representante:id,nome,email,equipe_id',

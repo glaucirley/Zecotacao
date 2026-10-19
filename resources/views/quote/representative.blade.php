@@ -1358,13 +1358,44 @@
     let quote = null;
     let productsList = [];
     let isEditingLocked = false;
+    const INITIAL_QUOTE = {!! isset($initialQuoteJson) ? $initialQuoteJson : 'null' !!};
 
     document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
             setTimeout(updateStickyFooterOffset, 50);
         });
         checkUserSession();
-        loadData();
+
+        if (INITIAL_QUOTE) {
+            quote = INITIAL_QUOTE;
+
+            // Update Navbar and Tab Title dynamically
+            const pageTitleEl = document.querySelector(".page-title");
+            if (pageTitleEl) {
+                pageTitleEl.innerText = `Cotação ${quote.numero}`;
+                pageTitleEl.setAttribute("title", `Cotação ${quote.numero}`);
+            }
+            document.title = `Zé Cotação — Cotação ${quote.numero}`;
+
+            // Render view immediately with quote details (Instant response, zero lag!)
+            renderView();
+
+            // Background fetch products catalog for addition only if quote is editable
+            const editableStatuses = ['EM_CRIACAO', 'DEVOLVIDA'];
+            if (editableStatuses.includes(quote.status)) {
+                fetch(`${QUOTE_BASE_URL}/produtos?limit=50`)
+                    .then(res => res.json())
+                    .then(prodData => {
+                        if (prodData && prodData.success) {
+                            productsList = prodData.data;
+                        }
+                    })
+                    .catch(errProd => console.warn("Background produtos:", errProd));
+            }
+        } else {
+            loadData();
+        }
+
         setupAttachmentValidation();
     });
 
