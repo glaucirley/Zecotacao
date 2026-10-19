@@ -279,7 +279,7 @@ class QuoteController extends Controller
                         $margem = (($precoProposto * $impostoFator - $custo) / ($precoProposto * $impostoFator)) * 100;
                     }
 
-                    CotacaoItem::create([
+                    $itemDataToCreate = [
                         'cotacao_id' => $quote->id,
                         'produto_id' => $prod->id,
                         'qtd' => $qtd,
@@ -292,8 +292,12 @@ class QuoteController extends Controller
                         'custo' => $custo,
                         'imposto' => $imposto,
                         'margem_calculada' => $margem,
-                        'validade' => $prod->validade_proxima
-                    ]);
+                    ];
+                    if (CotacaoItem::hasValidadeColumn() && !empty($prod->validade_proxima)) {
+                        $itemDataToCreate['validade'] = $prod->validade_proxima;
+                    }
+
+                    CotacaoItem::create($itemDataToCreate);
 
                     $subtotal += $qtd * max($sugerido, $precoProposto);
                     $total += $itemSubtotal;
@@ -333,10 +337,15 @@ class QuoteController extends Controller
                 'user_id' => $user->id ?? null,
                 'request' => $request->except(['_token'])
             ]);
+            $msg = 'Ocorreu um erro interno ao processar a cotação. Por favor, tente novamente ou contate o suporte.';
+            if (config('app.debug')) {
+                $msg .= ' (' . $e->getMessage() . ')';
+            }
             return response()->json([
                 'error' => 'Erro interno do servidor',
                 'code' => 'QUOTE_CREATE_ERROR',
-                'message' => 'Ocorreu um erro interno ao processar a cotação. Por favor, tente novamente ou contate o suporte.'
+                'message' => $msg,
+                'detail' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
@@ -665,7 +674,7 @@ class QuoteController extends Controller
                     ? $replacedUnfoundItem->ordem_exibicao
                     : ($maxOrder + 1);
 
-                $item = CotacaoItem::create([
+                $itemData = [
                     'cotacao_id' => $quote->id,
                     'produto_id' => $request->input('produto_id'),
                     'qtd' => $qtd,
@@ -679,12 +688,15 @@ class QuoteController extends Controller
                     'margem_calculada' => $request->filled('margem_calculada') ? round((float)$request->input('margem_calculada'), 2) : null,
                     'custo' => $request->filled('custo') ? round((float)$request->input('custo'), 2) : null,
                     'imposto' => $request->filled('imposto') ? round((float)$request->input('imposto'), 2) : null,
-                    'validade' => $produto->validade_proxima,
                     'campanha_id' => $request->input('campanha_id'),
                     'mostrar_selo_campanha' => $request->input('mostrar_selo_campanha', false),
                     'ordem_exibicao' => $displayOrder,
                     'nao_encontrado' => false,
-                ]);
+                ];
+                if (CotacaoItem::hasValidadeColumn() && !empty($produto->validade_proxima)) {
+                    $itemData['validade'] = $produto->validade_proxima;
+                }
+                $item = CotacaoItem::create($itemData);
 
                 $replacedDesc = null;
                 if ($replacedUnfoundItem) {

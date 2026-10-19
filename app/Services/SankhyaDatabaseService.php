@@ -739,6 +739,10 @@ class SankhyaDatabaseService
      */
     public function saveValidadesFromViewRows(array $rows): int
     {
+        if (!Produto::hasValidadeProximaColumn()) {
+            return 0;
+        }
+
         $count = 0;
         foreach ($rows as $row) {
             $codProd = (string)($row['CODPROD'] ?? $row['codprod'] ?? '');

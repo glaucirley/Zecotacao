@@ -46,9 +46,32 @@ class Produto extends Model
         'validade_formatada',
     ];
 
+    protected static ?bool $hasValidadeProximaColumn = null;
+
+    public static function hasValidadeProximaColumn(): bool
+    {
+        if (static::$hasValidadeProximaColumn === null) {
+            try {
+                static::$hasValidadeProximaColumn = \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'validade_proxima');
+            } catch (\Throwable $e) {
+                static::$hasValidadeProximaColumn = false;
+            }
+        }
+        return static::$hasValidadeProximaColumn;
+    }
+
+    protected static function booted()
+    {
+        static::saving(function ($model) {
+            if (!static::hasValidadeProximaColumn()) {
+                unset($model->attributes['validade_proxima']);
+            }
+        });
+    }
+
     public function getValidadeFormatadaAttribute(): string
     {
-        if (!$this->validade_proxima) {
+        if (!static::hasValidadeProximaColumn() || !$this->validade_proxima) {
             return '--';
         }
         try {

@@ -54,7 +54,10 @@ class CotacaoItem extends Model
 
     public function getValidadeFormatadaAttribute(): string
     {
-        $val = $this->validade ?? $this->produto?->validade_proxima;
+        $val = static::hasValidadeColumn()
+            ? ($this->validade ?? $this->produto?->validade_proxima)
+            : ($this->produto?->validade_proxima ?? null);
+
         if (!$val) {
             return '--';
         }
@@ -96,15 +99,31 @@ class CotacaoItem extends Model
         return static::$hasInconsistenteColumn;
     }
 
+    protected static ?bool $hasValidadeColumn = null;
+
+    public static function hasValidadeColumn(): bool
+    {
+        if (static::$hasValidadeColumn === null) {
+            try {
+                static::$hasValidadeColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'validade');
+            } catch (\Throwable $e) {
+                static::$hasValidadeColumn = false;
+            }
+        }
+        return static::$hasValidadeColumn;
+    }
+
     protected static function booted()
     {
         static::saving(function ($model) {
             if (!static::hasInconsistenteColumn()) {
                 unset($model->attributes['inconsistente']);
             }
-            if (empty($model->validade) && $model->produto_id) {
+            if (!static::hasValidadeColumn()) {
+                unset($model->attributes['validade']);
+            } elseif (empty($model->validade) && $model->produto_id) {
                 $prod = $model->produto ?? Produto::find($model->produto_id);
-                if ($prod && $prod->validade_proxima) {
+                if ($prod && !empty($prod->validade_proxima)) {
                     $model->validade = $prod->validade_proxima;
                 }
             }

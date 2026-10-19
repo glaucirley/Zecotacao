@@ -60,6 +60,27 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
 
+            $validadeLock = storage_path('framework/schema_validade_2026_10_18.lock');
+            if (!is_file($validadeLock)) {
+                try {
+                    if (Schema::hasTable('produtos') && !Schema::hasColumn('produtos', 'validade_proxima')) {
+                        Schema::table('produtos', function (\Illuminate\Database\Schema\Blueprint $table) {
+                            $table->date('validade_proxima')->nullable()->after('unidade');
+                        });
+                    }
+                    if (Schema::hasTable('cotacao_itens') && !Schema::hasColumn('cotacao_itens', 'validade')) {
+                        Schema::table('cotacao_itens', function (\Illuminate\Database\Schema\Blueprint $table) {
+                            $table->date('validade')->nullable()->after('observacao_ia');
+                        });
+                    }
+                    if (Schema::hasColumn('cotacao_itens', 'validade') && Schema::hasColumn('produtos', 'validade_proxima')) {
+                        @file_put_contents($validadeLock, date('c'));
+                    }
+                } catch (\Throwable $e) {
+                    // Fail silently if DB cannot be altered right now
+                }
+            }
+
             $lockFile = storage_path('framework/cleanup_2026_10_18_v1.lock');
             if (!is_file($lockFile)) {
                 try {

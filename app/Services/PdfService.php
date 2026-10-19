@@ -32,15 +32,20 @@ class PdfService
 
         // Resolve expiration dates (validade) for items missing validade
         $missingCodProds = [];
+        $hasValCol = \App\Models\CotacaoItem::hasValidadeColumn();
+        $hasProdValCol = \App\Models\Produto::hasValidadeProximaColumn();
+
         foreach ($items as $it) {
-            if (!$it->validade && (!$it->produto || !$it->produto->validade_proxima)) {
+            $itVal = $hasValCol ? $it->validade : null;
+            $prodVal = ($hasProdValCol && $it->produto) ? $it->produto->validade_proxima : null;
+            if (!$itVal && !$prodVal) {
                 if ($it->produto && $it->produto->codigo_sankhya) {
                     $missingCodProds[] = (string)$it->produto->codigo_sankhya;
                 }
             }
         }
 
-        if (!empty($missingCodProds)) {
+        if (!empty($missingCodProds) && $hasProdValCol) {
             try {
                 $db = resolve(SankhyaDatabaseService::class);
                 $rows = $db->fetchValidadesFromView($missingCodProds);
@@ -58,13 +63,15 @@ class PdfService
         }
 
         // Snapshot validade on items if empty but present on produto
-        foreach ($items as $it) {
-            if (empty($it->validade) && $it->produto && $it->produto->validade_proxima) {
-                try {
-                    $it->validade = $it->produto->validade_proxima;
-                    $it->save();
-                } catch (\Throwable $e) {
-                    // ignore
+        if ($hasValCol && $hasProdValCol) {
+            foreach ($items as $it) {
+                if (empty($it->validade) && $it->produto && $it->produto->validade_proxima) {
+                    try {
+                        $it->validade = $it->produto->validade_proxima;
+                        $it->save();
+                    } catch (\Throwable $e) {
+                        // ignore
+                    }
                 }
             }
         }
