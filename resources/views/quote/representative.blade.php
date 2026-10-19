@@ -1932,16 +1932,9 @@
         let hasNegativeMargin = false;
         let countNegative = 0;
         (quote.itens || []).forEach(item => {
-            const sug = parseFloat(item.preco_unit_sugerido || item.preco_tabela || 0);
-            const prop = parseFloat(item.preco_unit_proposto || item.preco_praticado || 0);
-            const cost = parseFloat(item.custo || 0);
-            const tax = parseFloat(item.imposto || 0);
-            if (cost > 0 && prop > 0) {
-                const net = prop * (1 - (tax / 100));
-                if (net < cost) {
-                    hasNegativeMargin = true;
-                    countNegative++;
-                }
+            if (item.tem_margem_negativa) {
+                hasNegativeMargin = true;
+                countNegative++;
             }
         });
 
@@ -3155,9 +3148,6 @@
             preco_unit_proposto: proposto,
             preco_unit_sugerido: sugerido,
             preco_minimo: minimo,
-            margem_calculada: 30.00,
-            custo: minimo * 0.7,
-            imposto: 18.00,
             substituir_item_id: replacingUnfoundItemId || null,
         };
 

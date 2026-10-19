@@ -37,6 +37,17 @@ class CotacaoHistorico extends Model
         return $value;
     }
 
+    public function toArray()
+    {
+        $array = parent::toArray();
+        if (!User::canUserViewCosts()) {
+            if ($this->evento === 'ALERTA_MARGEM_BAIXA') {
+                $array['condicao'] = 'Alerta comercial: Margem da proposta requer validação de alçada.';
+            }
+        }
+        return $array;
+    }
+
     public function cotacao()
     {
         return $this->belongsTo(Cotacao::class, 'cotacao_id');

@@ -103,6 +103,24 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is allowed to view financial costs and profit margins.
+     * Representatives and unauthenticated visitors cannot view costs.
+     */
+    public function canViewCosts(): bool
+    {
+        return ($this->isAdministrador() || $this->isGestor() || $this->isDiretor() || $this->isFaturamento());
+    }
+
+    public static function canUserViewCosts(?User $user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->canViewCosts();
+    }
+
+    /**
      * Check if user is authorized to view or edit a specific quotation.
      * - Administrador & Diretor: see all quotations.
      * - Faturamento: see quotations.

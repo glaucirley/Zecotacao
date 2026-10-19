@@ -674,6 +674,30 @@ class QuoteController extends Controller
                     ? $replacedUnfoundItem->ordem_exibicao
                     : ($maxOrder + 1);
 
+                // Resolve cost, tax, and margin server-side
+                $custo = null;
+                if ($request->filled('custo')) {
+                    $custo = round((float)$request->input('custo'), 2);
+                } elseif ($priceItem && (float)$priceItem->custo_variavel > 0) {
+                    $custo = round((float)$priceItem->custo_variavel, 2);
+                } elseif ($produto->codigo_sankhya === 'PROD001') {
+                    $custo = 45.00;
+                } elseif ($produto->codigo_sankhya === 'PROD002') {
+                    $custo = 160.00;
+                } elseif ($produto->codigo_sankhya === 'PROD003') {
+                    $custo = 22.00;
+                }
+
+                $imposto = $request->filled('imposto') ? round((float)$request->input('imposto'), 2) : 18.00;
+
+                $margem = null;
+                if ($request->filled('margem_calculada')) {
+                    $margem = round((float)$request->input('margem_calculada'), 2);
+                } elseif ($precoProposto > 0 && $custo > 0) {
+                    $impostoFator = 1 - ($imposto / 100);
+                    $margem = round((($precoProposto * $impostoFator - $custo) / ($precoProposto * $impostoFator)) * 100, 2);
+                }
+
                 $itemData = [
                     'cotacao_id' => $quote->id,
                     'produto_id' => $request->input('produto_id'),
@@ -685,9 +709,9 @@ class QuoteController extends Controller
                     'subtotal' => round($qtd * $precoProposto, 2),
                     'status_item' => 'pendente',
                     'inconsistente' => $isInconsistente,
-                    'margem_calculada' => $request->filled('margem_calculada') ? round((float)$request->input('margem_calculada'), 2) : null,
-                    'custo' => $request->filled('custo') ? round((float)$request->input('custo'), 2) : null,
-                    'imposto' => $request->filled('imposto') ? round((float)$request->input('imposto'), 2) : null,
+                    'margem_calculada' => $margem,
+                    'custo' => $custo,
+                    'imposto' => $imposto,
                     'campanha_id' => $request->input('campanha_id'),
                     'mostrar_selo_campanha' => $request->input('mostrar_selo_campanha', false),
                     'ordem_exibicao' => $displayOrder,
@@ -1382,6 +1406,14 @@ class QuoteController extends Controller
         });
 
         $products = array_slice($processed, 0, $limit);
+
+        if (!\App\Models\User::canUserViewCosts()) {
+            foreach ($products as $p) {
+                unset($p->custo);
+                unset($p->custo_variavel);
+                unset($p->margem_lucro);
+            }
+        }
 
         return response()->json([
             'success' => true,

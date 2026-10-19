@@ -50,7 +50,32 @@ class CotacaoItem extends Model
         'inconsistente',
         'preco_minimo_efetivo',
         'validade_formatada',
+        'tem_margem_negativa',
     ];
+
+    public function getTemMargemNegativaAttribute(): bool
+    {
+        if ($this->margem_calculada !== null && (float)$this->margem_calculada < 0) {
+            return true;
+        }
+        $custo = (float)($this->custo ?? 0);
+        $prop = (float)($this->preco_unit_proposto ?? 0);
+        $imposto = (float)($this->imposto ?? 0);
+        if ($custo > 0 && $prop > 0) {
+            $net = $prop * (1 - ($imposto / 100));
+            return ($net < $custo);
+        }
+        return false;
+    }
+
+    public function toArray()
+    {
+        $array = parent::toArray();
+        if (!User::canUserViewCosts()) {
+            unset($array['custo'], $array['margem_calculada'], $array['imposto']);
+        }
+        return $array;
+    }
 
     public function getValidadeFormatadaAttribute(): string
     {

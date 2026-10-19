@@ -69,6 +69,15 @@ class Produto extends Model
         });
     }
 
+    public function toArray()
+    {
+        $array = parent::toArray();
+        if (!User::canUserViewCosts()) {
+            unset($array['custo_variavel'], $array['margem_lucro'], $array['custo']);
+        }
+        return $array;
+    }
+
     public function getValidadeFormatadaAttribute(): string
     {
         if (!static::hasValidadeProximaColumn() || !$this->validade_proxima) {
