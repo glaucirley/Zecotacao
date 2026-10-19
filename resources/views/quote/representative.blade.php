@@ -1360,6 +1360,97 @@
     let isEditingLocked = false;
     const INITIAL_QUOTE = {!! isset($initialQuoteJson) ? $initialQuoteJson : 'null' !!};
 
+    // Robust toast notification fallback
+    if (typeof window.showToast !== 'function') {
+        let lastToastMsg = null;
+        let lastToastT = 0;
+        window.showToast = function(message, type = 'info', title = null) {
+            const now = Date.now();
+            const strMsg = String(message || '').trim();
+            if (strMsg === lastToastMsg && (now - lastToastT) < 2000) return;
+            lastToastMsg = strMsg;
+            lastToastT = now;
+
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `app-toast app-toast-${type}`;
+
+            let icon = 'ℹ️';
+            let defaultTitle = 'Aviso';
+            if (type === 'success') { icon = '✓'; defaultTitle = 'Sucesso'; }
+            else if (type === 'error') { icon = '✕'; defaultTitle = 'Erro'; }
+            else if (type === 'warning') { icon = '⚠️'; defaultTitle = 'Atenção'; }
+
+            const toastTitle = title || defaultTitle;
+            const formattedMsg = strMsg.replace(/\n/g, '<br>');
+
+            toast.innerHTML = `
+                <span class="app-toast-icon">${icon}</span>
+                <div class="app-toast-body">
+                    <div class="app-toast-title">${toastTitle}</div>
+                    <div class="app-toast-msg">${formattedMsg}</div>
+                </div>
+                <button type="button" class="app-toast-close" title="Fechar">&times;</button>
+            `;
+
+            const closeBtn = toast.querySelector('.app-toast-close');
+            const dismiss = () => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => { if (toast.parentElement) toast.remove(); }, 250);
+            };
+
+            if (closeBtn) closeBtn.onclick = (e) => { e.stopPropagation(); dismiss(); };
+            toast.onclick = dismiss;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(dismiss, 5000);
+        };
+    }
+
+    // Scroll smoothly to justification panel and highlight required field
+    function highlightAndScrollToJustification(targetElementId = 'just-texto') {
+        updateJustificationPanelVisibility();
+        const panel = document.getElementById("justification-panel");
+        const targetEl = document.getElementById(targetElementId);
+
+        if (panel) {
+            panel.style.display = "block";
+            panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Visual pulse on panel
+            panel.style.transition = 'all 0.3s ease';
+            panel.style.borderColor = '#ef4444';
+            panel.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.35)';
+            
+            setTimeout(() => {
+                panel.style.borderColor = '#f59e0b';
+                panel.style.boxShadow = 'none';
+            }, 3000);
+        }
+
+        if (targetEl) {
+            setTimeout(() => {
+                try { targetEl.focus(); } catch (e) {}
+                targetEl.style.transition = 'all 0.2s ease';
+                targetEl.style.borderColor = '#ef4444';
+                targetEl.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.3)';
+                setTimeout(() => {
+                    targetEl.style.borderColor = '#fcd34d';
+                    targetEl.style.boxShadow = 'none';
+                }, 3000);
+            }, 300);
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
             setTimeout(updateStickyFooterOffset, 50);
@@ -3424,14 +3515,14 @@
             // Mandatory written text if no existing justification
             if (!hasText && !hasExistingJustification) {
                 showToast("É obrigatório informar uma justificativa por escrito antes de enviar para aprovação.", 'error');
-                document.getElementById("just-texto")?.focus();
+                highlightAndScrollToJustification('just-texto');
                 return;
             }
 
             // Mandatory attachment if EXIGE_ANEXO_JUSTIFICATIVA is enabled
             if (EXIGE_ANEXO_JUSTIFICATIVA && !hasNewFiles && !hasExistingAttachments) {
                 showToast("O parâmetro de segurança exige anexo de pelo menos um comprovante (documento, foto ou orçamento concorrente) para aprovação de cotação com desconto acima da alçada.", 'error');
-                document.getElementById("just-anexos")?.focus();
+                highlightAndScrollToJustification('just-anexos');
                 return;
             }
 
@@ -3493,8 +3584,11 @@
                     showToast(data.message || ("Cotação enviada com sucesso! Situação: " + data.status.replace(/_/g, ' ')), 'success');
                 }
                 setTimeout(() => window.location.reload(), 1400);
-            } else {
-                showToast("Erro ao enviar cotação: " + (data.message || data.error || ("Falha no envio HTTP " + res.status)), 'error');
+                const errMsg = data.message || data.error || ("Falha no envio HTTP " + res.status);
+                showToast("Erro ao enviar cotação: " + errMsg, 'error');
+                if (String(errMsg).toLowerCase().includes('justificativa') || String(errMsg).toLowerCase().includes('anexo') || String(errMsg).toLowerCase().includes('comprovante')) {
+                    highlightAndScrollToJustification('just-texto');
+                }
             }
         } catch (e) {
             showToast("Erro de conexão ao enviar.", 'error');
