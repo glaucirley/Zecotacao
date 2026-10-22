@@ -122,6 +122,23 @@
         border-radius: 10px;
         font-size: 11px;
     }
+    .filter-tab-btn.tab-unfound.active {
+        color: #be123c;
+    }
+    .filter-tab-btn.tab-unfound .tab-badge {
+        background: #ffe4e6;
+        color: #be123c;
+    }
+    .filter-tab-btn.tab-unfound.has-unfound {
+        color: #be123c;
+        font-weight: 700;
+        background: #fff1f2;
+        border: 1px solid #fecdd3;
+    }
+    .filter-tab-btn.tab-unfound.has-unfound .tab-badge {
+        background: #e11d48;
+        color: #ffffff;
+    }
     .filter-tab-btn.tab-attention.active {
         color: #dc2626;
     }
@@ -918,6 +935,9 @@
             <div class="filter-tabs-wrapper">
                 <button type="button" class="filter-tab-btn active" id="tab-all" onclick="setFilterTab('all')">
                     Todos <span class="tab-badge" id="count-all">0</span>
+                </button>
+                <button type="button" class="filter-tab-btn tab-unfound" id="tab-unfound" onclick="setFilterTab('unfound')" style="display: none;">
+                    ❓ Não Encontrados <span class="tab-badge" id="count-unfound">0</span>
                 </button>
                 <button type="button" class="filter-tab-btn tab-attention" id="tab-attention" onclick="setFilterTab('attention')">
                     ⚠️ Atenção <span class="tab-badge" id="count-attention">0</span>
@@ -2653,32 +2673,37 @@
 
         listEl.innerHTML = "";
         unfoundItems.forEach(item => {
-            const rawDesc = item.descricao_original || (item.produto ? item.produto.descricao : 'Item solicitado pelo cliente');
+            const rawDesc = item.descricao_original || (item.produto ? item.produto.descricao : '') || 'Item solicitado pelo cliente';
             const obsIa = item.observacao_ia || 'Item não identificado automaticamente no catálogo pela IA';
             const un = (item.produto && item.produto.unidade) ? item.produto.unidade : 'UN';
             const isBeingReplaced = (replacingUnfoundItemId === item.id);
 
             const card = document.createElement("div");
-            card.style.cssText = `background: #ffffff; border: 1.5px solid ${isBeingReplaced ? '#2563eb' : '#fecdd3'}; border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: 0 1px 2px rgba(0,0,0,0.03);`;
+            card.style.cssText = `background: #ffffff; border: 1.5px solid ${isBeingReplaced ? '#2563eb' : '#fda4af'}; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.04);`;
             card.innerHTML = `
-                <div style="flex: 1; min-width: 200px;">
+                <div style="flex: 1; min-width: 220px;">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span style="font-weight: 800; font-size: 14px; color: #881337;">"${escapeHtml(rawDesc)}"</span>
-                        <span style="background: #ffe4e6; color: #be123c; border: 1px solid #fda4af; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
-                            Qtd solicitada: ${item.qtd} ${escapeHtml(un)}
-                        </span>
+                        <span style="font-size: 11px; font-weight: 700; color: #9f1239; background: #ffe4e6; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">Texto do Cliente</span>
+                        <span style="font-weight: 800; font-size: 14.5px; color: #1e293b;">"${escapeHtml(rawDesc)}"</span>
                     </div>
-                    <div style="font-size: 12px; color: #9f1239; margin-top: 4px;">
-                        <strong>Observação da IA:</strong> ${escapeHtml(obsIa)}
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px;">
+                        <span style="background: #f8fafc; color: #334155; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            Qtd solicitada: <strong>${item.qtd} ${escapeHtml(un)}</strong>
+                        </span>
+                        ${obsIa ? `
+                            <span style="font-size: 12px; color: #9f1239;">
+                                <strong>Obs IA:</strong> ${escapeHtml(obsIa)}
+                            </span>
+                        ` : ''}
                     </div>
                 </div>
                 ${!isEditingLocked ? `
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <button type="button" onclick="startManualInclusionForUnfoundItem(${item.id})" style="background: #2563eb; color: #ffffff; border: none; border-radius: 8px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);">
+                        <button type="button" onclick="startManualInclusionForUnfoundItem(${item.id})" style="background: #2563eb; color: #ffffff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
                             <span>Incluir Manualmente</span>
                         </button>
-                        <button type="button" onclick="deleteItem(${item.id})" style="background: #ffffff; color: #be123c; border: 1px solid #fda4af; border-radius: 8px; padding: 7px 11px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Dispensar/remover item da cotação">
+                        <button type="button" onclick="deleteItem(${item.id})" style="background: #ffffff; color: #be123c; border: 1px solid #fda4af; border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Dispensar/remover item da cotação">
                             <span>Dispensar</span>
                         </button>
                     </div>
@@ -2786,6 +2811,7 @@
         
         let hasItemBelowMin = false;
         let countAll = quote.itens.length;
+        let countUnfound = 0;
         let countAttention = 0;
         let countApproved = 0;
         let countRejected = 0;
@@ -2798,7 +2824,9 @@
 
             if (isRejected) {
                 countRejected++;
-            } else if ((isBelowMin || isUnfound) && item.status_item !== 'aprovado') {
+            } else if (isUnfound) {
+                countUnfound++;
+            } else if (isBelowMin && item.status_item !== 'aprovado') {
                 hasItemBelowMin = true;
                 countAttention++;
             } else {
@@ -2809,11 +2837,23 @@
         // Update Tab Badges
         const elAll = document.getElementById("count-all");
         const elAllBadge = document.getElementById("count-all-badge");
+        const elUnf = document.getElementById("count-unfound");
+        const tabUnf = document.getElementById("tab-unfound");
         const elAtt = document.getElementById("count-attention");
         const elApp = document.getElementById("count-approved");
         const elRej = document.getElementById("count-rejected");
+
         if (elAll) elAll.innerText = countAll;
         if (elAllBadge) elAllBadge.innerText = `${countAll} itens`;
+        if (elUnf) elUnf.innerText = countUnfound;
+        if (tabUnf) {
+            tabUnf.style.display = countUnfound > 0 ? "inline-flex" : "none";
+            if (countUnfound > 0) {
+                tabUnf.classList.add("has-unfound");
+            } else {
+                tabUnf.classList.remove("has-unfound");
+            }
+        }
         if (elAtt) elAtt.innerText = countAttention;
         if (elApp) elApp.innerText = countApproved;
         if (elRej) elRej.innerText = countRejected;
@@ -2835,11 +2875,14 @@
             const isRejected = item.status_item === 'recusado';
             const isUnfound = Boolean(item.nao_encontrado);
 
+            if (currentFilterTab === 'unfound') {
+                return isUnfound && !isRejected;
+            }
             if (currentFilterTab === 'attention') {
-                return (isBelowMin || isUnfound) && item.status_item !== 'aprovado' && !isRejected;
+                return isBelowMin && !isUnfound && item.status_item !== 'aprovado' && !isRejected;
             }
             if (currentFilterTab === 'approved') {
-                return (!isBelowMin && !isUnfound || item.status_item === 'aprovado') && !isRejected;
+                return !isBelowMin && !isUnfound && !isRejected;
             }
             if (currentFilterTab === 'rejected') {
                 return isRejected;

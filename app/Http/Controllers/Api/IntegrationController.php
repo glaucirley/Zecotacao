@@ -101,10 +101,21 @@ class IntegrationController extends Controller
                     || !empty($item['nao_localizado'])
                     || $isCodeMissing;
 
+                $rawDesc = trim((string)($item['descricao_original'] ?? ''));
+                if ($rawDesc === '') {
+                    $rawDesc = trim((string)($item['descricao_cliente'] ?? $item['texto_cliente'] ?? $item['item_original'] ?? $item['solicitacao'] ?? ''));
+                }
+                if ($rawDesc === '' && ($isNaoEncontrado || empty($item['codigo_sankhya']))) {
+                    $rawDesc = trim((string)($item['descricao'] ?? ''));
+                }
+                if ($rawDesc !== '') {
+                    $rawInput['itens'][$idx]['descricao_original'] = $rawDesc;
+                }
+
                 if ($isNaoEncontrado) {
                     $rawInput['itens'][$idx]['nao_encontrado'] = true;
                     if ($isCodeMissing) {
-                        $rawInput['itens'][$idx]['codigo_sankhya'] = 'SEM_CODIGO_' . substr(md5(($item['descricao_original'] ?? $item['descricao']) ?? Str::random(8)), 0, 8);
+                        $rawInput['itens'][$idx]['codigo_sankhya'] = 'SEM_CODIGO_' . substr(md5(($rawDesc ?: ($item['descricao'] ?? Str::random(8)))), 0, 8);
                     }
                     if (empty($rawInput['itens'][$idx]['unidade'])) {
                         $rawInput['itens'][$idx]['unidade'] = 'UN';
@@ -122,7 +133,7 @@ class IntegrationController extends Controller
                         $rawInput['itens'][$idx]['subtotal'] = 0.00;
                     }
                     if (empty($rawInput['itens'][$idx]['descricao_original'])) {
-                        $rawInput['itens'][$idx]['descricao_original'] = $item['descricao'] ?? 'Item solicitado pelo cliente';
+                        $rawInput['itens'][$idx]['descricao_original'] = $rawDesc ?: ($item['descricao'] ?? 'Item solicitado pelo cliente');
                     }
                     if (empty($rawInput['itens'][$idx]['observacao_ia'])) {
                         $rawInput['itens'][$idx]['observacao_ia'] = $item['observacao'] ?? $item['motivo'] ?? 'Item não identificado automaticamente no catálogo pela IA';
@@ -458,7 +469,9 @@ class IntegrationController extends Controller
                         'mostrar_selo_campanha' => $item['mostrar_selo_campanha'] ?? false,
                         'ordem_exibicao' => $item['ordem_exibicao'] ?? 0,
                         'nao_encontrado' => $isUnfound,
-                        'descricao_original' => $item['descricao_original'] ?? ($isUnfound ? ($item['descricao'] ?? null) : null),
+                        'descricao_original' => !empty(trim((string)($item['descricao_original'] ?? '')))
+                            ? trim((string)$item['descricao_original'])
+                            : (!empty(trim((string)($item['descricao'] ?? ''))) ? trim((string)$item['descricao']) : null),
                         'observacao_ia' => $item['observacao_ia'] ?? ($isUnfound ? 'Item não identificado automaticamente no catálogo Sankhya' : null),
                     ]);
                 }
