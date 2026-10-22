@@ -130,4 +130,52 @@ class Cotacao extends Model
 
         return $prefix . str_pad($nextSeq, 6, '0', STR_PAD_LEFT);
     }
+
+    /**
+     * Recalcula os totais (subtotal, desconto, total) da cotação a partir dos itens.
+     * Itens recusados ou não encontrados pela IA são ignorados na soma.
+     */
+    public function recalcularTotais(): self
+    {
+        $this->unsetRelation('itens');
+        $itens = $this->itens()->get();
+
+        $subtotal = 0.00;
+        $total = 0.00;
+
+        foreach ($itens as $item) {
+            if ($item->status_item === 'recusado' || (bool)$item->nao_encontrado) {
+                continue;
+            }
+
+            $qtd = (float)($item->qtd ?? 0);
+            $sug = (float)($item->preco_unit_sugerido ?? 0);
+            $prop = (float)($item->preco_unit_proposto ?? 0);
+            $itemSubtotal = (float)($item->subtotal ?? 0);
+
+            // Garante subtotal no item se estiver zerado
+            if ($itemSubtotal <= 0 && $qtd > 0) {
+                $unit = $prop > 0 ? $prop : $sug;
+                $itemSubtotal = round($qtd * $unit, 2);
+                if ($itemSubtotal > 0 && $item->exists) {
+                    $item->update(['subtotal' => $itemSubtotal]);
+                }
+            }
+
+            $subtotal += $qtd * max($sug, $prop);
+            $total += $itemSubtotal;
+        }
+
+        $subtotal = round($subtotal, 2);
+        $total = round($total, 2);
+        $desconto = round(max(0.00, $subtotal - $total), 2);
+
+        $this->update([
+            'subtotal' => $subtotal,
+            'desconto' => $desconto,
+            'total' => $total,
+        ]);
+
+        return $this;
+    }
 }

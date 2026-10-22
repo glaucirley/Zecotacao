@@ -152,9 +152,9 @@ class IntegrationController extends Controller
             'transportadora' => 'nullable|string',
             'observacao_cliente' => 'nullable|string',
             'observacao_interna' => 'nullable|string',
-            'subtotal' => 'required|numeric',
-            'desconto' => 'required|numeric',
-            'total' => 'required|numeric',
+            'subtotal' => 'nullable|numeric',
+            'desconto' => 'nullable|numeric',
+            'total' => 'nullable|numeric',
             
             // Representative (Vendedor)
             'representante' => 'required|array',
@@ -376,9 +376,9 @@ class IntegrationController extends Controller
                         'data_emissao' => $emissionDate,
                         'validade_horas' => $validityHours,
                         'data_validade' => $validityDate,
-                        'subtotal' => $data['subtotal'],
-                        'desconto' => $data['desconto'],
-                        'total' => $data['total'],
+                        'subtotal' => $data['subtotal'] ?? 0.00,
+                        'desconto' => $data['desconto'] ?? 0.00,
+                        'total' => $data['total'] ?? 0.00,
                         'forma_pagamento' => $data['forma_pagamento'] ?? $existingQuote->forma_pagamento,
                         'prazo_entrega' => $data['prazo_entrega'] ?? $existingQuote->prazo_entrega,
                         'frete_tipo' => $data['frete_tipo'] ?? $existingQuote->frete_tipo,
@@ -406,9 +406,9 @@ class IntegrationController extends Controller
                         'data_emissao' => $emissionDate,
                         'validade_horas' => $validityHours,
                         'data_validade' => $validityDate,
-                        'subtotal' => $data['subtotal'],
-                        'desconto' => $data['desconto'],
-                        'total' => $data['total'],
+                        'subtotal' => $data['subtotal'] ?? 0.00,
+                        'desconto' => $data['desconto'] ?? 0.00,
+                        'total' => $data['total'] ?? 0.00,
                         'forma_pagamento' => $data['forma_pagamento'] ?? null,
                         'prazo_entrega' => $data['prazo_entrega'] ?? null,
                         'frete_tipo' => $data['frete_tipo'] ?? 'CIF',
@@ -433,15 +433,23 @@ class IntegrationController extends Controller
                         $unfoundCount++;
                     }
 
+                    $qtd = (float)($item['qtd'] ?? 0);
+                    $precoSugerido = (float)($item['preco_unit_sugerido'] ?? 0.00);
+                    $precoMinimo = (float)($item['preco_minimo'] ?? 0.00);
+                    $precoProposto = (float)($item['preco_unit_proposto'] ?? 0.00);
+                    $itemSubtotal = (isset($item['subtotal']) && (float)$item['subtotal'] > 0)
+                        ? (float)$item['subtotal']
+                        : round($qtd * ($precoProposto > 0 ? $precoProposto : $precoSugerido), 2);
+
                     CotacaoItem::create([
                         'cotacao_id' => $quote->id,
                         'produto_id' => $productIdsMap[$itemCode],
-                        'qtd' => $item['qtd'],
-                        'preco_unit_sugerido' => $item['preco_unit_sugerido'] ?? 0.00,
-                        'preco_minimo' => $item['preco_minimo'] ?? 0.00,
-                        'preco_unit_proposto' => $item['preco_unit_proposto'] ?? 0.00,
+                        'qtd' => $qtd,
+                        'preco_unit_sugerido' => $precoSugerido,
+                        'preco_minimo' => $precoMinimo,
+                        'preco_unit_proposto' => $precoProposto,
                         'ajuste_percentual' => $item['ajuste_percentual'] ?? 0.00,
-                        'subtotal' => $item['subtotal'] ?? 0.00,
+                        'subtotal' => $itemSubtotal,
                         'status_item' => 'pendente',
                         'margem_calculada' => $item['margem_calculada'] ?? null,
                         'custo' => $item['custo'] ?? null,
@@ -454,6 +462,9 @@ class IntegrationController extends Controller
                         'observacao_ia' => $item['observacao_ia'] ?? ($isUnfound ? 'Item não identificado automaticamente no catálogo Sankhya' : null),
                     ]);
                 }
+
+                // Recalculate quotation totals based on inserted items
+                $quote->recalcularTotais();
 
                 // 7. Write Audit Trail (Historico)
                 $event = $existingQuote ? 'ATUALIZADA_VIA_INTEGRACAO' : 'CRIADA_VIA_INTEGRACAO';

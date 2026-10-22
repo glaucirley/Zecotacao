@@ -1181,29 +1181,7 @@ class QuoteController extends Controller
      */
     private function recalculateQuoteTotals(Cotacao $quote)
     {
-        $subtotal = 0; // sum of original suggested totals
-        $total = 0;    // sum of proposed totals
-
-        // Refresh items from DB to get the most updated list
-        $quote->refresh();
-
-        foreach ($quote->itens as $item) {
-            if ($item->status_item === 'recusado' || $item->nao_encontrado) {
-                continue;
-            }
-            $subtotal += $item->qtd * max((float)$item->preco_unit_sugerido, (float)$item->preco_unit_proposto);
-            $total += (float)$item->subtotal;
-        }
-
-        $subtotal = round($subtotal, 2);
-        $total = round($total, 2);
-        $desconto = round($subtotal - $total, 2);
-
-        $quote->update([
-            'subtotal' => $subtotal,
-            'desconto' => $desconto,
-            'total' => $total,
-        ]);
+        $quote->recalcularTotais();
     }
 
     /**
