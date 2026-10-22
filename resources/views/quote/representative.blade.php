@@ -1319,6 +1319,17 @@
 
 @section('scripts')
 <script>
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+    window.escapeHtml = escapeHtml;
+
     // Global override to guarantee no native alert locks the mobile screen
     window.alert = function(msg) {
         if (typeof showToast === 'function') {
@@ -2844,139 +2855,143 @@
             `;
         } else {
             filtered.forEach(item => {
-                const minEf = getItemEffectiveMin(item);
-                const isInconsistent = isItemInconsistent(item);
-                const propPrice = parseFloat(item.preco_unit_proposto || 0);
-                const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
-                const isBelowMin = propPrice < minEf;
-                const isRejected = item.status_item === 'recusado';
-                const isApproved = item.status_item === 'aprovado';
-                const isItemLocked = isEditingLocked || isRejected;
-                const rowClass = isRejected ? "recusado" : (isApproved ? "aprovado" : "");
+                try {
+                    const minEf = getItemEffectiveMin(item);
+                    const isInconsistent = isItemInconsistent(item);
+                    const propPrice = parseFloat(item.preco_unit_proposto || 0);
+                    const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
+                    const isBelowMin = propPrice < minEf;
+                    const isRejected = item.status_item === 'recusado';
+                    const isApproved = item.status_item === 'aprovado';
+                    const isItemLocked = isEditingLocked || isRejected;
+                    const rowClass = isRejected ? "recusado" : (isApproved ? "aprovado" : "");
 
-                // Semantic Price Tag Badge for Line 3
-                const priceTagHtml = getItemPriceTagHtml(item);
+                    // Semantic Price Tag Badge for Line 3
+                    const priceTagHtml = getItemPriceTagHtml(item);
 
-                // Check justification/rejection reason
-                const justifItem = (quote.justificativas && quote.justificativas.length) 
-                    ? quote.justificativas.find(j => j.cotacao_item_id === item.id) 
-                    : null;
-                const motivoTexto = justifItem ? justifItem.texto : '';
+                    // Check justification/rejection reason
+                    const justifItem = (quote.justificativas && quote.justificativas.length) 
+                        ? quote.justificativas.find(j => j.cotacao_item_id === item.id) 
+                        : null;
+                    const motivoTexto = justifItem ? justifItem.texto : '';
 
-                const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Produto sem cadastro');
-                const prodCode = item.produto ? item.produto.codigo_sankhya : 'S/C';
-                const prodUn = item.produto ? item.produto.unidade : 'UN';
-                const isUnfound = Boolean(item.nao_encontrado);
+                    const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Produto sem cadastro');
+                    const prodCode = item.produto ? item.produto.codigo_sankhya : 'S/C';
+                    const prodUn = item.produto ? item.produto.unidade : 'UN';
+                    const isUnfound = Boolean(item.nao_encontrado);
 
-                container.innerHTML += `
-                    <div class="compact-item-card ${rowClass} ${isUnfound || (isBelowMin && !isRejected && !isApproved) ? 'below-min-card' : ''}" id="card-item-${item.id}">
-                        <!-- LINHA 1: descrição em destaque + código + unidade + etiqueta status + lixeira -->
-                        <div class="item-line-1">
-                            <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
-                                <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${escapeHtml(isUnfound ? (item.descricao_original || prodDesc) : prodDesc)}</span>
-                                <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">${isUnfound ? 'Sem código no catálogo' : '#' + escapeHtml(prodCode)} · ${escapeHtml(prodUn)}</span>
-                                ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
-                                ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
-                                ${isUnfound ? `
-                                    <span class="badge" style="background:#ffe4e6; color:#9f1239; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; border:1px solid #fecdd3; display:inline-flex; align-items:center; gap:4px;" title="${escapeHtml(item.observacao_ia || 'Item não encontrado no catálogo pelo assistente IA')}">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                        Não encontrado pela IA
-                                    </span>
-                                ` : ''}
-                                ${isRejected ? `
-                                    <span class="badge-status recusado" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                        Recusado
-                                    </span>
-                                ` : (isApproved ? `
-                                    <span class="badge-status aprovado" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                                        Aprovado
-                                    </span>
-                                ` : '')}
-                                ${isUnfound ? `
-                                    <div style="width:100%; margin-top:8px; padding:8px 12px; background:#fff1f2; border:1px dashed #fda4af; border-radius:8px; font-size:12px; color:#9f1239;">
-                                        <strong>⚠️ Item solicitado pelo cliente:</strong> "${escapeHtml(item.descricao_original || prodDesc)}"
-                                        ${item.observacao_ia ? `<div style="font-size:11px; color:#be123c; margin-top:2px;">Obs IA: ${escapeHtml(item.observacao_ia)}</div>` : ''}
-                                    </div>
-                                ` : (item.descricao_original ? `
-                                    <div style="width:100%; font-size:11.5px; color:#64748b; margin-top:2px;">
-                                        <span style="font-weight:600; color:#475569;">Pedido original:</span> "${escapeHtml(item.descricao_original)}"
-                                    </div>
-                                ` : '')}
-                            </div>
-                            <div>
-                                ${!isItemLocked ? `
-                                    <button type="button" class="btn-remove-item" onclick="deleteItem(${item.id})" title="Remover item">
-                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-
-                        <!-- LINHA 2: quantidade (–/+) à esquerda e preço proposto (ou ação de inclusão manual) à direita -->
-                        <div class="item-line-2">
-                            ${!isItemLocked ? `
-                                <div class="qty-stepper">
-                                    <button type="button" class="qty-btn" onclick="stepQty(${item.id}, -1)">–</button>
-                                    <input type="number" class="qty-input" value="${item.qtd}" min="1" inputmode="numeric"
-                                        oninput="updateItemCalculations(${item.id}, this.value, null)">
-                                    <button type="button" class="qty-btn" onclick="stepQty(${item.id}, 1)">+</button>
+                    container.innerHTML += `
+                        <div class="compact-item-card ${rowClass} ${isUnfound || (isBelowMin && !isRejected && !isApproved) ? 'below-min-card' : ''}" id="card-item-${item.id}">
+                            <!-- LINHA 1: descrição em destaque + código + unidade + etiqueta status + lixeira -->
+                            <div class="item-line-1">
+                                <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                                    <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${escapeHtml(isUnfound ? (item.descricao_original || prodDesc) : prodDesc)}</span>
+                                    <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">${isUnfound ? 'Sem código no catálogo' : '#' + escapeHtml(prodCode)} · ${escapeHtml(prodUn)}</span>
+                                    ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
+                                    ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
+                                    ${isUnfound ? `
+                                        <span class="badge" style="background:#ffe4e6; color:#9f1239; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; border:1px solid #fecdd3; display:inline-flex; align-items:center; gap:4px;" title="${escapeHtml(item.observacao_ia || 'Item não encontrado no catálogo pelo assistente IA')}">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                            Não encontrado pela IA
+                                        </span>
+                                    ` : ''}
+                                    ${isRejected ? `
+                                        <span class="badge-status recusado" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            Recusado
+                                        </span>
+                                    ` : (isApproved ? `
+                                        <span class="badge-status aprovado" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                            Aprovado
+                                        </span>
+                                    ` : '')}
+                                    ${isUnfound ? `
+                                        <div style="width:100%; margin-top:8px; padding:8px 12px; background:#fff1f2; border:1px dashed #fda4af; border-radius:8px; font-size:12px; color:#9f1239;">
+                                            <strong>⚠️ Item solicitado pelo cliente:</strong> "${escapeHtml(item.descricao_original || prodDesc)}"
+                                            ${item.observacao_ia ? `<div style="font-size:11px; color:#be123c; margin-top:2px;">Obs IA: ${escapeHtml(item.observacao_ia)}</div>` : ''}
+                                        </div>
+                                    ` : (item.descricao_original ? `
+                                        <div style="width:100%; font-size:11.5px; color:#64748b; margin-top:2px;">
+                                            <span style="font-weight:600; color:#475569;">Pedido original:</span> "${escapeHtml(item.descricao_original)}"
+                                        </div>
+                                    ` : '')}
                                 </div>
-                            ` : `
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    <span style="font-size:11px; color:${isRejected ? '#991b1b' : '#64748b'}; font-weight:700; text-transform:uppercase;">Qtd:</span>
-                                    <span style="font-weight:700; font-size:13.5px; color:${isRejected ? '#991b1b' : '#1e293b'}; padding:4px 10px; background:${isRejected ? '#fee2e2' : '#f1f5f9'}; border:1px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}; border-radius:6px;">${item.qtd} un</span>
-                                </div>
-                            `}
-
-                            ${isUnfound ? (
-                                !isItemLocked ? `
-                                    <button type="button" onclick="startManualInclusionForUnfoundItem(${item.id})" style="background:#2563eb; color:#ffffff; border:none; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
-                                        🔍 + Incluir Manualmente no Catálogo
-                                    </button>
-                                ` : `<span style="font-size:12px; color:#be123c; font-weight:700;">Não cotado</span>`
-                            ) : (!isItemLocked ? `
-                                <div class="item-price-proposto-wrap">
-                                    <span class="price-currency">R$</span>
-                                    <input type="number" class="price-input ${isBelowMin ? 'price-below-min' : ''}" 
-                                        value="${propPrice.toFixed(2)}" step="0.01" min="0.01" inputmode="decimal"
-                                        oninput="updateItemCalculations(${item.id}, null, this.value)">
-                                    ${isBelowMin ? `
-                                        <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; font-weight:700; color:#dc2626; border-color:#fca5a5; background:#fff1f2; border-radius:6px;" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>
+                                <div>
+                                    ${!isItemLocked ? `
+                                        <button type="button" class="btn-remove-item" onclick="deleteItem(${item.id})" title="Remover item">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                        </button>
                                     ` : ''}
                                 </div>
-                            ` : `
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    <span style="font-size:11px; color:${isRejected ? '#991b1b' : '#64748b'}; font-weight:700; text-transform:uppercase;">Preço:</span>
-                                    <span style="font-weight:700; font-size:14px; color:${isRejected ? '#991b1b; text-decoration:line-through;' : '#0f172a;'}; padding:4px 10px; background:${isRejected ? '#fee2e2' : '#f1f5f9'}; border:1px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}; border-radius:6px;">R$ ${propPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                </div>
-                            `)}
-                        </div>
+                            </div>
 
-                        <!-- LINHA 3: Sug. R$ X · Mín. R$ Y e selo à direita -->
-                        <div class="item-line-3">
-                            <div class="item-benchmarks">
-                                ${isUnfound ? `
-                                    <span style="color:#be123c; font-weight:600;">Selecione o item equivalente no catálogo para definir preço</span>
+                            <!-- LINHA 2: quantidade (–/+) à esquerda e preço proposto (ou ação de inclusão manual) à direita -->
+                            <div class="item-line-2">
+                                ${!isItemLocked ? `
+                                    <div class="qty-stepper">
+                                        <button type="button" class="qty-btn" onclick="stepQty(${item.id}, -1)">–</button>
+                                        <input type="number" class="qty-input" value="${item.qtd}" min="1" inputmode="numeric"
+                                            oninput="updateItemCalculations(${item.id}, this.value, null)">
+                                        <button type="button" class="qty-btn" onclick="stepQty(${item.id}, 1)">+</button>
+                                    </div>
                                 ` : `
-                                    <span>Sug. R$ ${formatCurrency(item.preco_unit_sugerido)}</span>
-                                    <span>·</span>
-                                    <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <span style="font-size:11px; color:${isRejected ? '#991b1b' : '#64748b'}; font-weight:700; text-transform:uppercase;">Qtd:</span>
+                                        <span style="font-weight:700; font-size:13.5px; color:${isRejected ? '#991b1b' : '#1e293b'}; padding:4px 10px; background:${isRejected ? '#fee2e2' : '#f1f5f9'}; border:1px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}; border-radius:6px;">${item.qtd} un</span>
+                                    </div>
                                 `}
-                            </div>
-                            <div id="price-tag-wrap-${item.id}">
-                                ${isRejected ? `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">Desconsiderado do total</span>` : priceTagHtml}
-                            </div>
-                        </div>
 
-                        ${isRejected && motivoTexto ? `
-                            <div style="margin-top: 4px; padding: 6px 10px; background: #fff5f5; border-radius: 6px; font-size: 11.5px; color: #991b1b; border: 1px dashed #fca5a5; display: flex; align-items: center; gap: 6px;">
-                                <strong>Motivo da recusa:</strong> <span>${escapeHtml(motivoTexto)}</span>
+                                ${isUnfound ? (
+                                    !isItemLocked ? `
+                                        <button type="button" onclick="startManualInclusionForUnfoundItem(${item.id})" style="background:#2563eb; color:#ffffff; border:none; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
+                                            🔍 + Incluir Manualmente no Catálogo
+                                        </button>
+                                    ` : `<span style="font-size:12px; color:#be123c; font-weight:700;">Não cotado</span>`
+                                ) : (!isItemLocked ? `
+                                    <div class="item-price-proposto-wrap">
+                                        <span class="price-currency">R$</span>
+                                        <input type="number" class="price-input ${isBelowMin ? 'price-below-min' : ''}" 
+                                            value="${propPrice.toFixed(2)}" step="0.01" min="0.01" inputmode="decimal"
+                                            oninput="updateItemCalculations(${item.id}, null, this.value)">
+                                        ${isBelowMin ? `
+                                            <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; font-weight:700; color:#dc2626; border-color:#fca5a5; background:#fff1f2; border-radius:6px;" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>
+                                        ` : ''}
+                                    </div>
+                                ` : `
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <span style="font-size:11px; color:${isRejected ? '#991b1b' : '#64748b'}; font-weight:700; text-transform:uppercase;">Preço:</span>
+                                        <span style="font-weight:700; font-size:14px; color:${isRejected ? '#991b1b; text-decoration:line-through;' : '#0f172a;'}; padding:4px 10px; background:${isRejected ? '#fee2e2' : '#f1f5f9'}; border:1px solid ${isRejected ? '#fca5a5' : '#e2e8f0'}; border-radius:6px;">R$ ${propPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                    </div>
+                                `)}
                             </div>
-                        ` : ''}
-                    </div>
-                `;
+
+                            <!-- LINHA 3: Sug. R$ X · Mín. R$ Y e selo à direita -->
+                            <div class="item-line-3">
+                                <div class="item-benchmarks">
+                                    ${isUnfound ? `
+                                        <span style="color:#be123c; font-weight:600;">Selecione o item equivalente no catálogo para definir preço</span>
+                                    ` : `
+                                        <span>Sug. R$ ${formatCurrency(item.preco_unit_sugerido)}</span>
+                                        <span>·</span>
+                                        <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
+                                    `}
+                                </div>
+                                <div id="price-tag-wrap-${item.id}">
+                                    ${isRejected ? `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">Desconsiderado do total</span>` : priceTagHtml}
+                                </div>
+                            </div>
+
+                            ${isRejected && motivoTexto ? `
+                                <div style="margin-top: 4px; padding: 6px 10px; background: #fff5f5; border-radius: 6px; font-size: 11.5px; color: #991b1b; border: 1px dashed #fca5a5; display: flex; align-items: center; gap: 6px;">
+                                    <strong>Motivo da recusa:</strong> <span>${escapeHtml(motivoTexto)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } catch (errItem) {
+                    console.error("Erro ao renderizar item da cotação:", item, errItem);
+                }
             });
         }
 
