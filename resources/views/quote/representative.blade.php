@@ -1186,6 +1186,10 @@
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                         <span>Liberar Faturamento</span>
                     </button>
+                    <button type="button" class="menu-item" id="menu-reopen-quote" onclick="handleMenuAction('reopen')" style="display: none;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        <span>Voltar a Editar Proposta</span>
+                    </button>
                     <button type="button" class="menu-item" id="menu-save-draft" onclick="handleMenuAction('draft')">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         <span>Salvar Rascunho</span>
@@ -2180,6 +2184,8 @@
             body?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else if (action === 'lost') {
             openLostModal();
+        } else if (action === 'reopen') {
+            reopenQuoteForEditing();
         } else if (action === 'send_whatsapp') {
             openSendQuoteModal();
         } else if (action === 'share_pdf') {
@@ -2191,9 +2197,31 @@
         }
     }
 
+    async function reopenQuoteForEditing() {
+        if (!confirm("Deseja reabrir esta proposta para edição? Os itens e condições comerciais voltarão a ficar editáveis.")) return;
+        try {
+            const res = await fetch(`${QUOTE_BASE_URL}/reabrir`, { method: "POST" });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                showToast("Cotação reaberta para edição!", 'success');
+                await loadData();
+            } else {
+                showToast(data.message || "Não foi possível reabrir a cotação.", 'error');
+            }
+        } catch (e) {
+            showToast("Erro de conexão ao reabrir cotação.", 'error');
+        }
+    }
+
     function handlePrimaryAction() {
         if (!quote) return;
         if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
+            const pricing = typeof getQuotePricingStatus === 'function' ? getQuotePricingStatus() : null;
+            if (pricing && pricing.pendingUnfoundCount > 0) {
+                showToast(`Existem ${pricing.pendingUnfoundCount} item(ns) não encontrado(s) pela IA pendentes. Substitua ou dispense os itens antes de avançar.`, 'warning');
+                document.getElementById("ai-unfound-items-panel")?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
             submitQuote();
         } else if (['APROVADA', 'PDF_GERADO'].includes(quote.status)) {
             openSendQuoteModal();
@@ -2203,6 +2231,169 @@
             showToast("Cotação em análise de alçada. Aguarde o retorno da gestão.", "info");
         } else {
             showToast("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + ".", "info");
+        }
+    }
+
+    function getQuotePricingStatus() {
+        const { repLimit } = getRepresentativeLimits();
+        let hasItemBelowMin = false;
+        let hasPriceDifference = false;
+        let maxItemDiscount = 0;
+        let totalSug = 0;
+        let totalProp = 0;
+        let pendingUnfoundCount = 0;
+        let activeItemsCount = 0;
+
+        if (quote && quote.itens) {
+            quote.itens.forEach(i => {
+                if (i.status_item === 'recusado') return;
+                if (i.nao_encontrado) {
+                    pendingUnfoundCount++;
+                    return;
+                }
+                activeItemsCount++;
+                const minEf = getItemEffectiveMin(i);
+                const prop = parseFloat(i.preco_unit_proposto || 0);
+                const sug = parseFloat(i.preco_unit_sugerido || 0);
+                const qtd = parseInt(i.qtd || 1);
+
+                if (prop < minEf && i.status_item !== 'aprovado') {
+                    hasItemBelowMin = true;
+                }
+
+                if (Math.abs(prop - sug) > 0.005) {
+                    hasPriceDifference = true;
+                }
+
+                if (sug > 0 && prop < sug && i.status_item !== 'aprovado') {
+                    const itemDisc = ((sug - prop) / sug) * 100;
+                    if (itemDisc > maxItemDiscount) {
+                        maxItemDiscount = itemDisc;
+                    }
+                }
+
+                totalSug += qtd * Math.max(sug, prop);
+                totalProp += qtd * prop;
+            });
+        }
+
+        const quoteDiscount = totalSug > 0 && totalProp < totalSug
+            ? ((totalSug - totalProp) / totalSug) * 100
+            : 0;
+
+        const effectiveDiscount = Math.max(maxItemDiscount, quoteDiscount);
+        const isAboveRepLimit = effectiveDiscount > (repLimit + 0.0001);
+        const requiresApproval = hasItemBelowMin || isAboveRepLimit;
+
+        return {
+            hasPriceDifference,
+            hasItemBelowMin,
+            effectiveDiscount,
+            requiresApproval,
+            pendingUnfoundCount,
+            activeItemsCount
+        };
+    }
+
+    function updateStickyPrimaryButton() {
+        const primaryBtn = document.getElementById("btn-sticky-primary");
+        const primaryLabel = document.getElementById("btn-sticky-primary-label");
+        if (!primaryBtn || !quote) return;
+
+        primaryBtn.className = "btn-sticky-primary";
+        primaryBtn.disabled = false;
+        primaryBtn.style.opacity = "1";
+        primaryBtn.style.cursor = "pointer";
+
+        if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
+            const pricing = getQuotePricingStatus();
+
+            if (pricing.pendingUnfoundCount > 0) {
+                primaryBtn.style.background = "#d97706";
+                primaryBtn.style.color = "#ffffff";
+                primaryBtn.style.boxShadow = "0 3px 10px rgba(217, 119, 6, 0.3)";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span>Resolver Pendentes (${pricing.pendingUnfoundCount})</span>
+                `;
+            } else if (pricing.requiresApproval) {
+                primaryBtn.classList.add("btn-submit-action");
+                primaryBtn.style.background = "#dc2626";
+                primaryBtn.style.color = "#ffffff";
+                primaryBtn.style.boxShadow = "0 3px 10px rgba(220, 38, 38, 0.35)";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    <span>Enviar para Aprovação</span>
+                `;
+            } else if (!pricing.hasPriceDifference) {
+                // Sem diferença nos preços: avança direto para a etapa seguinte (enviar PDF)
+                primaryBtn.style.background = "#0f5132";
+                primaryBtn.style.color = "#ffffff";
+                primaryBtn.style.boxShadow = "0 3px 12px rgba(15, 81, 50, 0.35)";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>Avançar: Enviar PDF</span>
+                `;
+            } else {
+                // Desconto dentro da alçada do representante (aprovado automaticamente pelo sistema)
+                primaryBtn.style.background = "#0f5132";
+                primaryBtn.style.color = "#ffffff";
+                primaryBtn.style.boxShadow = "0 3px 12px rgba(15, 81, 50, 0.35)";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/><line x1="12" y1="19" x2="12" y2="19"/></svg>
+                    <span>Avançar: Enviar PDF</span>
+                `;
+            }
+        } else if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote.status)) {
+            primaryBtn.style.background = "#e2e8f0";
+            primaryBtn.style.color = "#64748b";
+            primaryBtn.disabled = true;
+            primaryBtn.style.cursor = "default";
+            primaryBtn.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Em Análise de Alçada</span>
+            `;
+        } else if (['APROVADA', 'PDF_GERADO'].includes(quote.status)) {
+            primaryBtn.style.background = "#25d366";
+            primaryBtn.style.color = "#ffffff";
+            primaryBtn.style.border = "none";
+            primaryBtn.style.boxShadow = "0 4px 14px rgba(37, 211, 102, 0.35)";
+            primaryBtn.disabled = false;
+            primaryBtn.style.cursor = "pointer";
+            primaryBtn.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                <span>Enviar ao Cliente</span>
+            `;
+        } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
+            primaryBtn.style.background = "#fef3c7";
+            primaryBtn.style.color = "#92400e";
+            primaryBtn.disabled = true;
+            primaryBtn.style.cursor = "default";
+            primaryBtn.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Aguardando conferência do faturamento</span>
+            `;
+        } else if (quote.status === 'FATURADA') {
+            primaryBtn.style.background = "#dcfce7";
+            primaryBtn.style.color = "#15803d";
+            primaryBtn.disabled = true;
+            primaryBtn.style.cursor = "default";
+            primaryBtn.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Faturamento Concluído</span>
+            `;
+        } else if (quote.status === 'PERDIDA') {
+            primaryBtn.style.background = "#fee2e2";
+            primaryBtn.style.color = "#b91c1c";
+            primaryBtn.disabled = true;
+            primaryBtn.style.cursor = "default";
+            primaryBtn.innerHTML = `<span>Proposta Perdida</span>`;
+        } else if (quote.status === 'EXPIRADA') {
+            primaryBtn.style.background = "#f1f5f9";
+            primaryBtn.style.color = "#64748b";
+            primaryBtn.disabled = true;
+            primaryBtn.style.cursor = "default";
+            primaryBtn.innerHTML = `<span>Proposta Expirada</span>`;
         }
     }
 
@@ -2338,75 +2529,7 @@
         }
 
         // Configure Single Dynamic Primary Button in Sticky Footer
-        const primaryBtn = document.getElementById("btn-sticky-primary");
-        const primaryLabel = document.getElementById("btn-sticky-primary-label");
-
-        if (primaryBtn && primaryLabel) {
-            // Reset styles
-            primaryBtn.className = "btn-sticky-primary";
-            primaryBtn.disabled = false;
-            primaryBtn.style.opacity = "1";
-            primaryBtn.style.cursor = "pointer";
-
-            if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
-                primaryBtn.classList.add("btn-submit-action");
-                primaryLabel.innerText = "Enviar para Aprovação";
-                primaryBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    <span>Enviar para Aprovação</span>
-                `;
-            } else if (['AGUARDANDO_GESTOR', 'COM_DIRETOR'].includes(quote.status)) {
-                primaryBtn.style.background = "#e2e8f0";
-                primaryBtn.style.color = "#64748b";
-                primaryBtn.disabled = true;
-                primaryBtn.style.cursor = "default";
-                primaryBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span>Em Análise de Alçada</span>
-                `;
-            } else if (['APROVADA', 'PDF_GERADO'].includes(quote.status)) {
-                primaryBtn.style.background = "#25d366";
-                primaryBtn.style.color = "#ffffff";
-                primaryBtn.style.border = "none";
-                primaryBtn.style.boxShadow = "0 4px 14px rgba(37, 211, 102, 0.35)";
-                primaryBtn.disabled = false;
-                primaryBtn.style.cursor = "pointer";
-                primaryBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                    <span>Enviar ao Cliente</span>
-                `;
-            } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
-                primaryBtn.style.background = "#fef3c7";
-                primaryBtn.style.color = "#92400e";
-                primaryBtn.disabled = true;
-                primaryBtn.style.cursor = "default";
-                primaryBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span>Aguardando conferência do faturamento</span>
-                `;
-            } else if (quote.status === 'FATURADA') {
-                primaryBtn.style.background = "#dcfce7";
-                primaryBtn.style.color = "#15803d";
-                primaryBtn.disabled = true;
-                primaryBtn.style.cursor = "default";
-                primaryBtn.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Faturamento Concluído</span>
-                `;
-            } else if (quote.status === 'PERDIDA') {
-                primaryBtn.style.background = "#fee2e2";
-                primaryBtn.style.color = "#b91c1c";
-                primaryBtn.disabled = true;
-                primaryBtn.style.cursor = "default";
-                primaryBtn.innerHTML = `<span>Proposta Perdida</span>`;
-            } else if (quote.status === 'EXPIRADA') {
-                primaryBtn.style.background = "#f1f5f9";
-                primaryBtn.style.color = "#64748b";
-                primaryBtn.disabled = true;
-                primaryBtn.style.cursor = "default";
-                primaryBtn.innerHTML = `<span>Proposta Expirada</span>`;
-            }
-        }
+        updateStickyPrimaryButton();
 
         // Show Sticky Footer Bar and update offset
         const stickyBar = document.getElementById("sticky-footer-bar");
@@ -2425,14 +2548,19 @@
             const menuSharePdf = document.getElementById("menu-share-pdf");
             const menuDownloadPdf = document.getElementById("menu-download-pdf");
             const menuReleaseBilling = document.getElementById("menu-release-billing");
+            const menuReopen = document.getElementById("menu-reopen-quote");
             const menuSaveDraft = document.getElementById("menu-save-draft");
             const menuMarkLost = document.getElementById("menu-mark-lost");
 
             const isApprovedOrSent = ['APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO'].includes(quote.status);
+            const pricing = getQuotePricingStatus();
+            const canAccessPdf = isApprovedOrSent || (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status) && !pricing.requiresApproval && pricing.pendingUnfoundCount === 0);
+
             if (menuSendWa) menuSendWa.style.display = isApprovedOrSent ? "flex" : "none";
-            if (menuSharePdf) menuSharePdf.style.display = isApprovedOrSent ? "flex" : "none";
-            if (menuDownloadPdf) menuDownloadPdf.style.display = isApprovedOrSent ? "flex" : "none";
+            if (menuSharePdf) menuSharePdf.style.display = canAccessPdf ? "flex" : "none";
+            if (menuDownloadPdf) menuDownloadPdf.style.display = canAccessPdf ? "flex" : "none";
             if (menuReleaseBilling) menuReleaseBilling.style.display = (quote.status === 'PDF_GERADO') ? "flex" : "none";
+            if (menuReopen) menuReopen.style.display = ['APROVADA', 'PDF_GERADO'].includes(quote.status) ? "flex" : "none";
             if (menuSaveDraft) menuSaveDraft.style.display = ['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status) ? "flex" : "none";
             if (menuMarkLost) menuMarkLost.style.display = ['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status) ? "flex" : "none";
         }
@@ -2584,67 +2712,34 @@
 
     function updateJustificationPanelVisibility() {
         const justPanel = document.getElementById("justification-panel");
-        if (!justPanel) return;
-
         if (isEditingLocked) {
-            justPanel.style.display = "none";
+            if (justPanel) justPanel.style.display = "none";
             return;
         }
 
         const { repLimit } = getRepresentativeLimits();
-        let hasItemBelowMin = false;
-        let maxItemDiscount = 0;
-        let totalSug = 0;
-        let totalProp = 0;
+        const pricing = getQuotePricingStatus();
 
-        if (quote && quote.itens) {
-            quote.itens.forEach(i => {
-                if (i.status_item === 'recusado' || i.nao_encontrado) return;
-                const minEf = getItemEffectiveMin(i);
-                const prop = parseFloat(i.preco_unit_proposto || 0);
-                const sug = parseFloat(i.preco_unit_sugerido || 0);
-                const qtd = parseInt(i.qtd || 1);
-
-                if (prop < minEf && i.status_item !== 'aprovado') {
-                    hasItemBelowMin = true;
-                }
-
-                if (sug > 0 && prop < sug && i.status_item !== 'aprovado') {
-                    const itemDisc = ((sug - prop) / sug) * 100;
-                    if (itemDisc > maxItemDiscount) {
-                        maxItemDiscount = itemDisc;
+        if (justPanel) {
+            if (pricing.requiresApproval) {
+                justPanel.style.display = "block";
+                const panelTitle = document.getElementById("just-panel-title");
+                const panelDesc = document.getElementById("just-panel-desc");
+                if (panelTitle && panelDesc) {
+                    if (pricing.hasItemBelowMin) {
+                        panelTitle.innerText = "Justificativa Obrigatória — Itens Abaixo do Mínimo";
+                        panelDesc.innerText = "Existem produtos abaixo do preço mínimo configurado. É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.";
+                    } else {
+                        panelTitle.innerText = "Justificativa Obrigatória — Desconto Acima da Alçada";
+                        panelDesc.innerText = `O desconto comercial aplicado (${pricing.effectiveDiscount.toFixed(1).replace('.', ',')}%) excede a sua alçada permitida (${repLimit.toFixed(1).replace('.', ',')}%). É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.`;
                     }
                 }
-
-                totalSug += qtd * Math.max(sug, prop);
-                totalProp += qtd * prop;
-            });
-        }
-
-        const quoteDiscount = totalSug > 0 && totalProp < totalSug
-            ? ((totalSug - totalProp) / totalSug) * 100
-            : 0;
-
-        const effectiveDiscount = Math.max(maxItemDiscount, quoteDiscount);
-        const isAboveRepLimit = effectiveDiscount > (repLimit + 0.0001);
-        const requiresApproval = hasItemBelowMin || isAboveRepLimit;
-
-        if (requiresApproval) {
-            justPanel.style.display = "block";
-            const panelTitle = document.getElementById("just-panel-title");
-            const panelDesc = document.getElementById("just-panel-desc");
-            if (panelTitle && panelDesc) {
-                if (hasItemBelowMin) {
-                    panelTitle.innerText = "Justificativa Obrigatória — Itens Abaixo do Mínimo";
-                    panelDesc.innerText = "Existem produtos abaixo do preço mínimo configurado. É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.";
-                } else {
-                    panelTitle.innerText = "Justificativa Obrigatória — Desconto Acima da Alçada";
-                    panelDesc.innerText = `O desconto comercial aplicado (${effectiveDiscount.toFixed(1).replace('.', ',')}%) excede a sua alçada permitida (${repLimit.toFixed(1).replace('.', ',')}%). É obrigatório registrar uma justificativa e anexar comprovantes para enviar a cotação à aprovação.`;
-                }
+            } else {
+                justPanel.style.display = "none";
             }
-        } else {
-            justPanel.style.display = "none";
         }
+
+        updateStickyPrimaryButton();
     }
 
     function renderUnfoundItemsPanel() {
@@ -3633,15 +3728,25 @@
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
                 if (data.status === 'APROVADA') {
-                    showToast(data.message || "Aprovada automaticamente: sem desconto, não precisa de gestor.", 'success');
+                    quote.status = 'APROVADA';
+                    showToast(data.message || "Cotação validada conforme tabela! Abrindo envio do PDF...", 'success');
+                    renderView();
+                    setTimeout(() => {
+                        openSendQuoteModal();
+                    }, 350);
                 } else if (data.status === 'AGUARDANDO_GESTOR') {
+                    quote.status = 'AGUARDANDO_GESTOR';
                     showToast("Cotação enviada ao Gestor de Equipe para análise.", 'info');
+                    renderView();
                 } else if (data.status === 'COM_DIRETOR') {
+                    quote.status = 'COM_DIRETOR';
                     showToast("Cotação enviada à Diretoria para análise.", 'info');
+                    renderView();
                 } else {
-                    showToast(data.message || ("Cotação enviada com sucesso! Situação: " + data.status.replace(/_/g, ' ')), 'success');
+                    showToast(data.message || ("Cotação enviada com sucesso! Situação: " + (data.status ? data.status.replace(/_/g, ' ') : '')), 'success');
+                    setTimeout(() => window.location.reload(), 1200);
                 }
-                setTimeout(() => window.location.reload(), 1400);
+            } else {
                 const errMsg = data.message || data.error || ("Falha no envio HTTP " + res.status);
                 showToast("Erro ao enviar cotação: " + errMsg, 'error');
                 if (String(errMsg).toLowerCase().includes('justificativa') || String(errMsg).toLowerCase().includes('anexo') || String(errMsg).toLowerCase().includes('comprovante')) {
@@ -3653,13 +3758,35 @@
         }
     }
 
-    function downloadPdf() {
+    async function downloadPdf() {
         if (!quote) {
             showToast("Aguarde o carregamento da cotação.", 'info');
             return;
         }
         const allowPdfStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
         if (!allowPdfStatuses.includes(quote.status)) {
+            if (quote.status === 'EM_CRIACAO') {
+                const pricing = typeof getQuotePricingStatus === 'function' ? getQuotePricingStatus() : null;
+                if (pricing && pricing.pendingUnfoundCount > 0) {
+                    showToast(`Existem ${pricing.pendingUnfoundCount} item(ns) não encontrado(s). Substitua ou dispense antes de gerar o PDF.`, 'warning');
+                    return;
+                }
+                if (pricing && !pricing.requiresApproval) {
+                    try {
+                        showToast("Validando cotação para gerar o PDF...", "info");
+                        const res = await fetch(`${QUOTE_BASE_URL}/enviar`, { method: "POST" });
+                        const data = await res.json().catch(() => ({}));
+                        if (res.ok && data.success && data.status === 'APROVADA') {
+                            quote.status = 'APROVADA';
+                            renderView();
+                            window.open(`${QUOTE_BASE_URL}/pdf`, '_blank');
+                            return;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+            }
             showToast("O PDF só pode ser gerado após a aprovação da cotação.", 'warning');
             return;
         }
@@ -3980,8 +4107,36 @@
         if (!quote) return;
         const allowStatuses = ['APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO'];
         if (!allowStatuses.includes(quote.status)) {
-            showToast("A proposta só pode ser enviada ao cliente após a aprovação (status atual: " + quote.status.replace(/_/g, ' ') + ").", "warning");
-            return;
+            if (quote.status === 'EM_CRIACAO') {
+                const pricing = typeof getQuotePricingStatus === 'function' ? getQuotePricingStatus() : null;
+                if (pricing && pricing.pendingUnfoundCount > 0) {
+                    showToast(`Existem ${pricing.pendingUnfoundCount} item(ns) não encontrado(s). Substitua ou dispense antes de enviar.`, 'warning');
+                    return;
+                }
+                if (pricing && !pricing.requiresApproval) {
+                    try {
+                        showToast("Validando proposta conforme tabela...", "info");
+                        const res = await fetch(`${QUOTE_BASE_URL}/enviar`, { method: "POST" });
+                        const data = await res.json().catch(() => ({}));
+                        if (res.ok && data.success && data.status === 'APROVADA') {
+                            quote.status = 'APROVADA';
+                            renderView();
+                        } else {
+                            showToast(data.message || "Esta proposta requer aprovação antes do envio.", "warning");
+                            return;
+                        }
+                    } catch (e) {
+                        showToast("Erro de conexão ao validar cotação.", "error");
+                        return;
+                    }
+                } else {
+                    showToast("Esta proposta possui condições que necessitam de aprovação antes do envio.", "warning");
+                    return;
+                }
+            } else {
+                showToast("A proposta só pode ser enviada ao cliente após a aprovação (status atual: " + quote.status.replace(/_/g, ' ') + ").", "warning");
+                return;
+            }
         }
 
         const modal = document.getElementById("send-quote-modal");
@@ -4336,6 +4491,26 @@
     async function shareViaWebShare(pdfUrl, quoteNumero) {
         if (!pdfUrl) pdfUrl = `${QUOTE_BASE_URL}/pdf`;
         if (!quoteNumero) quoteNumero = quote ? quote.numero : '';
+
+        if (quote && quote.status === 'EM_CRIACAO') {
+            const pricing = typeof getQuotePricingStatus === 'function' ? getQuotePricingStatus() : null;
+            if (pricing && pricing.pendingUnfoundCount > 0) {
+                showToast(`Existem ${pricing.pendingUnfoundCount} item(ns) não encontrado(s).`, 'warning');
+                return;
+            }
+            if (pricing && !pricing.requiresApproval) {
+                try {
+                    const res = await fetch(`${QUOTE_BASE_URL}/enviar`, { method: "POST" });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok && data.success && data.status === 'APROVADA') {
+                        quote.status = 'APROVADA';
+                        renderView();
+                    }
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+        }
 
         if (navigator.share) {
             try {

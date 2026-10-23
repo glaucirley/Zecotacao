@@ -121,6 +121,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/cotacoes/token/{token}/itens/{item_id}', [QuoteController::class, 'removeItem']);
         Route::post('/cotacoes/token/{token}/justificativa', [QuoteController::class, 'addJustification']);
         Route::post('/cotacoes/token/{token}/enviar', [QuoteController::class, 'submit']);
+        Route::post('/cotacoes/token/{token}/reabrir', [QuoteController::class, 'reopen']);
         Route::post('/cotacoes/token/{token}/perdida', [QuoteController::class, 'markAsLost']);
         Route::post('/cotacoes/token/{token}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/token/{token}/pdf', [QuoteController::class, 'generatePdf']);
@@ -135,6 +136,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/cotacoes/{id}/itens/{item_id}', [QuoteController::class, 'removeItem']);
         Route::post('/cotacoes/{id}/justificativa', [QuoteController::class, 'addJustification']);
         Route::post('/cotacoes/{id}/enviar', [QuoteController::class, 'submit']);
+        Route::post('/cotacoes/{id}/reabrir', [QuoteController::class, 'reopen']);
         Route::post('/cotacoes/{id}/perdida', [QuoteController::class, 'markAsLost']);
         Route::post('/cotacoes/{id}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/{id}/pdf', [QuoteController::class, 'generatePdf']);

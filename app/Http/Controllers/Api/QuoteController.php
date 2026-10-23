@@ -1123,6 +1123,39 @@ class QuoteController extends Controller
         ]);
     }
 
+    /**
+     * Reopen an approved quotation back to draft (EM_CRIACAO) for representative edits.
+     */
+    public function reopen(Request $request)
+    {
+        $quote = $request->cotacao;
+
+        if (!in_array($quote->status, ['APROVADA', 'PDF_GERADO'])) {
+            return response()->json([
+                'error' => 'Status bloqueado',
+                'message' => "Esta cotação está com status {$quote->status} e não permite reabertura para edição."
+            ], 422);
+        }
+
+        $quote->update(['status' => 'EM_CRIACAO']);
+
+        $actor = Auth::user() ?: $quote->representante;
+        CotacaoHistorico::create([
+            'cotacao_id' => $quote->id,
+            'evento' => 'REABERTA_PARA_EDICAO',
+            'usuario_id' => $actor?->id ?? $quote->representante_id,
+            'papel' => $actor?->papel ?? 'representante',
+            'condicao' => 'Cotação reaberta pelo representante para edição de itens ou condições comerciais.',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cotação reaberta para edição com sucesso.',
+            'status' => 'EM_CRIACAO',
+            'data' => $quote->fresh(['itens.produto', 'historico.usuario'])
+        ]);
+    }
+
     public function generatePdf(Request $request, \App\Services\PdfService $pdfService, $tokenOrId = null)
     {
         $quote = $request->cotacao;
@@ -1145,16 +1178,32 @@ class QuoteController extends Controller
         // Sequence requirement: PDF can only be generated after quotation approval!
         $allowedStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
         if (!in_array($quote->status, $allowedStatuses)) {
-            if (in_array($quote->status, ['PERDIDA', 'EXPIRADA'])) {
+            // Se estiver em EM_CRIACAO, verificar se a cotação se qualifica para aprovação automática
+            // (ex: sem diferença nos preços ou com desconto dentro da alçada e sem itens pendentes)
+            if ($quote->status === 'EM_CRIACAO') {
+                $workflowService = app(\App\Services\QuoteWorkflowService::class);
+                $wfResult = $workflowService->evaluateAndRoute($quote);
+                if (!empty($wfResult['success']) && in_array($quote->fresh()->status, $allowedStatuses)) {
+                    $quote = $quote->fresh();
+                } else {
+                    $reason = $wfResult['message'] ?? 'Esta cotação possui itens ou descontos que exigem aprovação prévia antes de gerar o PDF.';
+                    return response()->json([
+                        'error' => 'Aprovação necessária',
+                        'message' => $reason
+                    ], 422);
+                }
+            } else {
+                if (in_array($quote->status, ['PERDIDA', 'EXPIRADA'])) {
+                    return response()->json([
+                        'error' => 'Status bloqueado',
+                        'message' => 'Não é permitido gerar PDF para uma cotação perdida ou expirada.'
+                    ], 422);
+                }
                 return response()->json([
                     'error' => 'Status bloqueado',
-                    'message' => 'Não é permitido gerar PDF para uma cotação perdida ou expirada.'
+                    'message' => "O PDF só pode ser gerado após a aprovação da cotação (status atual: {$quote->status})."
                 ], 422);
             }
-            return response()->json([
-                'error' => 'Status bloqueado',
-                'message' => "O PDF só pode ser gerado após a aprovação da cotação (status atual: {$quote->status})."
-            ], 422);
         }
 
         try {
