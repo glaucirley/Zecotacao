@@ -16,11 +16,11 @@
     <meta property="og:description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
     <meta name="description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
     <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:image" content="{{ asset('images/logo.png') }}">
-    <meta property="og:image:secure_url" content="{{ asset('images/logo.png') }}">
+    <meta property="og:image" content="{{ asset('images/og-preview.png') }}?v=2">
+    <meta property="og:image:secure_url" content="{{ asset('images/og-preview.png') }}?v=2">
     <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="512">
-    <meta property="og:image:height" content="512">
+    <meta property="og:image:width" content="600">
+    <meta property="og:image:height" content="600">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -387,7 +387,7 @@
         <!-- Header da Marca -->
         <header class="brand-header">
             <div class="brand-logo-area">
-                <div class="brand-icon">CV</div>
+                <img src="{{ asset('images/logo.png') }}" alt="Central Veterinária" style="height: 42px; width: auto; object-fit: contain;">
                 <div class="brand-text">
                     <h1>Central Veterinária</h1>
                     <p>Proposta Comercial Oficial</p>
