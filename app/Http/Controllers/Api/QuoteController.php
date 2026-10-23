@@ -660,12 +660,13 @@ class QuoteController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $quote, $produto) {
+            DB::transaction(function () use ($request, $quote, $produto, $priceItem) {
                 $precoProposto = round((float)$request->input('preco_unit_proposto'), 2);
                 $precoSugerido = round((float)$request->input('preco_unit_sugerido'), 2);
                 $precoMinimo = round((float)$request->input('preco_minimo'), 2);
                 $isInconsistente = ($precoSugerido > 0 && $precoMinimo > $precoSugerido);
-                $ajuste = $precoSugerido > 0 ? round((($precoProposto - $precoSugerido) / $precoSugerido) * 100, 2) : 0.00;
+                $rawAjuste = $precoSugerido > 0 ? (($precoProposto - $precoSugerido) / $precoSugerido) * 100 : 0.00;
+                $ajuste = round(max(-999.99, min(999.99, $rawAjuste)), 2);
                 $qtd = (int)$request->input('qtd');
 
                 // Check if replacing an unfound item
@@ -700,10 +701,15 @@ class QuoteController extends Controller
 
                 $margem = null;
                 if ($request->filled('margem_calculada')) {
-                    $margem = round((float)$request->input('margem_calculada'), 2);
+                    $rawMargem = (float)$request->input('margem_calculada');
+                    $margem = round(max(-999.99, min(999.99, $rawMargem)), 2);
                 } elseif ($precoProposto > 0 && $custo > 0) {
                     $impostoFator = 1 - ($imposto / 100);
-                    $margem = round((($precoProposto * $impostoFator - $custo) / ($precoProposto * $impostoFator)) * 100, 2);
+                    $divisor = $precoProposto * $impostoFator;
+                    if ($divisor > 0) {
+                        $rawMargem = (($divisor - $custo) / $divisor) * 100;
+                        $margem = round(max(-999.99, min(999.99, $rawMargem)), 2);
+                    }
                 }
 
                 $itemData = [
@@ -756,6 +762,7 @@ class QuoteController extends Controller
 
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
+                    'cotacao_item_id' => $item->id,
                     'evento' => $replacedDesc ? 'ITEM_IA_INCLUIDO_MANUALMENTE' : 'ITEM_ADICIONADO',
                     'usuario_id' => $actor?->id ?? $quote->representante_id,
                     'papel' => $actor?->papel ?? 'representante',
@@ -803,6 +810,7 @@ class QuoteController extends Controller
 
         try {
             DB::transaction(function () use ($quote, $item) {
+                $itemDesc = $item->descricao_original ?: ($item->produto?->descricao ?? "ID {$item->id}");
                 $item->delete();
                 $this->recalculateQuoteTotals($quote);
 
@@ -812,7 +820,7 @@ class QuoteController extends Controller
                     'evento' => 'ITEM_REMOVIDO',
                     'usuario_id' => $actor?->id ?? $quote->representante_id,
                     'papel' => $actor?->papel ?? 'representante',
-                    'condicao' => "Item ID {$item->id} removido da cotação por " . ($actor?->nome ?? 'usuário') . '.',
+                    'condicao' => "Item \"{$itemDesc}\" removido da cotação por " . ($actor?->nome ?? 'representante') . '.',
                 ]);
             });
 
