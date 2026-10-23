@@ -9,18 +9,23 @@
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
     <meta name="referrer" content="no-referrer">
     
-    <!-- Prévia Rica no WhatsApp e Redes Sociais (Open Graph - apenas número da proposta) -->
+    <!-- Prévia Rica no WhatsApp e Redes Sociais (Open Graph & Twitter Card) -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Central Veterinária">
-    <meta property="og:title" content="Proposta Comercial {{ $quote->numero }}">
+    <meta property="og:title" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
     <meta property="og:description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
     <meta name="description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
     <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:image" content="{{ asset('images/og-preview.png') }}?v=2">
-    <meta property="og:image:secure_url" content="{{ asset('images/og-preview.png') }}?v=2">
+    <meta property="og:image" content="{{ asset('images/preview.png') }}">
+    <meta property="og:image:secure_url" content="{{ asset('images/preview.png') }}">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="600">
     <meta property="og:image:height" content="600">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
+    <meta name="twitter:description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
+    <meta name="twitter:image" content="{{ asset('images/preview.png') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -387,7 +392,7 @@
         <!-- Header da Marca -->
         <header class="brand-header">
             <div class="brand-logo-area">
-                <img src="{{ asset('images/logo.png') }}" alt="Central Veterinária" style="height: 42px; width: auto; object-fit: contain;">
+                <img src="{{ asset('images/brand-logo.png') }}" alt="Central Veterinária" style="height: 42px; width: auto; object-fit: contain;">
                 <div class="brand-text">
                     <h1>Central Veterinária</h1>
                     <p>Proposta Comercial Oficial</p>
