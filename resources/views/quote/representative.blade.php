@@ -924,6 +924,23 @@
                 <span>Itens da Cotação</span>
                 <span class="tab-badge" id="count-all-badge" style="background: var(--color-bg); color: var(--color-text-muted); font-size: 12px; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--color-border);">0</span>
             </h3>
+
+            <!-- Compact Sort Dropdown (Zero impact on layout) -->
+            <div style="display: inline-flex; align-items: center; gap: 6px;">
+                <label for="item-sort-select" style="font-size: 12px; color: var(--color-text-muted); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; margin: 0; cursor: pointer;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
+                    <span>Ordenar:</span>
+                </label>
+                <select id="item-sort-select" onchange="onSortChange(this.value)" 
+                        style="font-size: 12px; font-weight: 600; color: #1e293b; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 8px; cursor: pointer; outline: none; transition: all 0.15s ease;">
+                    <option value="default">Padrão (Inserção)</option>
+                    <option value="name_asc">Nome (A → Z)</option>
+                    <option value="name_desc">Nome (Z → A)</option>
+                    <option value="code_asc">Código (1, 2, 3...)</option>
+                    <option value="code_desc">Código (Maior primeiro)</option>
+                    <option value="subtotal_desc">Maior Valor (R$)</option>
+                </select>
+            </div>
         </div>
 
         <!-- Live Search and Filter Bar -->
@@ -2580,6 +2597,19 @@
 
     let currentFilterTab = 'all'; // 'all', 'attention', 'approved'
     let currentSearchQuery = '';
+    let currentSortMode = 'default';
+    try {
+        const savedSort = sessionStorage.getItem('zecotacao_item_sort');
+        if (savedSort) currentSortMode = savedSort;
+    } catch (e) {}
+
+    function onSortChange(val) {
+        currentSortMode = val || 'default';
+        try {
+            sessionStorage.setItem('zecotacao_item_sort', currentSortMode);
+        } catch (e) {}
+        renderItems();
+    }
 
     function onSearchInput(val) {
         currentSearchQuery = (val || '').trim().toLowerCase();
@@ -2953,6 +2983,12 @@
         if (elApp) elApp.innerText = countApproved;
         if (elRej) elRej.innerText = countRejected;
 
+        // Synchronize sort selector with current sort state
+        const sortSelect = document.getElementById("item-sort-select");
+        if (sortSelect && sortSelect.value !== currentSortMode) {
+            sortSelect.value = currentSortMode;
+        }
+
         // Filter items for display
         const filtered = quote.itens.filter(item => {
             const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || '');
@@ -2984,6 +3020,37 @@
             }
             return true;
         });
+
+        // Sort items according to representative's chosen order
+        if (currentSortMode && currentSortMode !== 'default') {
+            filtered.sort((a, b) => {
+                const descA = String(a.produto?.descricao || a.descricao_original || '').trim();
+                const descB = String(b.produto?.descricao || b.descricao_original || '').trim();
+
+                const codeA = a.produto?.codigo_sankhya ? parseInt(a.produto.codigo_sankhya, 10) : 0;
+                const codeB = b.produto?.codigo_sankhya ? parseInt(b.produto.codigo_sankhya, 10) : 0;
+
+                const subtotalA = parseFloat(a.subtotal || (a.qtd * a.preco_unit_proposto) || 0);
+                const subtotalB = parseFloat(b.subtotal || (b.qtd * b.preco_unit_proposto) || 0);
+
+                if (currentSortMode === 'name_asc') {
+                    return descA.localeCompare(descB, 'pt-BR', { sensitivity: 'base', numeric: true });
+                }
+                if (currentSortMode === 'name_desc') {
+                    return descB.localeCompare(descA, 'pt-BR', { sensitivity: 'base', numeric: true });
+                }
+                if (currentSortMode === 'code_asc') {
+                    return (codeA - codeB) || descA.localeCompare(descB, 'pt-BR');
+                }
+                if (currentSortMode === 'code_desc') {
+                    return (codeB - codeA) || descB.localeCompare(descA, 'pt-BR');
+                }
+                if (currentSortMode === 'subtotal_desc') {
+                    return subtotalB - subtotalA;
+                }
+                return 0;
+            });
+        }
 
         if (filtered.length === 0) {
             container.innerHTML = `
