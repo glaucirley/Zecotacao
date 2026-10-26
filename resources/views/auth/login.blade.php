@@ -22,15 +22,26 @@
 
         <form action="{{ url('/login') }}" method="POST">
             @csrf
+
+            @if(request('redirect'))
+                <input type="hidden" name="redirect" value="{{ request('redirect') }}">
+            @endif
             
             <div class="form-group">
                 <label for="email" class="form-label">E-mail</label>
                 <input type="email" name="email" id="email" class="form-control" placeholder="admin@zecotacao.com.br" required autofocusValue>
             </div>
 
-            <div class="form-group" style="margin-bottom: 24px;">
+            <div class="form-group" style="margin-bottom: 16px;">
                 <label for="password" class="form-label">Senha</label>
                 <input type="password" name="password" id="password" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" name="remember" id="remember" value="1" checked style="width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer;">
+                <label for="remember" style="font-size: 13px; color: var(--color-text); cursor: pointer; user-select: none; margin-bottom: 0;">
+                    Lembrar este aparelho (30 dias)
+                </label>
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">
@@ -39,7 +50,7 @@
         </form>
 
         <div style="margin-top: 24px; text-align: center; font-size: 12px; color: var(--color-text-muted);">
-            Se você for um representante, acesse a plataforma diretamente através do link enviado pelo WhatsApp.
+            Acesso seguro restrito à equipe comercial autorizada.
         </div>
     </div>
 

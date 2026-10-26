@@ -45,6 +45,17 @@ class Cotacao extends Model
         'prioridade' => 'boolean',
     ];
 
+    protected static function booted()
+    {
+        static::updating(function (Cotacao $quote) {
+            // Se a cotação for passada para outro vendedor, o token antigo deixa de valer
+            if ($quote->isDirty('representante_id')) {
+                $quote->token_representante = null;
+                $quote->token_acesso_em = null;
+            }
+        });
+    }
+
     public function parceiro()
     {
         return $this->belongsTo(Parceiro::class, 'parceiro_id');
@@ -177,5 +188,57 @@ class Cotacao extends Model
         ]);
 
         return $this;
+    }
+
+    /**
+     * Localiza cotação pelo token do representante.
+     * O token enviado pelo WhatsApp é conferido contra o SHA-256 armazenado no banco.
+     * Suporta fallback para tokens em texto simples gerados antes desta implementação.
+     */
+    public static function findQuoteByRepresentativeToken(string $token): ?self
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $hash = hash('sha256', $token);
+
+        return static::where('token_representante', $hash)
+            ->orWhere('token_representante', $token)
+            ->first();
+    }
+
+    /**
+     * Gera um novo token seguro (32 bytes aleatórios = 64 hex) para o representante,
+     * gravando no banco somente o hash SHA-256. Retorna o token em texto puro para envio.
+     */
+    public function generateRepresentativeToken(): string
+    {
+        $plainToken = bin2hex(random_bytes(32));
+        $hash = hash('sha256', $plainToken);
+
+        $this->updateQuietly([
+            'token_representante' => $hash,
+            'token_acesso_em' => null,
+        ]);
+
+        return $plainToken;
+    }
+
+    /**
+     * Verifica se a cotação está expirada por data de validade ou status.
+     */
+    public function isExpired(): bool
+    {
+        if ($this->data_validade && $this->data_validade->isPast()) {
+            return true;
+        }
+
+        if (in_array($this->status, ['EXPIRADA', 'CANCELADA'], true)) {
+            return true;
+        }
+
+        return false;
     }
 }

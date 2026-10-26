@@ -12,8 +12,12 @@ Route::get('/', function () {
     return redirect('/login');
 });
 
-Route::get('/login', function () {
+Route::get('/login', function (\Illuminate\Http\Request $request) {
     if (auth()->check()) {
+        $redirect = $request->query('redirect');
+        if ($redirect && str_starts_with($redirect, '/') && !str_starts_with($redirect, '//')) {
+            return redirect($redirect);
+        }
         $user = auth()->user();
         if ($user->isRepresentante()) {
             return redirect('/painel-representante');
@@ -25,47 +29,12 @@ Route::get('/login', function () {
 
 // 2. Web routes (already protected by Laravel's 'web' middleware group)
 
-// Representative Public URL (Accessed via Token Link)
-Route::get('/cotacoes/token/{token}', function (\Illuminate\Http\Request $request, $token) {
-    $quote = \App\Models\Cotacao::where('token_representante', $token)->first();
-    if (!$quote) {
-        abort(404, 'Cotação não encontrada ou link expirado.');
-    }
+// Internal Representative Link (Secure /r/{token})
+Route::get('/r/{token}', [\App\Http\Controllers\RepresentativeLinkController::class, 'show'])->name('representative.link');
 
-    // Quando houver sessão ativa, conferir também que a cotação pertence a quem está logado
-    if (auth()->check()) {
-        if (!auth()->user()->canAccessQuote($quote)) {
-            abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
-        }
-    }
-
-    $request->session()->put('zecotacao_internal_user', true);
-    \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
-
-    try {
-        $quote->load([
-            'parceiro',
-            'representante.equipe.gestor',
-            'itens.produto',
-            'justificativas.anexos',
-            'anexos',
-            'historico.usuario',
-            'ultimoEnvio.contato',
-            'ultimoEnvioAberto.contato',
-            'ultimoEnvioWhatsApp.contato',
-            'envios.contato'
-        ]);
-    } catch (\Throwable $e) {
-        \Illuminate\Support\Facades\Log::warning("Erro ao hidratar relações iniciais da cotação ID {$quote->id}: " . $e->getMessage());
-    }
-
-    return view('quote.representative', [
-        'token' => auth()->check() ? null : $token,
-        'quoteId' => $quote->id,
-        'quote' => $quote,
-        'initialQuoteJson' => $quote->toJson(),
-        'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
-    ]);
+// Legacy fallback route for representative token (redirects to /r/{token})
+Route::get('/cotacoes/token/{token}', function ($token) {
+    return redirect("/r/{token}");
 });
 
 // Auth route to handle standard POST submit from login form
@@ -75,7 +44,9 @@ Route::post('/login', function (\Illuminate\Http\Request $request) {
         'password' => 'required|string',
     ]);
 
-    if (auth()->attempt($credentials)) {
+    $remember = $request->boolean('remember', true);
+
+    if (auth()->attempt($credentials, $remember)) {
         $request->session()->regenerate();
         $user = auth()->user();
         
@@ -86,6 +57,17 @@ Route::post('/login', function (\Illuminate\Http\Request $request) {
 
         $request->session()->put('zecotacao_internal_user', true);
         \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
+
+        // Safe internal redirect if provided
+        $redirect = $request->input('redirect');
+        if ($redirect && str_starts_with($redirect, '/') && !str_starts_with($redirect, '//')) {
+            return redirect($redirect);
+        }
+
+        // Intended URL if set by auth middleware
+        if ($intended = redirect()->getIntendedUrl()) {
+            return redirect()->intended();
+        }
         
         if ($user->isRepresentante()) {
             return redirect('/painel-representante');

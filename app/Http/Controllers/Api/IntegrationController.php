@@ -228,7 +228,10 @@ class IntegrationController extends Controller
         }
 
         try {
-            $quote = DB::transaction(function () use ($data, $existingQuote) {
+            $plainToken = bin2hex(random_bytes(32));
+            $resolvedRep = null;
+
+            $quote = DB::transaction(function () use ($data, $existingQuote, $plainToken, &$resolvedRep) {
                 
                 // 2. Resolve Representative (Vendedor) with payload auto-provisioning fallback
                 $repData = $data['representante'];
@@ -253,11 +256,16 @@ class IntegrationController extends Controller
                         ]);
                     }
                 } else {
-                    $representative->update([
+                    $updateRepData = [
                         'nome'  => $repData['nome'] ?? $representative->nome,
                         'email' => $repData['email'] ?? $representative->email,
-                    ]);
+                    ];
+                    if (!empty($repData['telefone'])) {
+                        $updateRepData['telefone'] = $repData['telefone'];
+                    }
+                    $representative->update($updateRepData);
                 }
+                $resolvedRep = $representative;
 
                 // 3. Resolve Partner (Cliente) with payload auto-provisioning fallback
                 $partnerData = $data['parceiro'];
@@ -378,6 +386,8 @@ class IntegrationController extends Controller
                 $emissionDate = !empty($data['data_emissao']) ? \Carbon\Carbon::parse($data['data_emissao']) : now();
                 $validityDate = $emissionDate->copy()->addHours($validityHours);
 
+                $hashedToken = hash('sha256', $plainToken);
+
                 if ($existingQuote) {
                     // Update existing
                     $existingQuote->update([
@@ -396,6 +406,8 @@ class IntegrationController extends Controller
                         'transportadora' => $data['transportadora'] ?? $existingQuote->transportadora,
                         'observacao_cliente' => $data['observacao_cliente'] ?? $existingQuote->observacao_cliente,
                         'observacao_interna' => $data['observacao_interna'] ?? $existingQuote->observacao_interna,
+                        'token_representante' => $hashedToken,
+                        'token_acesso_em' => null,
                     ]);
                     $quote = $existingQuote;
                     
@@ -403,7 +415,6 @@ class IntegrationController extends Controller
                     $quote->itens()->delete();
                 } else {
                     // Create new
-                    $quoteToken = Str::random(40);
                     $quoteNum = (!empty($data['numero']) && preg_match('/^COT-\d{4}-\d{6}$/', $data['numero']))
                         ? $data['numero']
                         : Cotacao::generateNextNumero();
@@ -426,7 +437,7 @@ class IntegrationController extends Controller
                         'transportadora' => $data['transportadora'] ?? null,
                         'observacao_cliente' => $data['observacao_cliente'] ?? null,
                         'observacao_interna' => $data['observacao_interna'] ?? null,
-                        'token_representante' => $quoteToken,
+                        'token_representante' => $hashedToken,
                         'token_acesso_em' => null,
                     ]);
                 }
@@ -510,6 +521,8 @@ class IntegrationController extends Controller
                 return $quote;
             });
 
+            $repUser = $resolvedRep ?: $quote->representante;
+
             return response()->json([
                 'success' => true,
                 'message' => 'Cotação importada com sucesso.',
@@ -517,8 +530,15 @@ class IntegrationController extends Controller
                     'id' => $quote->id,
                     'numero' => $quote->numero,
                     'status' => $quote->status,
-                    'token' => $quote->token_representante,
-                    'url_acesso' => url("/cotacoes/token/{$quote->token_representante}")
+                    'token' => $plainToken,
+                    'url_acesso' => url("/r/{$plainToken}"),
+                    'url_representante' => url("/r/{$plainToken}"),
+                    'representante' => [
+                        'id' => $repUser ? $repUser->id : $quote->representante_id,
+                        'nome' => $repUser ? $repUser->nome : null,
+                        'email' => $repUser ? $repUser->email : null,
+                        'telefone' => $repUser ? $repUser->telefone : null,
+                    ]
                 ]
             ], 201);
 

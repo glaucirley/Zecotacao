@@ -237,7 +237,7 @@ class QuoteController extends Controller
                     'frete_tipo' => $request->input('frete_tipo', 'CIF'),
                     'observacao_cliente' => $request->input('observacao_cliente'),
                     'observacao_interna' => $request->input('observacao_interna'),
-                    'token_representante' => Str::random(40),
+                    'token_representante' => hash('sha256', bin2hex(random_bytes(32))),
                     'token_acesso_em' => now()
                 ]);
 
