@@ -3103,6 +3103,14 @@
                     const prodCode = item.produto ? item.produto.codigo_sankhya : 'S/C';
                     const prodUn = item.produto ? item.produto.unidade : 'UN';
                     const isUnfound = Boolean(item.nao_encontrado);
+                    const prodStock = (item.estoque !== null && item.estoque !== undefined) 
+                        ? parseFloat(item.estoque) 
+                        : (item.produto && item.produto.estoque !== null && item.produto.estoque !== undefined ? parseFloat(item.produto.estoque) : null);
+                    const prodValidade = item.validade_formatada 
+                        || (item.produto ? item.produto.validade_formatada : null) 
+                        || (item.validade ? String(item.validade).substring(0, 7).split('-').reverse().join('/') : null)
+                        || (item.produto?.validade_proxima ? String(item.produto.validade_proxima).substring(0, 7).split('-').reverse().join('/') : null);
+                    const isStockExceeded = (!isUnfound && !isRejected && prodStock !== null && parseFloat(item.qtd) > prodStock);
 
                     container.innerHTML += `
                         <div class="compact-item-card ${rowClass} ${isUnfound || (isBelowMin && !isRejected && !isApproved) ? 'below-min-card' : ''}" id="card-item-${item.id}">
@@ -3111,6 +3119,22 @@
                                 <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
                                     <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${escapeHtml(isUnfound ? (item.descricao_original || prodDesc) : prodDesc)}</span>
                                     <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">${isUnfound ? 'Sem código no catálogo' : '#' + escapeHtml(prodCode)} · ${escapeHtml(prodUn)}</span>
+                                    ${!isUnfound && prodStock !== null ? `
+                                        <span class="badge-estoque" style="font-size:11.5px; font-weight:600; padding:2px 7px; border-radius:5px; background:${prodStock > 0 ? '#f0fdf4' : '#fef2f2'}; color:${prodStock > 0 ? '#166534' : '#991b1b'}; border:1px solid ${prodStock > 0 ? '#bbf7d0' : '#fecaca'}; display:inline-flex; align-items:center; gap:3px;">
+                                            📦 Estoque: <strong>${item.estoque_formatado || item.produto?.estoque_formatado || prodStock}</strong>
+                                        </span>
+                                    ` : ''}
+                                    ${!isUnfound && prodValidade && prodValidade !== '--' ? `
+                                        <span class="badge-vencimento" style="font-size:11.5px; font-weight:600; padding:2px 7px; border-radius:5px; background:#f8fafc; color:#334155; border:1px solid #e2e8f0; display:inline-flex; align-items:center; gap:3px;">
+                                            📅 Venc: <strong>${escapeHtml(prodValidade)}</strong>
+                                        </span>
+                                    ` : ''}
+                                    ${isStockExceeded ? `
+                                        <div style="width:100%; margin-top:3px; padding:3px 8px; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; font-size:11.5px; color:#b45309; display:inline-flex; align-items:center; gap:5px;">
+                                            <span>⚠️</span>
+                                            <span>Qtd solicitada (<strong>${item.qtd} ${escapeHtml(prodUn)}</strong>) excede o estoque disponível (<strong>${item.estoque_formatado || item.produto?.estoque_formatado || prodStock} ${escapeHtml(prodUn)}</strong>).</span>
+                                        </div>
+                                    ` : ''}
                                     ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha" style="margin-left:4px;">Campanha</span>' : ''}
                                     ${isInconsistent ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; padding:2px 5px; border-radius:4px; border:1px solid #fcd34d;" title="Mínimo cadastral divergente">⚠️ Mín > Sugerido</span>' : ''}
                                     ${isUnfound ? `
@@ -3385,11 +3409,18 @@
                 selectProductForAdd(p.id);
             };
 
+            const pStockVal = (p.estoque !== null && p.estoque !== undefined) ? parseFloat(p.estoque) : null;
+            const pValidade = p.validade_formatada || (p.validade_proxima ? String(p.validade_proxima).substring(0, 7).split('-').reverse().join('/') : null);
+
             div.innerHTML = `
-                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px;">
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; flex: 1;">
                     <span class="prod-code">${escapeHtml(p.codigo_sankhya)}</span>
                     <span class="prod-title">${escapeHtml(p.descricao)}</span>
                     ${p.marca ? `<span style="font-size: 11px; color: #64748b; margin-left: 6px;">(${escapeHtml(p.marca)})</span>` : ''}
+                    <div style="font-size: 11px; color: #475569; margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span>📦 Estoque: <strong style="color: ${pStockVal !== null && pStockVal > 0 ? '#166534' : '#991b1b'};">${p.estoque_formatado || (pStockVal !== null ? pStockVal : '0')} ${escapeHtml(p.unidade || 'UN')}</strong></span>
+                        ${pValidade && pValidade !== '--' ? `<span>📅 Venc: <strong>${escapeHtml(pValidade)}</strong></span>` : ''}
+                    </div>
                 </div>
                 <div class="prod-price" style="${isQuotable ? '' : 'color: #ef4444; font-size: 11px;'}">${sugText}</div>
             `;

@@ -721,47 +721,72 @@ class SankhyaDatabaseService
         }
 
         try {
-            $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM SANKHYA.VGF_VALIDADEAPP" . $where);
+            $stmt = $conn->prepare("SELECT CODPROD, DTVAL, ESTOQUE FROM SANKHYA.VGF_VALIDADEAPP" . $where);
             $stmt->execute($params);
             return $stmt->fetchAll();
         } catch (\PDOException $e) {
-            $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM VGF_VALIDADEAPP" . $where);
-            $stmt->execute($params);
-            return $stmt->fetchAll();
+            try {
+                $stmt = $conn->prepare("SELECT CODPROD, DTVAL, ESTOQUE FROM VGF_VALIDADEAPP" . $where);
+                $stmt->execute($params);
+                return $stmt->fetchAll();
+            } catch (\PDOException $e2) {
+                // Fallback caso a coluna ESTOQUE tenha nome alternativo ou não exista
+                try {
+                    $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM SANKHYA.VGF_VALIDADEAPP" . $where);
+                    $stmt->execute($params);
+                    return $stmt->fetchAll();
+                } catch (\PDOException $e3) {
+                    $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM VGF_VALIDADEAPP" . $where);
+                    $stmt->execute($params);
+                    return $stmt->fetchAll();
+                }
+            }
         }
     }
 
     /**
-     * Bulk save/sync product validade_proxima from VGF_VALIDADEAPP view rows.
+     * Bulk save/sync product validade_proxima and estoque from VGF_VALIDADEAPP view rows.
      *
      * @param array $rows
      * @return int
      */
     public function saveValidadesFromViewRows(array $rows): int
     {
-        if (!Produto::hasValidadeProximaColumn()) {
+        $hasValCol = Produto::hasValidadeProximaColumn();
+        $hasEstCol = Produto::hasEstoqueColumn();
+
+        if (!$hasValCol && !$hasEstCol) {
             return 0;
         }
 
         $count = 0;
         foreach ($rows as $row) {
-            $codProd = (string)($row['CODPROD'] ?? $row['codprod'] ?? '');
-            $dtValRaw = $row['DTVAL'] ?? $row['dtval'] ?? null;
+            $codProd = (string)($row['CODPROD'] ?? $row['codprod'] ?? $row['CodProd'] ?? '');
+            $dtValRaw = $row['DTVAL'] ?? $row['dtval'] ?? $row['DtVal'] ?? null;
+            $estoqueRaw = $row['ESTOQUE'] ?? $row['estoque'] ?? $row['Estoque'] ?? $row['ESTDISP'] ?? $row['estdisp'] ?? $row['SALDO'] ?? $row['saldo'] ?? null;
 
-            if (empty($codProd) || empty($dtValRaw)) {
+            if (empty($codProd)) {
                 continue;
             }
 
-            $dtVal = null;
-            try {
-                $dtVal = \Carbon\Carbon::parse($dtValRaw)->format('Y-m-d');
-            } catch (\Exception $e) {
-                continue;
+            $updateData = [];
+
+            if ($hasValCol && !empty($dtValRaw)) {
+                try {
+                    $updateData['validade_proxima'] = \Carbon\Carbon::parse($dtValRaw)->format('Y-m-d');
+                } catch (\Exception $e) {
+                    // skip parse error
+                }
             }
 
-            if ($dtVal) {
+            if ($hasEstCol && $estoqueRaw !== null && $estoqueRaw !== '') {
+                $cleanEst = is_numeric($estoqueRaw) ? (float)$estoqueRaw : (float)str_replace(',', '.', (string)$estoqueRaw);
+                $updateData['estoque'] = round($cleanEst, 2);
+            }
+
+            if (!empty($updateData)) {
                 $updated = Produto::where('codigo_sankhya', $codProd)
-                    ->update(['validade_proxima' => $dtVal]);
+                    ->update($updateData);
                 if ($updated) {
                     $count++;
                 }

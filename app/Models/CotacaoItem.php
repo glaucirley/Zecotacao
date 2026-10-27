@@ -23,6 +23,7 @@ class CotacaoItem extends Model
         'descricao_original',
         'observacao_ia',
         'validade',
+        'estoque',
         'margem_calculada',
         'custo',
         'imposto',
@@ -41,6 +42,7 @@ class CotacaoItem extends Model
         'custo' => 'decimal:2',
         'imposto' => 'decimal:2',
         'validade' => 'date',
+        'estoque' => 'float',
         'mostrar_selo_campanha' => 'boolean',
         'inconsistente' => 'boolean',
         'nao_encontrado' => 'boolean',
@@ -50,6 +52,7 @@ class CotacaoItem extends Model
         'inconsistente',
         'preco_minimo_efetivo',
         'validade_formatada',
+        'estoque_formatado',
         'tem_margem_negativa',
     ];
 
@@ -93,6 +96,20 @@ class CotacaoItem extends Model
         }
     }
 
+    public function getEstoqueFormatadoAttribute(): string
+    {
+        $val = static::hasEstoqueColumn() && $this->estoque !== null
+            ? (float) $this->estoque
+            : ($this->produto && $this->produto->estoque !== null ? (float) $this->produto->estoque : null);
+
+        if ($val === null) {
+            return '0';
+        }
+        return (floor($val) == $val)
+            ? number_format($val, 0, ',', '.')
+            : number_format($val, 2, ',', '.');
+    }
+
     public function getInconsistenteAttribute(): bool
     {
         $sug = (float)($this->attributes['preco_unit_sugerido'] ?? 0);
@@ -125,6 +142,7 @@ class CotacaoItem extends Model
     }
 
     protected static ?bool $hasValidadeColumn = null;
+    protected static ?bool $hasEstoqueColumn = null;
 
     public static function hasValidadeColumn(): bool
     {
@@ -136,6 +154,18 @@ class CotacaoItem extends Model
             }
         }
         return static::$hasValidadeColumn;
+    }
+
+    public static function hasEstoqueColumn(): bool
+    {
+        if (static::$hasEstoqueColumn === null) {
+            try {
+                static::$hasEstoqueColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'estoque');
+            } catch (\Throwable $e) {
+                static::$hasEstoqueColumn = false;
+            }
+        }
+        return static::$hasEstoqueColumn;
     }
 
     protected static function booted()
@@ -150,6 +180,14 @@ class CotacaoItem extends Model
                 $prod = $model->produto ?? Produto::find($model->produto_id);
                 if ($prod && !empty($prod->validade_proxima)) {
                     $model->validade = $prod->validade_proxima;
+                }
+            }
+            if (!static::hasEstoqueColumn()) {
+                unset($model->attributes['estoque']);
+            } elseif ($model->estoque === null && $model->produto_id) {
+                $prod = $model->produto ?? Produto::find($model->produto_id);
+                if ($prod && $prod->estoque !== null) {
+                    $model->estoque = $prod->estoque;
                 }
             }
         });

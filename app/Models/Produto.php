@@ -28,6 +28,7 @@ class Produto extends Model
         'ncm',
         'unidade',
         'validade_proxima',
+        'estoque',
         'metadados_sankhya',
         'ativo',
     ];
@@ -39,14 +40,17 @@ class Produto extends Model
         'custo_variavel' => 'float',
         'ativo' => 'boolean',
         'validade_proxima' => 'date',
+        'estoque' => 'float',
         'metadados_sankhya' => 'array',
     ];
 
     protected $appends = [
         'validade_formatada',
+        'estoque_formatado',
     ];
 
     protected static ?bool $hasValidadeProximaColumn = null;
+    protected static ?bool $hasEstoqueColumn = null;
 
     public static function hasValidadeProximaColumn(): bool
     {
@@ -60,11 +64,26 @@ class Produto extends Model
         return static::$hasValidadeProximaColumn;
     }
 
+    public static function hasEstoqueColumn(): bool
+    {
+        if (static::$hasEstoqueColumn === null) {
+            try {
+                static::$hasEstoqueColumn = \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'estoque');
+            } catch (\Throwable $e) {
+                static::$hasEstoqueColumn = false;
+            }
+        }
+        return static::$hasEstoqueColumn;
+    }
+
     protected static function booted()
     {
         static::saving(function ($model) {
             if (!static::hasValidadeProximaColumn()) {
                 unset($model->attributes['validade_proxima']);
+            }
+            if (!static::hasEstoqueColumn()) {
+                unset($model->attributes['estoque']);
             }
         });
     }
@@ -88,6 +107,17 @@ class Produto extends Model
         } catch (\Throwable $e) {
             return '--';
         }
+    }
+
+    public function getEstoqueFormatadoAttribute(): string
+    {
+        if (!static::hasEstoqueColumn() || $this->estoque === null) {
+            return '0';
+        }
+        $val = (float) $this->estoque;
+        return (floor($val) == $val)
+            ? number_format($val, 0, ',', '.')
+            : number_format($val, 2, ',', '.');
     }
 
     public function itensCotacao()
