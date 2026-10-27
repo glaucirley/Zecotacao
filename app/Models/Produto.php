@@ -29,6 +29,7 @@ class Produto extends Model
         'unidade',
         'validade_proxima',
         'estoque',
+        'campanha',
         'metadados_sankhya',
         'ativo',
     ];
@@ -51,6 +52,7 @@ class Produto extends Model
 
     protected static ?bool $hasValidadeProximaColumn = null;
     protected static ?bool $hasEstoqueColumn = null;
+    protected static ?bool $hasCampanhaColumn = null;
 
     public static function hasValidadeProximaColumn(): bool
     {
@@ -76,6 +78,18 @@ class Produto extends Model
         return static::$hasEstoqueColumn;
     }
 
+    public static function hasCampanhaColumn(): bool
+    {
+        if (static::$hasCampanhaColumn === null) {
+            try {
+                static::$hasCampanhaColumn = \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'campanha');
+            } catch (\Throwable $e) {
+                static::$hasCampanhaColumn = false;
+            }
+        }
+        return static::$hasCampanhaColumn;
+    }
+
     protected static function booted()
     {
         static::saving(function ($model) {
@@ -84,6 +98,9 @@ class Produto extends Model
             }
             if (!static::hasEstoqueColumn()) {
                 unset($model->attributes['estoque']);
+            }
+            if (!static::hasCampanhaColumn()) {
+                unset($model->attributes['campanha']);
             }
         });
     }

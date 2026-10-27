@@ -24,6 +24,7 @@ class CotacaoItem extends Model
         'observacao_ia',
         'validade',
         'estoque',
+        'campanha',
         'margem_calculada',
         'custo',
         'imposto',
@@ -53,6 +54,8 @@ class CotacaoItem extends Model
         'preco_minimo_efetivo',
         'validade_formatada',
         'estoque_formatado',
+        'campanha',
+        'tem_campanha',
         'tem_margem_negativa',
     ];
 
@@ -110,6 +113,20 @@ class CotacaoItem extends Model
             : number_format($val, 2, ',', '.');
     }
 
+    public function getCampanhaAttribute(): ?string
+    {
+        $val = static::hasCampanhaColumn() && !empty($this->attributes['campanha'])
+            ? $this->attributes['campanha']
+            : ($this->produto?->campanha ?? null);
+
+        return !empty($val) ? trim($val) : null;
+    }
+
+    public function getTemCampanhaAttribute(): bool
+    {
+        return !empty($this->campanha);
+    }
+
     public function getInconsistenteAttribute(): bool
     {
         $sug = (float)($this->attributes['preco_unit_sugerido'] ?? 0);
@@ -143,6 +160,7 @@ class CotacaoItem extends Model
 
     protected static ?bool $hasValidadeColumn = null;
     protected static ?bool $hasEstoqueColumn = null;
+    protected static ?bool $hasCampanhaColumn = null;
 
     public static function hasValidadeColumn(): bool
     {
@@ -168,6 +186,18 @@ class CotacaoItem extends Model
         return static::$hasEstoqueColumn;
     }
 
+    public static function hasCampanhaColumn(): bool
+    {
+        if (static::$hasCampanhaColumn === null) {
+            try {
+                static::$hasCampanhaColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'campanha');
+            } catch (\Throwable $e) {
+                static::$hasCampanhaColumn = false;
+            }
+        }
+        return static::$hasCampanhaColumn;
+    }
+
     protected static function booted()
     {
         static::saving(function ($model) {
@@ -188,6 +218,14 @@ class CotacaoItem extends Model
                 $prod = $model->produto ?? Produto::find($model->produto_id);
                 if ($prod && $prod->estoque !== null) {
                     $model->estoque = $prod->estoque;
+                }
+            }
+            if (!static::hasCampanhaColumn()) {
+                unset($model->attributes['campanha']);
+            } elseif (empty($model->campanha) && $model->produto_id) {
+                $prod = $model->produto ?? Produto::find($model->produto_id);
+                if ($prod && !empty($prod->campanha)) {
+                    $model->campanha = $prod->campanha;
                 }
             }
         });

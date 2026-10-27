@@ -335,7 +335,17 @@ class ParameterController extends Controller
             $warnings[] = "Validades (View VGF_VALIDADEAPP não encontrada no Oracle)";
         }
 
-        if ($prodCount == 0 && $partnerCount == 0 && $repCount == 0 && $priceItemCount == 0 && $condCount == 0 && $validadeCount == 0) {
+        // 7. Sync Product Campanhas View
+        $campanhaCount = 0;
+        try {
+            $campanhaRows = $db->fetchCampanhasFromView();
+            $campanhaCount = $db->saveCampanhasFromViewRows($campanhaRows, true);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Sync Error (Campanhas): " . $e->getMessage());
+            $warnings[] = "Campanhas (View VGF_CAMPANHA_APP não encontrada no Oracle)";
+        }
+
+        if ($prodCount == 0 && $partnerCount == 0 && $repCount == 0 && $priceItemCount == 0 && $condCount == 0 && $validadeCount == 0 && $campanhaCount == 0) {
             return response()->json([
                 'success' => false,
                 'error' => 'Erro na sincronização',
@@ -344,7 +354,7 @@ class ParameterController extends Controller
             ], 500);
         }
 
-        $msg = "Sincronização efetuada com sucesso: {$prodCount} produtos, {$partnerCount} clientes, {$repCount} representantes, {$priceItemCount} itens de preço, {$condCount} condições de pagamento e {$validadeCount} validades atualizadas.";
+        $msg = "Sincronização efetuada com sucesso: {$prodCount} produtos, {$partnerCount} clientes, {$repCount} representantes, {$priceItemCount} itens de preço, {$condCount} condições de pagamento, {$validadeCount} validades e {$campanhaCount} campanhas atualizadas.";
         if (count($warnings) > 0) {
             $msg .= " Avisos: " . implode(" | ", $warnings);
         }

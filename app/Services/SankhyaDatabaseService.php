@@ -810,4 +810,101 @@ class SankhyaDatabaseService
             throw $e;
         }
     }
+
+    /**
+     * Fetch product campaigns from Sankhya VGF_CAMPANHA_APP view.
+     *
+     * @param array|null $codProds Optional array of CODPROD to filter
+     * @return array
+     */
+    public function fetchCampanhasFromView(?array $codProds = null): array
+    {
+        $conn = $this->connect();
+
+        $where = '';
+        $params = [];
+        if (!empty($codProds)) {
+            $inPlaceholders = [];
+            foreach (array_values($codProds) as $idx => $cod) {
+                $ph = ":cp_{$idx}";
+                $inPlaceholders[] = $cod;
+            }
+            $where = " WHERE CODPROD IN (" . implode(',', $inPlaceholders) . ")";
+        }
+
+        try {
+            $stmt = $conn->prepare("SELECT CODPROD, CAMPANHA FROM SANKHYA.VGF_CAMPANHA_APP" . $where);
+            $stmt->execute($params);
+            return $stmt->fetchAll();
+        } catch (\PDOException $e) {
+            try {
+                $stmt = $conn->prepare("SELECT CODPROD, CAMPANHA FROM VGF_CAMPANHA_APP" . $where);
+                $stmt->execute($params);
+                return $stmt->fetchAll();
+            } catch (\PDOException $e2) {
+                Log::warning("Sankhya Service - Failed to query VGF_CAMPANHA_APP: " . $e2->getMessage());
+                return [];
+            }
+        }
+    }
+
+    /**
+     * Bulk save/sync product campaigns from VGF_CAMPANHA_APP view rows.
+     *
+     * @param array $rows
+     * @param bool $resetMissing Whether to clear campaigns on products not present in the rows
+     * @return int
+     */
+    public function saveCampanhasFromViewRows(array $rows, bool $resetMissing = false): int
+    {
+        if (!Produto::hasCampanhaColumn()) {
+            return 0;
+        }
+
+        $activeCodProds = [];
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $codProd = (string)($row['CODPROD'] ?? $row['codprod'] ?? $row['CodProd'] ?? '');
+            $campanhaRaw = (string)($row['CAMPANHA'] ?? $row['campanha'] ?? $row['Campanha'] ?? '');
+
+            if (empty($codProd) || trim($campanhaRaw) === '') {
+                continue;
+            }
+
+            $activeCodProds[] = $codProd;
+            $updated = Produto::where('codigo_sankhya', $codProd)
+                ->update(['campanha' => trim($campanhaRaw)]);
+            if ($updated) {
+                $count++;
+            }
+        }
+
+        // If performing full sync, clear campaign for products that are no longer in the active campaign view
+        if ($resetMissing && !empty($activeCodProds)) {
+            Produto::whereNotNull('campanha')
+                ->whereNotIn('codigo_sankhya', $activeCodProds)
+                ->update(['campanha' => null]);
+        } elseif ($resetMissing && empty($activeCodProds) && !empty($rows)) {
+            Produto::whereNotNull('campanha')->update(['campanha' => null]);
+        }
+
+        return $count;
+    }
+
+    /**
+     * Sync all product campaigns from Sankhya VGF_CAMPANHA_APP view.
+     *
+     * @return int
+     */
+    public function syncAllCampanhas(): int
+    {
+        try {
+            $rows = $this->fetchCampanhasFromView();
+            return $this->saveCampanhasFromViewRows($rows, true);
+        } catch (\Exception $e) {
+            Log::error("Sankhya Service - Failed product campanhas sync: " . $e->getMessage());
+            throw $e;
+        }
+    }
 }
