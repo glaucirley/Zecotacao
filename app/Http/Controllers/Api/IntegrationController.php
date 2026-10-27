@@ -108,6 +108,21 @@ class IntegrationController extends Controller
                 if ($rawDesc === '' && ($isNaoEncontrado || empty($item['codigo_sankhya']))) {
                     $rawDesc = trim((string)($item['descricao'] ?? ''));
                 }
+
+                // Fallback inteligente: se descrição veio vazia, tentar extrair de observação enviada pela IA (ex: "Pedido do cliente: 10-bossiodo")
+                if ($rawDesc === '' && $isNaoEncontrado) {
+                    $obsText = (string)($item['observacao'] ?? $item['motivo'] ?? $item['observacao_ia'] ?? '');
+                    if (preg_match('/pedido\s+do\s+cliente:\s*([^\n|]+)/i', $obsText, $m)) {
+                        $ext = trim($m[1]);
+                        if (preg_match('/^\d+\s*[-xX\/]?\s*(.+)$/', $ext, $sm)) {
+                            $ext = trim($sm[1]);
+                        }
+                        if ($ext !== '') {
+                            $rawDesc = $ext;
+                        }
+                    }
+                }
+
                 if ($rawDesc !== '') {
                     $rawInput['itens'][$idx]['descricao_original'] = $rawDesc;
                 }

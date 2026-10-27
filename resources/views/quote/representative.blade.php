@@ -2772,6 +2772,25 @@
         updateStickyPrimaryButton();
     }
 
+    function getUnfoundItemDescription(item) {
+        let rawDesc = item.descricao_original || (item.produto ? item.produto.descricao : '');
+        if (!rawDesc || rawDesc === 'Item solicitado pelo cliente') {
+            const obs = item.observacao_ia || '';
+            const m = obs.match(/pedido\s+do\s+cliente:\s*([^\n|]+)/i);
+            if (m && m[1]) {
+                let ext = m[1].trim();
+                const sm = ext.match(/^\d+\s*[-xX\/]?\s*(.+)$/);
+                if (sm && sm[1]) {
+                    ext = sm[1].trim();
+                }
+                if (ext) {
+                    rawDesc = ext;
+                }
+            }
+        }
+        return rawDesc || 'Item solicitado pelo cliente';
+    }
+
     function renderUnfoundItemsPanel() {
         const panel = document.getElementById("ai-unfound-items-panel");
         const listEl = document.getElementById("ai-unfound-items-list");
@@ -2798,7 +2817,7 @@
 
         listEl.innerHTML = "";
         unfoundItems.forEach(item => {
-            const rawDesc = item.descricao_original || (item.produto ? item.produto.descricao : '') || 'Item solicitado pelo cliente';
+            const rawDesc = getUnfoundItemDescription(item);
             const obsIa = item.observacao_ia || 'Item não identificado automaticamente no catálogo pela IA';
             const un = (item.produto && item.produto.unidade) ? item.produto.unidade : 'UN';
             const isBeingReplaced = (replacingUnfoundItemId === item.id);
@@ -2847,7 +2866,7 @@
         if (!item) return;
 
         replacingUnfoundItemId = item.id;
-        const rawDesc = item.descricao_original || (item.produto ? item.produto.descricao : '');
+        const rawDesc = getUnfoundItemDescription(item);
 
         // Update banner inside #add-item-form-container
         const banner = document.getElementById("replacing-unfound-banner");
