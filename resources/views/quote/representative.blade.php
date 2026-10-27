@@ -898,8 +898,8 @@
         </div>
     </div>
 
-    <!-- Dedicated Panel: Itens Não Encontrados pela IA -->
-    <div id="ai-unfound-items-panel" class="card" style="display: none; margin-bottom: 16px; padding: 16px; background: #fff1f2; border: 1.5px solid #fda4af; border-radius: 12px; box-shadow: 0 2px 8px rgba(225, 29, 72, 0.08);">
+    <!-- Dedicated Panel: Itens Não Encontrados pela IA (Ocultado: exibição exclusiva via aba de filtro Não Encontrados) -->
+    <div id="ai-unfound-items-panel" class="card" style="display: none !important; margin-bottom: 16px; padding: 16px; background: #fff1f2; border: 1.5px solid #fda4af; border-radius: 12px; box-shadow: 0 2px 8px rgba(225, 29, 72, 0.08);">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
             <div>
                 <h3 style="font-size: 15.5px; margin: 0; font-weight: 800; color: #9f1239; display: flex; align-items: center; gap: 8px;">
@@ -2617,16 +2617,6 @@
     }
 
     function setFilterTab(tabName) {
-        if (tabName === 'unfound') {
-            const unfoundPanel = document.getElementById("ai-unfound-items-panel");
-            if (unfoundPanel && unfoundPanel.style.display !== "none") {
-                unfoundPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                unfoundPanel.style.transition = 'box-shadow 0.3s ease';
-                unfoundPanel.style.boxShadow = '0 0 0 3px #f43f5e';
-                setTimeout(() => { unfoundPanel.style.boxShadow = ''; }, 1500);
-            }
-            return;
-        }
         currentFilterTab = tabName;
         document.querySelectorAll('.filter-tab-btn').forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.getElementById(`tab-${tabName}`);
@@ -2804,67 +2794,20 @@
     function renderUnfoundItemsPanel() {
         const panel = document.getElementById("ai-unfound-items-panel");
         const listEl = document.getElementById("ai-unfound-items-list");
-        const countBadge = document.getElementById("ai-unfound-count-badge");
-        if (!panel || !listEl) return;
+        if (panel) {
+            panel.style.display = "none";
+        }
+        if (listEl) {
+            listEl.innerHTML = "";
+        }
 
         const unfoundItems = (quote && Array.isArray(quote.itens))
             ? quote.itens.filter(i => Boolean(i.nao_encontrado) && i.status_item !== 'recusado')
             : [];
 
-        if (unfoundItems.length === 0) {
-            panel.style.display = "none";
-            listEl.innerHTML = "";
-            if (replacingUnfoundItemId) {
-                cancelManualInclusionReplacement();
-            }
-            return;
+        if (unfoundItems.length === 0 && replacingUnfoundItemId) {
+            cancelManualInclusionReplacement();
         }
-
-        panel.style.display = "block";
-        if (countBadge) {
-            countBadge.innerText = `${unfoundItems.length} ${unfoundItems.length === 1 ? 'item' : 'itens'}`;
-        }
-
-        listEl.innerHTML = "";
-        unfoundItems.forEach(item => {
-            const rawDesc = getUnfoundItemDescription(item);
-            const obsIa = item.observacao_ia || 'Item não identificado automaticamente no catálogo pela IA';
-            const un = (item.produto && item.produto.unidade) ? item.produto.unidade : 'UN';
-            const isBeingReplaced = (replacingUnfoundItemId === item.id);
-
-            const card = document.createElement("div");
-            card.style.cssText = `background: #ffffff; border: 1.5px solid ${isBeingReplaced ? '#2563eb' : '#fda4af'}; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.04);`;
-            card.innerHTML = `
-                <div style="flex: 1; min-width: 220px;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span style="font-size: 11px; font-weight: 700; color: #9f1239; background: #ffe4e6; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">Texto do Cliente</span>
-                        <span style="font-weight: 800; font-size: 14.5px; color: #1e293b;">"${escapeHtml(rawDesc)}"</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px;">
-                        <span style="background: #f8fafc; color: #334155; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                            Qtd solicitada: <strong>${item.qtd} ${escapeHtml(un)}</strong>
-                        </span>
-                        ${obsIa ? `
-                            <span style="font-size: 12px; color: #9f1239;">
-                                <strong>Obs IA:</strong> ${escapeHtml(obsIa)}
-                            </span>
-                        ` : ''}
-                    </div>
-                </div>
-                ${!isEditingLocked ? `
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <button type="button" onclick="startManualInclusionForUnfoundItem(${item.id})" style="background: #2563eb; color: #ffffff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(37, 99, 235, 0.25);">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-                            <span>Incluir Manualmente</span>
-                        </button>
-                        <button type="button" onclick="deleteItem(${item.id})" style="background: #ffffff; color: #be123c; border: 1px solid #fda4af; border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Dispensar/remover item da cotação">
-                            <span>Dispensar</span>
-                        </button>
-                    </div>
-                ` : ''}
-            `;
-            listEl.appendChild(card);
-        });
     }
 
     function startManualInclusionForUnfoundItem(itemId) {
@@ -3009,6 +2952,12 @@
                 tabUnf.classList.add("has-unfound");
             } else {
                 tabUnf.classList.remove("has-unfound");
+                if (currentFilterTab === 'unfound') {
+                    currentFilterTab = 'all';
+                    document.querySelectorAll('.filter-tab-btn').forEach(btn => btn.classList.remove('active'));
+                    const tabAll = document.getElementById('tab-all');
+                    if (tabAll) tabAll.classList.add('active');
+                }
             }
         }
         if (elAtt) elAtt.innerText = countAttention;
@@ -3026,8 +2975,12 @@
             const isUnfound = Boolean(item.nao_encontrado);
             const isRejected = item.status_item === 'recusado';
 
-            // Itens não encontrados pela IA são tratados exclusivamente no painel do topo (#ai-unfound-items-panel)
-            // e NÃO aparecem na lista geral de produtos cotados
+            // Se estiver na aba 'unfound', exibe exclusivamente os itens não encontrados (e não recusados)
+            if (currentFilterTab === 'unfound') {
+                return isUnfound && !isRejected;
+            }
+
+            // Em qualquer outra aba (Todos, Normais, Atenção, Recusados), oculta itens não encontrados
             if (isUnfound) {
                 return false;
             }
@@ -3089,10 +3042,16 @@
         }
 
         if (filtered.length === 0) {
-            if (countUnfound > 0 && countQuoted === 0) {
+            if (currentFilterTab === 'unfound') {
+                container.innerHTML = `
+                    <div style="text-align: center; color: var(--color-text-muted); padding: 35px 15px; background: white; border-radius: 12px; border: 1px dashed var(--color-border); font-size: 13.5px;">
+                        Nenhum item não encontrado pendente.
+                    </div>
+                `;
+            } else if (countUnfound > 0 && countQuoted === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; color: #9f1239; padding: 25px 15px; background: #fff1f2; border-radius: 12px; border: 1px dashed #fda4af; font-size: 13.5px;">
-                        ⚠️ Os itens desta cotação aguardam inclusão manual ou dispensa no painel de pendências acima.
+                        ⚠️ Esta cotação possui apenas itens não encontrados pela IA. Clique na aba <strong>❓ Não Encontrados (${countUnfound})</strong> acima para incluí-los no catálogo ou dispensá-los.
                     </div>
                 `;
             } else {
