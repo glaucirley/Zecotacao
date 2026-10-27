@@ -1025,13 +1025,7 @@
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="create-frete" class="form-label" style="font-weight: 600; font-size: 13px;">Tipo de Frete</label>
-                    <select id="create-frete" class="form-control" style="font-size: 13px;">
-                        <option value="CIF">CIF (Frete por conta do emitente)</option>
-                        <option value="FOB">FOB (Frete por conta do destinatário)</option>
-                    </select>
-                </div>
+                <input type="hidden" id="create-frete" value="CIF">
 
                 <div class="form-group" style="margin-bottom: 16px;">
                     <label for="create-obs-cliente" class="form-label" style="font-weight: 600; font-size: 13px;">Observação Cliente / Instruções</label>

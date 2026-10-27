@@ -339,13 +339,11 @@
     <table class="conditions-card">
         <tr>
             <td style="width: 50%;">
-                <span class="cond-label">Forma de pagamento:</span> <span class="cond-val">{{ $quote->forma_pagamento ?: 'Boleto 28/35/42 dias' }}</span><br>
-                <span class="cond-label">Frete:</span> <span class="cond-val">{{ $quote->frete_tipo == 'CIF' ? 'CIF — por conta da Central' : 'FOB — por conta do cliente' }}</span><br>
+                <span class="cond-label">Forma de pagamento:</span> <span class="cond-val">{{ $quote->forma_pagamento ?: 'A combinar' }}</span><br>
                 <span class="cond-label">Representante:</span> <span class="cond-val">{{ $quote->representante->nome ?? 'Atendimento Central' }}</span>
             </td>
-            <td style="width: 50%;">
-                <span class="cond-label">Prazo de entrega:</span> <span class="cond-val">{{ $quote->prazo_entrega ?: 'Até 3 dias úteis' }}</span><br>
-                <span class="cond-label">Transportadora:</span> <span class="cond-val">{{ $quote->transportadora ?: 'Expressa Log' }}</span>
+            <td style="width: 50%; vertical-align: top;">
+                <span class="cond-label">Prazo de entrega:</span> <span class="cond-val">{{ $quote->prazo_entrega ?: 'Até 3 dias úteis' }}</span>
             </td>
         </tr>
         @if($quote->observacao_cliente)

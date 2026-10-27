@@ -511,16 +511,6 @@
                         <span class="info-label">Prazo de Entrega</span>
                         <span class="info-value">{{ $quote->prazo_entrega ?: 'Imediato' }}</span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">Tipo de Frete</span>
-                        <span class="info-value">{{ $quote->frete_tipo === 'FOB' ? 'FOB (Por conta do destinatário)' : 'CIF (Frete incluso)' }}</span>
-                    </div>
-                    @if($quote->transportadora)
-                        <div class="info-item">
-                            <span class="info-label">Transportadora</span>
-                            <span class="info-value">{{ $quote->transportadora }}</span>
-                        </div>
-                    @endif
                 </div>
 
                 @if($quote->observacao_cliente)

@@ -1357,13 +1357,7 @@
                         <input type="text" id="nq-prazo-entrega" class="input-mobile" value="3 dias uteis" placeholder="Ex: 3 dias úteis">
                     </div>
 
-                    <div class="form-group-mobile">
-                        <label class="form-label-mobile">Tipo de Frete</label>
-                        <select id="nq-frete-tipo" class="select-mobile">
-                            <option value="CIF">CIF (Frete por conta do emitente)</option>
-                            <option value="FOB">FOB (Frete por conta do destinatário)</option>
-                        </select>
-                    </div>
+                    <input type="hidden" id="nq-frete-tipo" value="CIF">
 
                     <div class="form-group-mobile">
                         <label class="form-label-mobile">Observação para o Cliente (Opcional)</label>

@@ -1089,17 +1089,6 @@
                             <label class="form-label" style="font-size: 11px;">Prazo de Entrega</label>
                             <input type="text" id="prazo-entrega" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="updateConditionsSummaryText()">
                         </div>
-                        <div class="form-group" style="margin-bottom: 8px;">
-                            <label class="form-label" style="font-size: 11px;">Tipo de Frete</label>
-                            <select id="frete-tipo" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="updateConditionsSummaryText()">
-                                <option value="CIF">CIF (Por conta do remetente)</option>
-                                <option value="FOB">FOB (Por conta do destinatário)</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 8px;">
-                            <label class="form-label" style="font-size: 11px;">Transportadora</label>
-                            <input type="text" id="transportadora" class="form-control" style="padding: 8px 10px; font-size: 12.5px;">
-                        </div>
                     </div>
                 </div>
 
@@ -2228,12 +2217,10 @@
     function updateConditionsSummaryText() {
         const forma = getSelectedFormaPagamentoValue();
         const prazo = document.getElementById("prazo-entrega") ? document.getElementById("prazo-entrega").value.trim() : "";
-        const frete = document.getElementById("frete-tipo") ? document.getElementById("frete-tipo").value.trim() : "CIF";
         
         const parts = [];
         if (forma) parts.push(forma);
         if (prazo) parts.push(prazo);
-        if (frete) parts.push(`Frete ${frete}`);
         
         const summaryText = parts.length > 0 ? parts.join(" · ") : "Toque para definir pagamento e prazos";
         const el = document.getElementById("conditions-summary-details");
@@ -2640,8 +2627,8 @@
             }
         }
         document.getElementById("prazo-entrega").value = quote.prazo_entrega || "";
-        document.getElementById("frete-tipo").value = quote.frete_tipo || "CIF";
-        document.getElementById("transportadora").value = quote.transportadora || "";
+        if (document.getElementById("frete-tipo")) document.getElementById("frete-tipo").value = quote.frete_tipo || "CIF";
+        if (document.getElementById("transportadora")) document.getElementById("transportadora").value = quote.transportadora || "";
         document.getElementById("obs-cliente").value = quote.observacao_cliente || "";
         document.getElementById("obs-interna").value = quote.observacao_interna || "";
         updateConditionsSummaryText();
@@ -2654,8 +2641,8 @@
             document.getElementById("forma-pagamento").disabled = true;
             if (customInput) customInput.disabled = true;
             document.getElementById("prazo-entrega").disabled = true;
-            document.getElementById("frete-tipo").disabled = true;
-            document.getElementById("transportadora").disabled = true;
+            if (document.getElementById("frete-tipo")) document.getElementById("frete-tipo").disabled = true;
+            if (document.getElementById("transportadora")) document.getElementById("transportadora").disabled = true;
             document.getElementById("obs-cliente").disabled = true;
             document.getElementById("obs-interna").disabled = true;
             
@@ -2666,8 +2653,8 @@
             document.getElementById("forma-pagamento").disabled = false;
             if (customInput) customInput.disabled = false;
             document.getElementById("prazo-entrega").disabled = false;
-            document.getElementById("frete-tipo").disabled = false;
-            document.getElementById("transportadora").disabled = false;
+            if (document.getElementById("frete-tipo")) document.getElementById("frete-tipo").disabled = false;
+            if (document.getElementById("transportadora")) document.getElementById("transportadora").disabled = false;
             document.getElementById("obs-cliente").disabled = false;
             document.getElementById("obs-interna").disabled = false;
             
@@ -3742,9 +3729,9 @@
         const payload = {
             forma_pagamento: getSelectedFormaPagamentoValue(),
             condicao_pagamento_id: getSelectedCondicaoPagamentoId(),
-            prazo_entrega: document.getElementById("prazo-entrega").value,
-            frete_tipo: document.getElementById("frete-tipo").value,
-            transportadora: document.getElementById("transportadora").value,
+            prazo_entrega: document.getElementById("prazo-entrega") ? document.getElementById("prazo-entrega").value : (quote.prazo_entrega || "3 dias"),
+            frete_tipo: document.getElementById("frete-tipo") ? document.getElementById("frete-tipo").value : (quote.frete_tipo || 'CIF'),
+            transportadora: document.getElementById("transportadora") ? document.getElementById("transportadora").value : (quote.transportadora || null),
             observacao_cliente: document.getElementById("obs-cliente").value,
             observacao_interna: document.getElementById("obs-interna").value,
             itens: quote.itens.map(i => ({
