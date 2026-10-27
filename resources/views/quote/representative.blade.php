@@ -2617,6 +2617,16 @@
     }
 
     function setFilterTab(tabName) {
+        if (tabName === 'unfound') {
+            const unfoundPanel = document.getElementById("ai-unfound-items-panel");
+            if (unfoundPanel && unfoundPanel.style.display !== "none") {
+                unfoundPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                unfoundPanel.style.transition = 'box-shadow 0.3s ease';
+                unfoundPanel.style.boxShadow = '0 0 0 3px #f43f5e';
+                setTimeout(() => { unfoundPanel.style.boxShadow = ''; }, 1500);
+            }
+            return;
+        }
         currentFilterTab = tabName;
         document.querySelectorAll('.filter-tab-btn').forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.getElementById(`tab-${tabName}`);
@@ -2954,7 +2964,7 @@
         container.innerHTML = "";
         
         let hasItemBelowMin = false;
-        let countAll = quote.itens.length;
+        let countQuoted = 0;
         let countUnfound = 0;
         let countAttention = 0;
         let countApproved = 0;
@@ -2970,11 +2980,14 @@
                 countRejected++;
             } else if (isUnfound) {
                 countUnfound++;
-            } else if (isBelowMin && item.status_item !== 'aprovado') {
-                hasItemBelowMin = true;
-                countAttention++;
             } else {
-                countApproved++;
+                countQuoted++;
+                if (isBelowMin && item.status_item !== 'aprovado') {
+                    hasItemBelowMin = true;
+                    countAttention++;
+                } else {
+                    countApproved++;
+                }
             }
         });
 
@@ -2987,8 +3000,8 @@
         const elApp = document.getElementById("count-approved");
         const elRej = document.getElementById("count-rejected");
 
-        if (elAll) elAll.innerText = countAll;
-        if (elAllBadge) elAllBadge.innerText = `${countAll} itens`;
+        if (elAll) elAll.innerText = countQuoted;
+        if (elAllBadge) elAllBadge.innerText = `${countQuoted} ${countQuoted === 1 ? 'item' : 'itens'}`;
         if (elUnf) elUnf.innerText = countUnfound;
         if (tabUnf) {
             tabUnf.style.display = countUnfound > 0 ? "inline-flex" : "none";
@@ -3010,6 +3023,15 @@
 
         // Filter items for display
         const filtered = quote.itens.filter(item => {
+            const isUnfound = Boolean(item.nao_encontrado);
+            const isRejected = item.status_item === 'recusado';
+
+            // Itens não encontrados pela IA são tratados exclusivamente no painel do topo (#ai-unfound-items-panel)
+            // e NÃO aparecem na lista geral de produtos cotados
+            if (isUnfound) {
+                return false;
+            }
+
             const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || '');
             const prodCode = item.produto ? item.produto.codigo_sankhya : '';
 
@@ -3022,17 +3044,12 @@
 
             const minEf = getItemEffectiveMin(item);
             const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
-            const isRejected = item.status_item === 'recusado';
-            const isUnfound = Boolean(item.nao_encontrado);
 
-            if (currentFilterTab === 'unfound') {
-                return isUnfound && !isRejected;
-            }
             if (currentFilterTab === 'attention') {
-                return isBelowMin && !isUnfound && item.status_item !== 'aprovado' && !isRejected;
+                return isBelowMin && item.status_item !== 'aprovado' && !isRejected;
             }
             if (currentFilterTab === 'approved') {
-                return !isBelowMin && !isUnfound && !isRejected;
+                return !isBelowMin && !isRejected;
             }
             if (currentFilterTab === 'rejected') {
                 return isRejected;
@@ -3072,11 +3089,19 @@
         }
 
         if (filtered.length === 0) {
-            container.innerHTML = `
-                <div style="text-align: center; color: var(--color-text-muted); padding: 35px 15px; background: white; border-radius: 12px; border: 1px dashed var(--color-border); font-size: 13.5px;">
-                    Nenhum item encontrado com os filtros aplicados.
-                </div>
-            `;
+            if (countUnfound > 0 && countQuoted === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #9f1239; padding: 25px 15px; background: #fff1f2; border-radius: 12px; border: 1px dashed #fda4af; font-size: 13.5px;">
+                        ⚠️ Os itens desta cotação aguardam inclusão manual ou dispensa no painel de pendências acima.
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div style="text-align: center; color: var(--color-text-muted); padding: 35px 15px; background: white; border-radius: 12px; border: 1px dashed var(--color-border); font-size: 13.5px;">
+                        Nenhum item encontrado com os filtros aplicados.
+                    </div>
+                `;
+            }
         } else {
             filtered.forEach(item => {
                 try {
