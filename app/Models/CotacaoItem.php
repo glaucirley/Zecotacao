@@ -101,9 +101,9 @@ class CotacaoItem extends Model
 
     public function getEstoqueFormatadoAttribute(): string
     {
-        $val = static::hasEstoqueColumn() && $this->estoque !== null
-            ? (float) $this->estoque
-            : ($this->produto && $this->produto->estoque !== null ? (float) $this->produto->estoque : null);
+        $val = ($this->produto && $this->produto->estoque !== null)
+            ? (float) $this->produto->estoque
+            : (static::hasEstoqueColumn() && $this->estoque !== null ? (float) $this->estoque : null);
 
         if ($val === null) {
             return '0';

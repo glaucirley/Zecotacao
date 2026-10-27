@@ -3087,9 +3087,9 @@
                     const prodCode = item.produto ? item.produto.codigo_sankhya : 'S/C';
                     const prodUn = item.produto ? item.produto.unidade : 'UN';
                     const isUnfound = Boolean(item.nao_encontrado);
-                    const prodStock = (item.estoque !== null && item.estoque !== undefined) 
-                        ? parseFloat(item.estoque) 
-                        : (item.produto && item.produto.estoque !== null && item.produto.estoque !== undefined ? parseFloat(item.produto.estoque) : null);
+                    const prodStock = (item.produto && item.produto.estoque !== null && item.produto.estoque !== undefined) 
+                        ? parseFloat(item.produto.estoque) 
+                        : (item.estoque !== null && item.estoque !== undefined ? parseFloat(item.estoque) : null);
                     const prodValidade = item.validade_formatada 
                         || (item.produto ? item.produto.validade_formatada : null) 
                         || (item.validade ? String(item.validade).substring(0, 7).split('-').reverse().join('/') : null)
