@@ -1006,7 +1006,18 @@
                 <div class="grid-2" style="gap: 12px; margin-bottom: 12px;">
                     <div class="form-group" style="margin-bottom:0;">
                         <label for="create-pagamento" class="form-label" style="font-weight: 600; font-size: 13px;">Forma de Pagamento</label>
-                        <input type="text" id="create-pagamento" class="form-control" placeholder="Ex: 30/60 dias" value="A combinar" style="font-size: 13px;">
+                        <select id="create-pagamento" class="form-control" style="font-size: 13px;" onchange="onCreatePagamentoChange()">
+                            <option value="">Selecione a condição...</option>
+                            @if(isset($condicoesPagamento) && count($condicoesPagamento) > 0)
+                                @foreach($condicoesPagamento as $cp)
+                                    <option value="{{ $cp->descricao }}" data-id="{{ $cp->id }}" data-cod="{{ $cp->codigo_sankhya }}" data-min="{{ (float)$cp->venda_minima }}" data-max="{{ (float)$cp->venda_maxima }}">
+                                        {{ $cp->descricao }} {{ $cp->venda_minima > 0 ? '(Mín. R$ ' . number_format($cp->venda_minima, 2, ',', '.') . ')' : '' }}
+                                    </option>
+                                @endforeach
+                            @endif
+                            <option value="__custom__">Outra (digitar manualmente)...</option>
+                        </select>
+                        <input type="text" id="create-pagamento-custom" class="form-control" style="display: none; margin-top: 6px; font-size: 12px;" placeholder="Digite a forma de pagamento...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label for="create-prazo" class="form-label" style="font-weight: 600; font-size: 13px;">Prazo de Entrega</label>
@@ -1183,6 +1194,7 @@
         initColumnPreferences();
         initColumnResizable();
         loadQuotes();
+        loadAdminDynamicPaymentConditions();
         
         // Hide open dropdown menus on outside click
         document.addEventListener('click', (e) => {
@@ -2594,6 +2606,62 @@
         }
     }
 
+    function getAdminSelectedPagamentoValue() {
+        const sel = document.getElementById("create-pagamento");
+        if (!sel) return 'A combinar';
+        if (sel.value === '__custom__') {
+            const custom = document.getElementById("create-pagamento-custom");
+            return (custom && custom.value.trim()) || 'A combinar';
+        }
+        return sel.value.trim() || 'A combinar';
+    }
+
+    function getAdminSelectedCondicaoId() {
+        const sel = document.getElementById("create-pagamento");
+        if (!sel || sel.value === '__custom__' || !sel.value) return null;
+        const opt = sel.options[sel.selectedIndex];
+        if (opt && opt.dataset.id) return parseInt(opt.dataset.id, 10);
+        return null;
+    }
+
+    function onCreatePagamentoChange() {
+        const sel = document.getElementById("create-pagamento");
+        const custom = document.getElementById("create-pagamento-custom");
+        if (!sel) return;
+        if (sel.value === '__custom__') {
+            if (custom) {
+                custom.style.display = 'block';
+                custom.focus();
+            }
+        } else {
+            if (custom) {
+                custom.style.display = 'none';
+                custom.value = '';
+            }
+        }
+    }
+
+    async function loadAdminDynamicPaymentConditions() {
+        try {
+            const res = await fetch('/api/v1/condicoes-pagamento');
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                const sel = document.getElementById("create-pagamento");
+                if (sel && sel.options.length <= 2) {
+                    const currentSelected = sel.value;
+                    sel.innerHTML = '<option value="">Selecione a condição...</option>' +
+                        json.data.map(cp => `<option value="${cp.descricao}" data-id="${cp.id}" data-cod="${cp.codigo_sankhya}" data-min="${parseFloat(cp.venda_minima || 0)}" data-max="${parseFloat(cp.venda_maxima || 0)}">${cp.descricao}${parseFloat(cp.venda_minima || 0) > 0 ? ' (Mín. R$ ' + parseFloat(cp.venda_minima).toLocaleString('pt-BR', {minimumFractionDigits: 2}) + ')' : ''}</option>`).join('') +
+                        '<option value="__custom__">Outra (digitar manualmente)...</option>';
+                    if (currentSelected) {
+                        sel.value = currentSelected;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Could not load dynamic payment conditions:", e);
+        }
+    }
+
     async function submitManualQuote(e) {
         e.preventDefault();
 
@@ -2645,7 +2713,8 @@
         const payload = {
             parceiro_id: parseInt(adminSelectedPartner.id),
             representante_id: parseInt(representante_id),
-            forma_pagamento: document.getElementById("create-pagamento").value || 'A combinar',
+            forma_pagamento: getAdminSelectedPagamentoValue(),
+            condicao_pagamento_id: getAdminSelectedCondicaoId(),
             prazo_entrega: document.getElementById("create-prazo").value || '3 dias',
             frete_tipo: document.getElementById("create-frete").value || 'CIF',
             observacao_cliente: document.getElementById("create-obs-cliente").value || '',

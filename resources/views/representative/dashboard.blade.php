@@ -1337,14 +1337,19 @@
                 <div id="step-content-3" class="step-panel" style="display:none;">
                     <div class="form-group-mobile">
                         <label class="form-label-mobile">Forma de Pagamento</label>
-                        <select id="nq-forma-pagamento" class="select-mobile">
-                            <option value="A combinar">A combinar</option>
-                            <option value="À Vista (PIX / Dinheiro)">À Vista (PIX / Dinheiro)</option>
-                            <option value="Faturado 14 dias">Faturado 14 dias</option>
-                            <option value="Faturado 28 dias">Faturado 28 dias</option>
-                            <option value="Faturado 30/60 dias">Faturado 30/60 dias</option>
-                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <select id="nq-forma-pagamento" class="select-mobile" onchange="onNqFormaPagamentoChange()">
+                            <option value="">Selecione a condição...</option>
+                            @if(isset($condicoesPagamento) && count($condicoesPagamento) > 0)
+                                @foreach($condicoesPagamento as $cp)
+                                    <option value="{{ $cp->descricao }}" data-id="{{ $cp->id }}" data-cod="{{ $cp->codigo_sankhya }}" data-min="{{ (float)$cp->venda_minima }}" data-max="{{ (float)$cp->venda_maxima }}">
+                                        {{ $cp->descricao }} {{ $cp->venda_minima > 0 ? '(Mín. R$ ' . number_format($cp->venda_minima, 2, ',', '.') . ')' : '' }}
+                                    </option>
+                                @endforeach
+                            @endif
+                            <option value="__custom__">Outra (digitar manualmente)...</option>
                         </select>
+                        <input type="text" id="nq-forma-pagamento-custom" class="input-mobile" style="display: none; margin-top: 6px;" placeholder="Digite a forma de pagamento...">
+                        <div id="nq-forma-pagamento-warning" style="display: none; margin-top: 4px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 11px; color: #b45309;"></div>
                     </div>
 
                     <div class="form-group-mobile">
@@ -1510,6 +1515,7 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             loadData();
+            loadDynamicPaymentConditions();
 
             // Sincroniza aba solicitada via parâmetro de URL (?tab=quotes|checkin|alerts|profile)
             const urlParams = new URLSearchParams(window.location.search);
@@ -2396,7 +2402,8 @@
             const payload = {
                 parceiro_id: selectedPartner.id,
                 representante_id: repId,
-                forma_pagamento: (document.getElementById("nq-forma-pagamento") && document.getElementById("nq-forma-pagamento").value) || "A combinar",
+                forma_pagamento: getNqFormaPagamentoValue(),
+                condicao_pagamento_id: getNqCondicaoPagamentoId(),
                 prazo_entrega: (document.getElementById("nq-prazo-entrega") && document.getElementById("nq-prazo-entrega").value) || "3 dias uteis",
                 frete_tipo: freteVal,
                 observacao_cliente: (document.getElementById("nq-obs-cliente") && document.getElementById("nq-obs-cliente").value) || null,
@@ -2475,6 +2482,79 @@
             clearQuoteFormError();
             document.getElementById("new-quote-overlay").style.display = "none";
             document.getElementById("new-quote-drawer").style.display = "none";
+        }
+
+        function getNqFormaPagamentoValue() {
+            const sel = document.getElementById("nq-forma-pagamento");
+            if (!sel) return "A combinar";
+            if (sel.value === '__custom__') {
+                const custom = document.getElementById("nq-forma-pagamento-custom");
+                return (custom && custom.value.trim()) || "A combinar";
+            }
+            return sel.value.trim() || "A combinar";
+        }
+
+        function getNqCondicaoPagamentoId() {
+            const sel = document.getElementById("nq-forma-pagamento");
+            if (!sel || sel.value === '__custom__' || !sel.value) return null;
+            const opt = sel.options[sel.selectedIndex];
+            if (opt && opt.dataset.id) return parseInt(opt.dataset.id, 10);
+            return null;
+        }
+
+        function onNqFormaPagamentoChange() {
+            const sel = document.getElementById("nq-forma-pagamento");
+            const custom = document.getElementById("nq-forma-pagamento-custom");
+            const warning = document.getElementById("nq-forma-pagamento-warning");
+            if (!sel) return;
+
+            if (sel.value === '__custom__') {
+                if (custom) {
+                    custom.style.display = 'block';
+                    custom.focus();
+                }
+            } else {
+                if (custom) {
+                    custom.style.display = 'none';
+                    custom.value = '';
+                }
+            }
+
+            if (warning) {
+                const opt = sel.options[sel.selectedIndex];
+                const minSale = opt && opt.dataset.min ? parseFloat(opt.dataset.min) : 0;
+                let cartTotal = 0;
+                if (typeof quoteCartItems !== 'undefined' && Array.isArray(quoteCartItems)) {
+                    cartTotal = quoteCartItems.reduce((acc, item) => acc + (parseFloat(item.price || 0) * parseInt(item.qty || 1)), 0);
+                }
+                if (minSale > 0 && cartTotal > 0 && cartTotal < minSale) {
+                    warning.style.display = 'block';
+                    warning.innerHTML = `⚠️ Valor mínimo exigido para esta condição: <strong>R$ ${minSale.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong> (Total atual: R$ ${cartTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).`;
+                } else {
+                    warning.style.display = 'none';
+                }
+            }
+        }
+
+        async function loadDynamicPaymentConditions() {
+            try {
+                const res = await fetch('/api/v1/condicoes-pagamento');
+                const json = await res.json();
+                if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                    const sel = document.getElementById("nq-forma-pagamento");
+                    if (sel && sel.options.length <= 2) {
+                        const currentSelected = sel.value;
+                        sel.innerHTML = '<option value="">Selecione a condição...</option>' +
+                            json.data.map(cp => `<option value="${cp.descricao}" data-id="${cp.id}" data-cod="${cp.codigo_sankhya}" data-min="${parseFloat(cp.venda_minima || 0)}" data-max="${parseFloat(cp.venda_maxima || 0)}">${cp.descricao}${parseFloat(cp.venda_minima || 0) > 0 ? ' (Mín. R$ ' + parseFloat(cp.venda_minima).toLocaleString('pt-BR', {minimumFractionDigits: 2}) + ')' : ''}</option>`).join('') +
+                            '<option value="__custom__">Outra (digitar manualmente)...</option>';
+                        if (currentSelected) {
+                            sel.value = currentSelected;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Could not load dynamic payment conditions:", e);
+            }
         }
 
         function goToStep(stepNum) {
@@ -3319,7 +3399,8 @@
             const payload = {
                 parceiro_id: selectedPartner.id,
                 representante_id: repId,
-                forma_pagamento: document.getElementById("nq-forma-pagamento").value || "A combinar",
+                forma_pagamento: getNqFormaPagamentoValue(),
+                condicao_pagamento_id: getNqCondicaoPagamentoId(),
                 prazo_entrega: document.getElementById("nq-prazo-entrega").value || "3 dias uteis",
                 frete_tipo: freteVal,
                 observacao_cliente: document.getElementById("nq-obs-cliente").value || null,

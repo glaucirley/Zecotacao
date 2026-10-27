@@ -94,7 +94,10 @@ Route::middleware('auth')->group(function () {
         if (auth()->user()->isRepresentante()) {
             return redirect('/painel-representante');
         }
-        return view('admin.quotes');
+        $condicoesPagamento = \App\Models\CondicaoPagamento::where('ativa', true)
+            ->orderBy('descricao')
+            ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
+        return view('admin.quotes', compact('condicoesPagamento'));
     });
 
     // Quotation Sales Funnel (Gestor, Diretor, Faturamento & Administrador)
@@ -184,7 +187,10 @@ Route::middleware('auth')->group(function () {
         if (!auth()->user()->isRepresentante()) {
             return redirect('/aprovacoes');
         }
-        return view('representative.dashboard');
+        $condicoesPagamento = \App\Models\CondicaoPagamento::where('ativa', true)
+            ->orderBy('descricao')
+            ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
+        return view('representative.dashboard', compact('condicoesPagamento'));
     });
 
     // General Business Intelligence Dashboard

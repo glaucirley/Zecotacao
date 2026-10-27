@@ -98,11 +98,15 @@ class SyncSankhyaCommand extends Command
                 $this->info("Synced {$count} price table items successfully.");
             }
 
-            if (in_array($type, ['all', 'conditions', 'pagamento'])) {
-                $this->info("Fetching payment conditions from Oracle (TIPONEG_APP)...");
+            if (in_array($type, ['all', 'conditions', 'condicoes', 'pagamento'])) {
+                $this->info("Fetching payment conditions from Oracle (TIPONEG_APP / VGF_TIPONEG_APP / TGFTPV)...");
                 $condRows = $db->fetchPaymentConditionsFromView();
-                $count = $db->savePaymentConditionsFromViewRows($condRows);
-                $this->info("Synced {$count} payment conditions successfully.");
+                if (empty($condRows)) {
+                    $this->warn("Aviso: Nenhuma linha retornada para condições de pagamento nas views consultadas (TIPONEG_APP, VGF_TIPONEG_APP, TGFTPV).");
+                } else {
+                    $count = $db->savePaymentConditionsFromViewRows($condRows);
+                    $this->info("Synced {$count} payment conditions successfully.");
+                }
             }
 
             if (in_array($type, ['all', 'validades', 'validade', 'estoque'])) {

@@ -44,6 +44,14 @@ Route::prefix('v1')->group(function () {
             Route::get('/cotacoes/{id}/pdf', [QuoteController::class, 'generatePdf']);
             Route::post('/cotacoes/manual', [QuoteController::class, 'storeManual']);
             Route::get('/produtos', [QuoteController::class, 'listProducts']);
+            Route::get('/condicoes-pagamento', function () {
+                return response()->json([
+                    'success' => true,
+                    'data' => \App\Models\CondicaoPagamento::where('ativa', true)
+                        ->orderBy('descricao')
+                        ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima'])
+                ]);
+            });
             Route::delete('/cotacoes/{id}', [QuoteController::class, 'destroy']);
             Route::patch('/aprovacoes/{cotacao_id}/itens/{item_id}', [ApprovalController::class, 'simulatePrice']);
             Route::post('/aprovacoes/{cotacao_id}/vincular', [ApprovalController::class, 'bindItems']);

@@ -1516,6 +1516,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+        ensureRepresentativeQuoteConditions();
         document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
             setTimeout(updateStickyFooterOffset, 50);
         });
@@ -2237,6 +2238,23 @@
         const summaryText = parts.length > 0 ? parts.join(" · ") : "Toque para definir pagamento e prazos";
         const el = document.getElementById("conditions-summary-details");
         if (el) el.innerText = summaryText;
+    }
+
+    async function ensureRepresentativeQuoteConditions() {
+        const selForma = document.getElementById("forma-pagamento");
+        if (!selForma || selForma.options.length > 2) return;
+        try {
+            const res = await fetch('/api/v1/condicoes-pagamento');
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                selForma.innerHTML = '<option value="">Selecione a condição...</option>' +
+                    json.data.map(cp => `<option value="${cp.descricao}" data-id="${cp.id}" data-cod="${cp.codigo_sankhya}" data-min="${parseFloat(cp.venda_minima || 0)}" data-max="${parseFloat(cp.venda_maxima || 0)}">${cp.descricao}${parseFloat(cp.venda_minima || 0) > 0 ? ' (Mín. R$ ' + parseFloat(cp.venda_minima).toLocaleString('pt-BR', {minimumFractionDigits: 2}) + ')' : ''}</option>`).join('') +
+                    '<option value="__custom__">Outra (digitar manualmente)...</option>';
+                if (typeof renderView === 'function' && window.quote) {
+                    renderView();
+                }
+            }
+        } catch(e) {}
     }
 
     function toggleOptionsMenu(event) {
