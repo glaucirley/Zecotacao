@@ -121,7 +121,7 @@ class PublicProposalController extends Controller
                 'isInternalUser' => $this->isInternalRequest($request),
                 'isExpired' => $isExpired,
             ])
-            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet')
+            ->header('X-Robots-Tag', 'noindex, nofollow')
             ->header('Referrer-Policy', 'no-referrer');
     }
 

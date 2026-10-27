@@ -1,3 +1,8 @@
+@php
+    $scheme = (request()->isSecure() || strtolower(request()->header('X-Forwarded-Proto', '')) === 'https') ? 'https' : 'http';
+    $host = request()->getHttpHost();
+    $ogImageUrl = $scheme . '://' . $host . '/images/preview.png';
+@endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -9,14 +14,15 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="Cotação Zé Cotação">
     <meta property="og:description" content="Acesse o painel do Zé Cotação para visualizar os detalhes desta cotação comercial.">
-    <meta property="og:image" content="{{ asset('preview.png') }}">
+    <meta property="og:image" content="{{ $ogImageUrl }}">
+    <meta property="og:image:secure_url" content="{{ $ogImageUrl }}">
     <meta property="og:url" content="{{ url()->current() }}">
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Cotação Zé Cotação">
     <meta name="twitter:description" content="Acesse o painel do Zé Cotação para visualizar os detalhes desta cotação comercial.">
-    <meta name="twitter:image" content="{{ asset('preview.png') }}">
+    <meta name="twitter:image" content="{{ $ogImageUrl }}">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
 <body class="centered-layout">
