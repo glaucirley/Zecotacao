@@ -22,6 +22,7 @@ class Cotacao extends Model
         'desconto',
         'total',
         'forma_pagamento',
+        'condicao_pagamento_id',
         'prazo_entrega',
         'frete_tipo',
         'transportadora',
@@ -45,8 +46,28 @@ class Cotacao extends Model
         'prioridade' => 'boolean',
     ];
 
+    protected static ?bool $hasCondicaoPagamentoIdColumn = null;
+
+    public static function hasCondicaoPagamentoIdColumn(): bool
+    {
+        if (static::$hasCondicaoPagamentoIdColumn === null) {
+            try {
+                static::$hasCondicaoPagamentoIdColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacoes', 'condicao_pagamento_id');
+            } catch (\Throwable $e) {
+                static::$hasCondicaoPagamentoIdColumn = false;
+            }
+        }
+        return static::$hasCondicaoPagamentoIdColumn;
+    }
+
     protected static function booted()
     {
+        static::saving(function (Cotacao $quote) {
+            if (!static::hasCondicaoPagamentoIdColumn()) {
+                unset($quote->attributes['condicao_pagamento_id']);
+            }
+        });
+
         static::updating(function (Cotacao $quote) {
             // Se a cotação for passada para outro vendedor, o token antigo deixa de valer
             if ($quote->isDirty('representante_id')) {
@@ -54,6 +75,11 @@ class Cotacao extends Model
                 $quote->token_acesso_em = null;
             }
         });
+    }
+
+    public function condicaoPagamento()
+    {
+        return $this->belongsTo(CondicaoPagamento::class, 'condicao_pagamento_id');
     }
 
     public function parceiro()

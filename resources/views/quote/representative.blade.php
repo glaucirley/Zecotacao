@@ -1071,7 +1071,19 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="form-group" style="margin-bottom: 8px;">
                             <label class="form-label" style="font-size: 11px;">Forma de Pagamento</label>
-                            <input type="text" id="forma-pagamento" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="updateConditionsSummaryText()">
+                            <select id="forma-pagamento" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="onFormaPagamentoChange()">
+                                <option value="">Selecione a condição...</option>
+                                @if(isset($condicoesPagamento) && count($condicoesPagamento) > 0)
+                                    @foreach($condicoesPagamento as $cp)
+                                        <option value="{{ $cp->descricao }}" data-id="{{ $cp->id }}" data-cod="{{ $cp->codigo_sankhya }}" data-min="{{ (float)$cp->venda_minima }}" data-max="{{ (float)$cp->venda_maxima }}">
+                                            {{ $cp->descricao }} {{ $cp->venda_minima > 0 ? '(Mín. R$ ' . number_format($cp->venda_minima, 2, ',', '.') . ')' : '' }}
+                                        </option>
+                                    @endforeach
+                                @endif
+                                <option value="__custom__">Outra (digitar manualmente)...</option>
+                            </select>
+                            <input type="text" id="forma-pagamento-custom" class="form-control" style="display: none; margin-top: 6px; padding: 6px 10px; font-size: 12px;" placeholder="Digite a forma de pagamento..." oninput="updateConditionsSummaryText()">
+                            <div id="forma-pagamento-warning" style="display: none; margin-top: 4px; padding: 4px 8px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; font-size: 11px; color: #b45309;"></div>
                         </div>
                         <div class="form-group" style="margin-bottom: 8px;">
                             <label class="form-label" style="font-size: 11px;">Prazo de Entrega</label>
@@ -2157,8 +2169,63 @@
         if (text) text.innerText = isHidden ? "Recolher" : "Ver / Editar";
     }
 
+    function getSelectedFormaPagamentoValue() {
+        const sel = document.getElementById("forma-pagamento");
+        if (!sel) return "";
+        if (sel.value === '__custom__') {
+            const customInput = document.getElementById("forma-pagamento-custom");
+            return customInput ? customInput.value.trim() : "";
+        }
+        return sel.value.trim();
+    }
+
+    function getSelectedCondicaoPagamentoId() {
+        const sel = document.getElementById("forma-pagamento");
+        if (!sel || sel.value === '__custom__' || !sel.value) return null;
+        const opt = sel.options[sel.selectedIndex];
+        if (opt && opt.dataset.id) {
+            return parseInt(opt.dataset.id, 10);
+        }
+        return null;
+    }
+
+    function onFormaPagamentoChange() {
+        const sel = document.getElementById("forma-pagamento");
+        const customInput = document.getElementById("forma-pagamento-custom");
+        const warningEl = document.getElementById("forma-pagamento-warning");
+
+        if (sel.value === '__custom__') {
+            if (customInput) {
+                customInput.style.display = "block";
+                customInput.focus();
+            }
+        } else {
+            if (customInput) {
+                customInput.style.display = "none";
+                customInput.value = "";
+            }
+        }
+
+        // Validação de Valor Mínimo de Venda da Condição
+        if (warningEl) {
+            const opt = sel.options[sel.selectedIndex];
+            const minSale = opt && opt.dataset.min ? parseFloat(opt.dataset.min) : 0;
+            const currentTotal = quote && quote.total ? parseFloat(quote.total) : 0;
+
+            if (minSale > 0 && currentTotal > 0 && currentTotal < minSale) {
+                warningEl.style.display = "block";
+                warningEl.innerHTML = `⚠️ Valor mínimo exigido para esta condição: <strong>R$ ${formatCurrency(minSale)}</strong> (Total atual: R$ ${formatCurrency(currentTotal)}).`;
+            } else {
+                warningEl.style.display = "none";
+                warningEl.innerHTML = "";
+            }
+        }
+
+        updateConditionsSummaryText();
+    }
+
     function updateConditionsSummaryText() {
-        const forma = document.getElementById("forma-pagamento") ? document.getElementById("forma-pagamento").value.trim() : "";
+        const forma = getSelectedFormaPagamentoValue();
         const prazo = document.getElementById("prazo-entrega") ? document.getElementById("prazo-entrega").value.trim() : "";
         const frete = document.getElementById("frete-tipo") ? document.getElementById("frete-tipo").value.trim() : "CIF";
         
@@ -2509,7 +2576,51 @@
         document.getElementById("rep-name").innerText = quote.representante.nome + (quote.representante.equipe ? ` (${quote.representante.equipe.nome})` : '');
 
         // Bind Commercial Conditions
-        document.getElementById("forma-pagamento").value = quote.forma_pagamento || "";
+        const selForma = document.getElementById("forma-pagamento");
+        const customInput = document.getElementById("forma-pagamento-custom");
+        if (selForma) {
+            const currentVal = (quote.forma_pagamento || "").trim();
+            let matched = false;
+
+            if (quote.condicao_pagamento_id) {
+                for (let i = 0; i < selForma.options.length; i++) {
+                    if (selForma.options[i].dataset && selForma.options[i].dataset.id == quote.condicao_pagamento_id) {
+                        selForma.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!matched && currentVal) {
+                for (let i = 0; i < selForma.options.length; i++) {
+                    if (selForma.options[i].value && selForma.options[i].value.toLowerCase() === currentVal.toLowerCase()) {
+                        selForma.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!matched && currentVal) {
+                selForma.value = '__custom__';
+                if (customInput) {
+                    customInput.style.display = "block";
+                    customInput.value = currentVal;
+                }
+            } else if (matched) {
+                if (customInput) {
+                    customInput.style.display = "none";
+                    customInput.value = "";
+                }
+            } else {
+                selForma.value = "";
+                if (customInput) {
+                    customInput.style.display = "none";
+                    customInput.value = "";
+                }
+            }
+        }
         document.getElementById("prazo-entrega").value = quote.prazo_entrega || "";
         document.getElementById("frete-tipo").value = quote.frete_tipo || "CIF";
         document.getElementById("transportadora").value = quote.transportadora || "";
@@ -2523,6 +2634,7 @@
 
         if (isEditingLocked) {
             document.getElementById("forma-pagamento").disabled = true;
+            if (customInput) customInput.disabled = true;
             document.getElementById("prazo-entrega").disabled = true;
             document.getElementById("frete-tipo").disabled = true;
             document.getElementById("transportadora").disabled = true;
@@ -2534,6 +2646,7 @@
             if (menuLost) menuLost.style.display = "none";
         } else {
             document.getElementById("forma-pagamento").disabled = false;
+            if (customInput) customInput.disabled = false;
             document.getElementById("prazo-entrega").disabled = false;
             document.getElementById("frete-tipo").disabled = false;
             document.getElementById("transportadora").disabled = false;
@@ -3609,7 +3722,8 @@
 
         // Collect current values from page
         const payload = {
-            forma_pagamento: document.getElementById("forma-pagamento").value,
+            forma_pagamento: getSelectedFormaPagamentoValue(),
+            condicao_pagamento_id: getSelectedCondicaoPagamentoId(),
             prazo_entrega: document.getElementById("prazo-entrega").value,
             frete_tipo: document.getElementById("frete-tipo").value,
             transportadora: document.getElementById("transportadora").value,

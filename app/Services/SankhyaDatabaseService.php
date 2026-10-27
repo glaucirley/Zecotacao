@@ -582,28 +582,37 @@ class SankhyaDatabaseService
     }
 
     /**
-     * Fetch all payment conditions / negotiation types from Sankhya's TIPONEG_APP view.
+     * Fetch all payment conditions / negotiation types from Sankhya's TIPONEG_APP / VGF_TIPONEG_APP view.
      */
     public function fetchPaymentConditionsFromView(): array
     {
         $conn = $this->connect();
-        try {
-            $stmt = $conn->query("SELECT 
-                CODTIPVENDA,
-                DESCRTIPVENDA,
-                VENDAMIN,
-                VENDAMAX
-              FROM SANKHYA.TIPONEG_APP");
-            return $stmt->fetchAll();
-        } catch (\PDOException $e) {
-            $stmt = $conn->query("SELECT 
-                CODTIPVENDA,
-                DESCRTIPVENDA,
-                VENDAMIN,
-                VENDAMAX
-              FROM TIPONEG_APP");
-            return $stmt->fetchAll();
+        $viewsToTry = [
+            "SANKHYA.TIPONEG_APP",
+            "TIPONEG_APP",
+            "SANKHYA.VGF_TIPONEG_APP",
+            "VGF_TIPONEG_APP",
+        ];
+
+        foreach ($viewsToTry as $viewName) {
+            try {
+                $stmt = $conn->query("SELECT 
+                    CODTIPVENDA,
+                    DESCRTIPVENDA,
+                    VENDAMIN,
+                    VENDAMAX
+                  FROM {$viewName}");
+                $rows = $stmt->fetchAll();
+                if ($rows !== false) {
+                    return $rows;
+                }
+            } catch (\PDOException $e) {
+                // Try next view name
+            }
         }
+
+        Log::warning("Sankhya Service - Failed to query payment conditions from TIPONEG_APP or VGF_TIPONEG_APP.");
+        return [];
     }
 
     /**
@@ -613,15 +622,18 @@ class SankhyaDatabaseService
     {
         $count = 0;
         foreach ($rows as $row) {
-            $codTipVenda = (string)($row['CODTIPVENDA'] ?? $row['codtipvenda']);
-            $descricao = $row['DESCRTIPVENDA'] ?? $row['descrtipvenda'] ?? ('Condição ' . $codTipVenda);
+            $codTipVenda = (string)($row['CODTIPVENDA'] ?? $row['codtipvenda'] ?? $row['CodTipVenda'] ?? '');
+            if (empty($codTipVenda)) {
+                continue;
+            }
+            $descricao = trim((string)($row['DESCRTIPVENDA'] ?? $row['descrtipvenda'] ?? $row['DescrTipVenda'] ?? ('Condição ' . $codTipVenda)));
 
             CondicaoPagamento::updateOrCreate(
                 ['codigo_sankhya' => $codTipVenda],
                 [
                     'descricao'    => $descricao,
-                    'venda_minima' => (float)($row['VENDAMIN'] ?? $row['vendamin'] ?? 0),
-                    'venda_maxima' => (float)($row['VENDAMAX'] ?? $row['vendamax'] ?? 0),
+                    'venda_minima' => (float)($row['VENDAMIN'] ?? $row['vendamin'] ?? $row['VendaMin'] ?? 0),
+                    'venda_maxima' => (float)($row['VENDAMAX'] ?? $row['vendamax'] ?? $row['VendaMax'] ?? 0),
                     'ativa'        => true,
                 ]
             );

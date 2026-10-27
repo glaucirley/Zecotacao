@@ -194,6 +194,7 @@ class QuoteController extends Controller
             'parceiro_id' => 'required|exists:parceiros,id',
             'representante_id' => 'required|exists:usuarios,id',
             'forma_pagamento' => 'nullable|string',
+            'condicao_pagamento_id' => 'nullable|integer',
             'prazo_entrega' => 'nullable|string',
             'frete_tipo' => 'nullable|in:CIF,FOB',
             'observacao_cliente' => 'nullable|string',
@@ -233,6 +234,7 @@ class QuoteController extends Controller
                     'validade_horas' => $hours,
                     'data_validade' => now()->addHours($hours),
                     'forma_pagamento' => $request->input('forma_pagamento', 'A combinar'),
+                    'condicao_pagamento_id' => $request->input('condicao_pagamento_id'),
                     'prazo_entrega' => $request->input('prazo_entrega', '3 dias'),
                     'frete_tipo' => $request->input('frete_tipo', 'CIF'),
                     'observacao_cliente' => $request->input('observacao_cliente'),
@@ -464,6 +466,7 @@ class QuoteController extends Controller
 
         $validator = Validator::make($request->all(), [
             'forma_pagamento' => 'nullable|string',
+            'condicao_pagamento_id' => 'nullable|integer',
             'prazo_entrega' => 'nullable|string',
             'frete_tipo' => 'nullable|in:CIF,FOB',
             'transportadora' => 'nullable|string',
@@ -503,6 +506,7 @@ class QuoteController extends Controller
                 // Update quote fields
                 $quote->fill($request->only([
                     'forma_pagamento',
+                    'condicao_pagamento_id',
                     'prazo_entrega',
                     'frete_tipo',
                     'transportadora',

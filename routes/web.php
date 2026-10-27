@@ -234,10 +234,15 @@ Route::middleware('auth')->group(function () {
             \Illuminate\Support\Facades\Log::warning("Erro ao hidratar relações iniciais da cotação ID {$quote->id}: " . $e->getMessage());
         }
 
+        $condicoesPagamento = \App\Models\CondicaoPagamento::where('ativa', true)
+            ->orderBy('descricao')
+            ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
+
         return view('quote.representative', [
             'quoteId' => $quote->id,
             'quote' => $quote,
             'initialQuoteJson' => $quote->toJson(),
+            'condicoesPagamento' => $condicoesPagamento,
             'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
             'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
         ]);
