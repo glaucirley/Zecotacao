@@ -42,6 +42,8 @@ class CleanQuotesCommand extends Command
             'cotacao_vinculo_itens',
             'cotacao_historico',
             'cotacao_itens',
+            'cotacao_envios',
+            'cliente_contatos',
             'pedidos_externos',
             'cotacoes',
             'chat_mensagens',
