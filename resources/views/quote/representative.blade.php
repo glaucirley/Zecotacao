@@ -195,6 +195,112 @@
         padding: 0 !important;
         font-weight: 600;
         font-size: 14px;
+        text-align: center;
+        -moz-appearance: textfield;
+    }
+    .qty-stepper .qty-input::-webkit-outer-spin-button,
+    .qty-stepper .qty-input::-webkit-inner-spin-button,
+    .price-stepper .price-input::-webkit-outer-spin-button,
+    .price-stepper .price-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    /* Stepper Price Control (Opção C: Incremento de R$ 1,00) */
+    .price-stepper {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #ffffff;
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .price-stepper.price-below-min {
+        border-color: #fca5a5 !important;
+        background: #fff5f5 !important;
+    }
+    .price-stepper .price-btn {
+        border: none;
+        background: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+        font-size: 15px;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .price-stepper .price-btn:hover:not(:disabled) {
+        background: #e2e8f0;
+    }
+    .price-stepper .price-btn:active:not(:disabled) {
+        background: #cbd5e1;
+    }
+    .price-stepper .price-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .price-stepper .price-prefix {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #64748b;
+        padding-left: 6px;
+        user-select: none;
+        flex-shrink: 0;
+    }
+    .price-stepper .price-input {
+        border: none !important;
+        background: transparent !important;
+        width: 62px !important;
+        height: 32px !important;
+        padding: 0 4px !important;
+        font-weight: 700;
+        font-size: 13.5px;
+        color: #0f172a;
+        text-align: left;
+        outline: none !important;
+        box-shadow: none !important;
+        -moz-appearance: textfield;
+    }
+
+    /* Clickable benchmark chips for 1-touch price adjustment */
+    .benchmark-chip-btn {
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 600;
+        border: 1px solid #e2e8f0;
+        transition: all 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        user-select: none;
+        font-size: 11px;
+    }
+    .benchmark-chip-btn:hover {
+        background: #e2e8f0;
+        color: #1e293b;
+        border-color: #cbd5e1;
+    }
+    .benchmark-chip-btn:active {
+        transform: scale(0.96);
+    }
+    .benchmark-chip-btn.chip-min {
+        color: #0284c7;
+        background: #f0f9ff;
+        border-color: #bae6fd;
+    }
+    .benchmark-chip-btn.chip-min:hover {
+        background: #e0f2fe;
+        color: #0369a1;
     }
 
     .btn-min-fix {
@@ -2755,6 +2861,31 @@
         renderItems();
     }
 
+    function stepPrice(itemId, delta = 1.00) {
+        if (isEditingLocked) {
+            showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.", 'warning');
+            return;
+        }
+        const item = quote.itens.find(i => i.id === itemId);
+        if (!item) return;
+        const current = parseFloat(item.preco_unit_proposto) || 0;
+        const updated = Math.max(0.01, parseFloat((current + delta).toFixed(2)));
+        updateItemCalculations(itemId, null, updated);
+        renderItems();
+    }
+
+    function setProposedPrice(itemId, exactPrice) {
+        if (isEditingLocked) {
+            showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.", 'warning');
+            return;
+        }
+        const item = quote.itens.find(i => i.id === itemId);
+        if (!item) return;
+        const price = Math.max(0.01, parseFloat(parseFloat(exactPrice || 0).toFixed(2)));
+        updateItemCalculations(itemId, null, price);
+        renderItems();
+    }
+
     function formatCurrency(val) {
         const num = typeof val === 'number' ? val : parseFloat(val || 0);
         return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -3312,11 +3443,16 @@
                                         </button>
                                     ` : `<span style="font-size:12px; color:#be123c; font-weight:700;">Não cotado</span>`
                                 ) : (!isItemLocked ? `
-                                    <div class="item-price-proposto-wrap">
-                                        <span class="price-currency">R$</span>
-                                        <input type="number" class="price-input ${isBelowMin ? 'price-below-min' : ''}" 
-                                            value="${propPrice.toFixed(2)}" step="0.01" min="0.01" inputmode="decimal"
-                                            oninput="updateItemCalculations(${item.id}, null, this.value)">
+                                    <div class="item-price-proposto-wrap" style="display:flex; align-items:center; gap:6px;">
+                                        <div class="price-stepper ${isBelowMin ? 'price-below-min' : ''}">
+                                            <button type="button" class="price-btn" onclick="stepPrice(${item.id}, -1.00)" title="Diminuir R$ 1,00">–</button>
+                                            <span class="price-prefix">R$</span>
+                                            <input type="number" class="price-input" 
+                                                value="${propPrice.toFixed(2)}" step="0.01" min="0.01" inputmode="decimal"
+                                                onfocus="this.select()"
+                                                oninput="updateItemCalculations(${item.id}, null, this.value)">
+                                            <button type="button" class="price-btn" onclick="stepPrice(${item.id}, 1.00)" title="Aumentar R$ 1,00">+</button>
+                                        </div>
                                         ${isBelowMin ? `
                                             <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px; font-weight:700; color:#dc2626; border-color:#fca5a5; background:#fff1f2; border-radius:6px;" onclick="resetToMin(${item.id}, ${minEf})">Mín</button>
                                         ` : ''}
@@ -3334,11 +3470,19 @@
                                 <div class="item-benchmarks">
                                     ${isUnfound ? `
                                         <span style="color:#be123c; font-weight:600;">Selecione o item equivalente no catálogo para definir preço</span>
+                                    ` : (!isItemLocked ? `
+                                        <button type="button" class="benchmark-chip-btn" onclick="setProposedPrice(${item.id}, ${parseFloat(item.preco_unit_sugerido || 0)})" title="Toque para aplicar o Preço Sugerido">
+                                            Sug. R$ ${formatCurrency(item.preco_unit_sugerido)}
+                                        </button>
+                                        <span style="color:#cbd5e1; margin: 0 2px;">·</span>
+                                        <button type="button" class="benchmark-chip-btn chip-min" onclick="setProposedPrice(${item.id}, ${minEf})" title="Toque para aplicar o Preço Mínimo">
+                                            Mín. R$ ${formatCurrency(item.preco_minimo)}
+                                        </button>
                                     ` : `
                                         <span>Sug. R$ ${formatCurrency(item.preco_unit_sugerido)}</span>
                                         <span>·</span>
                                         <span>Mín. R$ ${formatCurrency(item.preco_minimo)}</span>
-                                    `}
+                                    `)}
                                 </div>
                                 <div id="price-tag-wrap-${item.id}">
                                     ${isRejected ? `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">Desconsiderado do total</span>` : priceTagHtml}
@@ -3388,14 +3532,17 @@
         const card = document.getElementById(`card-item-${itemId}`);
         if (card) {
             const inputPrice = card.querySelector(".price-input");
+            const priceStepper = card.querySelector(".price-stepper");
             const minEf = getItemEffectiveMin(item);
             const isBelowMin = parseFloat(item.preco_unit_proposto) < minEf;
             
             if (isBelowMin) {
                 if (inputPrice) inputPrice.classList.add("price-below-min");
+                if (priceStepper) priceStepper.classList.add("price-below-min");
                 card.classList.add("below-min-card");
             } else {
                 if (inputPrice) inputPrice.classList.remove("price-below-min");
+                if (priceStepper) priceStepper.classList.remove("price-below-min");
                 card.classList.remove("below-min-card");
             }
         }

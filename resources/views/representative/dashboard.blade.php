@@ -3249,6 +3249,14 @@
             renderCartTotalOnly();
         }
 
+        function updateCartPriceStep(index, delta) {
+            if (!quoteCartItems[index]) return;
+            const current = parseFloat(quoteCartItems[index].price) || 0;
+            const updated = Math.max(0.01, parseFloat((current + delta).toFixed(2)));
+            quoteCartItems[index].price = updated;
+            renderCart();
+        }
+
         function removeFromCart(index) {
             if (!quoteCartItems[index]) return;
             const prodId = quoteCartItems[index].product_id;
@@ -3345,8 +3353,12 @@
                                     <button type="button" class="btn-stepper" onclick="updateCartQty(${index}, 1)">+</button>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:4px;">
-                                    <span style="font-size:11px; color:var(--color-text-muted); font-weight:600;">R$/un:</span>
-                                    <input type="number" step="0.01" value="${item.price.toFixed(2)}" inputmode="decimal" oninput="updateCartPrice(${index}, this.value)" style="width:78px; padding:4px 6px; border:1px solid var(--color-border); border-radius:6px; font-size:12px; font-weight:700; text-align:right;">
+                                    <span style="font-size:11px; color:var(--color-text-muted); font-weight:700;">R$:</span>
+                                    <div class="qty-stepper" style="display:flex; align-items:center; gap:2px; background:#fff;">
+                                        <button type="button" class="btn-stepper" onclick="updateCartPriceStep(${index}, -1)" title="Diminuir R$ 1,00">-</button>
+                                        <input type="number" step="0.01" min="0.01" value="${item.price.toFixed(2)}" inputmode="decimal" onfocus="this.select()" oninput="updateCartPrice(${index}, this.value)" style="width:64px; text-align:center; font-weight:800; font-size:12px; border:1px solid #cbd5e1; border-radius:6px; padding:3px 2px;">
+                                        <button type="button" class="btn-stepper" onclick="updateCartPriceStep(${index}, 1)" title="Aumentar R$ 1,00">+</button>
+                                    </div>
                                 </div>
                             </div>
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:4px; border-top:1px dashed #e2e8f0;">
