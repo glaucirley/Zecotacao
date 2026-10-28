@@ -318,15 +318,15 @@ class SankhyaDatabaseService
         $conn = $this->connect();
 
         try {
-            return $conn->query("SELECT CODVEND, APELIDO, EMAIL, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND TIPVEND = 'R'")->fetchAll();
+            return $conn->query("SELECT CODVEND, APELIDO, EMAIL, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE ATIVO = 'S'")->fetchAll();
         } catch (\PDOException $e1) {
             try {
-                return $conn->query("SELECT CODVEND, APELIDO, EMAIL, AD_TELEFONE AS TELEFONE FROM TGFVEN WHERE ATIVO = 'S' AND TIPVEND = 'R'")->fetchAll();
+                return $conn->query("SELECT CODVEND, APELIDO, EMAIL, AD_TELEFONE AS TELEFONE FROM TGFVEN WHERE ATIVO = 'S'")->fetchAll();
             } catch (\PDOException $e2) {
                 try {
-                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND TIPVEND = 'R'")->fetchAll();
+                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM SANKHYA.TGFVEN WHERE ATIVO = 'S'")->fetchAll();
                 } catch (\PDOException $e3) {
-                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM TGFVEN WHERE ATIVO = 'S' AND TIPVEND = 'R'")->fetchAll();
+                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM TGFVEN WHERE ATIVO = 'S'")->fetchAll();
                 }
             }
         }
