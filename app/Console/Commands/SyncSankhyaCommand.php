@@ -78,9 +78,13 @@ class SyncSankhyaCommand extends Command
                 $reps = $db->fetchRepresentatives();
                 $this->output->progressStart(count($reps));
                 $repSuccess = 0;
+                $activeCodes = [];
                 foreach ($reps as $r) {
                     try {
-                        $db->saveRepresentativeFromRow($r);
+                        $u = $db->saveRepresentativeFromRow($r);
+                        if (!empty($u->codigo_sankhya)) {
+                            $activeCodes[] = (string)$u->codigo_sankhya;
+                        }
                         $repSuccess++;
                     } catch (\Throwable $e) {
                         // Log row failure and continue
@@ -89,6 +93,17 @@ class SyncSankhyaCommand extends Command
                 }
                 $this->output->progressFinish();
                 $this->info("Synced {$repSuccess}/" . count($reps) . " representatives successfully.");
+
+                if (!empty($activeCodes)) {
+                    $deactivated = User::where('papel', 'representante')
+                        ->whereNotNull('codigo_sankhya')
+                        ->whereNotIn('codigo_sankhya', $activeCodes)
+                        ->where('ativo', true)
+                        ->update(['ativo' => false]);
+                    if ($deactivated > 0) {
+                        $this->warn("Inativados {$deactivated} representante(s) que não possuem AD_ATVCOT = 'S' ou ATIVO = 'S'.");
+                    }
+                }
             }
 
             if (in_array($type, ['all', 'prices', 'tabelas'])) {

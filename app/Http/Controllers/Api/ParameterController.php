@@ -226,7 +226,20 @@ class ParameterController extends Controller
             // 3. Sync Representatives (Sellers)
             try {
                 $reps = $db->fetchRepresentatives();
-                foreach ($reps as $r) { $db->saveRepresentativeFromRow($r); }
+                $activeCodes = [];
+                foreach ($reps as $r) {
+                    $u = $db->saveRepresentativeFromRow($r);
+                    if (!empty($u->codigo_sankhya)) {
+                        $activeCodes[] = (string)$u->codigo_sankhya;
+                    }
+                }
+                if (!empty($activeCodes)) {
+                    \App\Models\User::where('papel', 'representante')
+                        ->whereNotNull('codigo_sankhya')
+                        ->whereNotIn('codigo_sankhya', $activeCodes)
+                        ->where('ativo', true)
+                        ->update(['ativo' => false]);
+                }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error("Async Sync Reps Error: " . $e->getMessage());
             }
