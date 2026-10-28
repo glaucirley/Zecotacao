@@ -466,6 +466,7 @@ class QuoteController extends Controller
 
         $validator = Validator::make($request->all(), [
             'forma_pagamento' => 'nullable|string',
+            'parceiro_id' => 'nullable|integer|exists:parceiros,id',
             'condicao_pagamento_id' => 'nullable|integer',
             'prazo_entrega' => 'nullable|string',
             'frete_tipo' => 'nullable|in:CIF,FOB',
@@ -505,6 +506,7 @@ class QuoteController extends Controller
 
                 // Update quote fields
                 $quote->fill($request->only([
+                    'parceiro_id',
                     'forma_pagamento',
                     'condicao_pagamento_id',
                     'prazo_entrega',

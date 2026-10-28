@@ -440,7 +440,15 @@
                 </p>
                 <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; text-align: left; max-width: 440px; margin: 0 auto;">
                     <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Cliente</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark); margin-bottom: 10px;">{{ $quote->parceiro->razao_social }}</div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark); margin-bottom: 10px;">
+                        {{ $quote->parceiro->nome_fantasia ?: $quote->parceiro->razao_social }}
+                        @if($quote->parceiro->nome_fantasia && $quote->parceiro->nome_fantasia !== $quote->parceiro->razao_social)
+                            <div style="font-size: 11.5px; font-weight: 500; color: #64748b;">{{ $quote->parceiro->razao_social }}</div>
+                        @endif
+                        @if(!empty($envio?->nome_contato_snapshot) && $envio->nome_contato_snapshot !== 'Cliente')
+                            <div style="font-size: 11.5px; font-weight: 600; color: #2563eb; margin-top: 3px;">A/C: {{ $envio->nome_contato_snapshot }}</div>
+                        @endif
+                    </div>
                     <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Representante Comercial</div>
                     <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark);">{{ $quote->representante->nome }}</div>
                 </div>
@@ -478,8 +486,16 @@
                 </h2>
                 <div class="info-grid">
                     <div class="info-item">
-                        <span class="info-label">Razão Social / Nome</span>
-                        <span class="info-value">{{ $quote->parceiro->razao_social }}</span>
+                        <span class="info-label">Cliente / Razão Social</span>
+                        <span class="info-value">
+                            <strong>{{ $quote->parceiro->nome_fantasia ?: $quote->parceiro->razao_social }}</strong>
+                            @if($quote->parceiro->nome_fantasia && $quote->parceiro->nome_fantasia !== $quote->parceiro->razao_social)
+                                <br><span style="font-size: 11.5px; color: #64748b; font-weight: normal;">{{ $quote->parceiro->razao_social }}</span>
+                            @endif
+                            @if(!empty($envio?->nome_contato_snapshot) && $envio->nome_contato_snapshot !== 'Cliente')
+                                <br><span style="font-size: 11.5px; color: #2563eb; font-weight: 600;">Aos cuidados de: {{ $envio->nome_contato_snapshot }}</span>
+                            @endif
+                        </span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">CNPJ / CPF</span>

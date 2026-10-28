@@ -144,6 +144,7 @@ class QuoteDeliveryController extends Controller
                 'validade' => $quote->data_validade?->format('d/m/Y H:i'),
                 'parceiro' => [
                     'id' => $quote->parceiro?->id,
+                    'nome_fantasia' => $quote->parceiro?->nome_fantasia,
                     'razao_social' => $quote->parceiro?->razao_social ?? 'Cliente',
                     'codigo_sankhya' => $quote->parceiro?->codigo_sankhya,
                 ],

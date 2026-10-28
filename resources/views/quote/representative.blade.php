@@ -1436,6 +1436,17 @@
             </div>
         </div>
 
+        <!-- Nome do Destinatário na Mensagem -->
+        <div style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #475569; display: block; margin-bottom: 4px;">
+                Nome do Destinatário na Mensagem
+            </label>
+            <input type="text" id="send-contact-display-name" class="form-control" placeholder="Ex: Roberto / Comprador" style="font-size: 13px;" oninput="onRecipientNameInput(this.value)">
+            <small style="display: block; margin-top: 3px; font-size: 11px; color: #64748b;">
+                Nome usado na saudação "Olá [Nome]," da mensagem e na proposta.
+            </small>
+        </div>
+
         <!-- Prévia da Mensagem -->
         <div style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -2680,7 +2691,9 @@
         }
         const locationText = (clientCity || rawClientUf) ? `${clientCity}${clientCity && rawClientUf ? '/' : ''}${rawClientUf}` : 'Não informada';
 
-        document.getElementById("client-name").innerText = quote.parceiro.razao_social;
+        document.getElementById("client-name").innerText = (quote.parceiro && quote.parceiro.nome_fantasia && quote.parceiro.nome_fantasia !== quote.parceiro.razao_social)
+            ? `${quote.parceiro.nome_fantasia} (${quote.parceiro.razao_social})`
+            : (quote.parceiro ? (quote.parceiro.nome_fantasia || quote.parceiro.razao_social) : 'Cliente');
         document.getElementById("client-cnpj").innerText = "CNPJ/CPF: " + (quote.parceiro.cnpj || 'Não cadastrado');
         document.getElementById("client-location").innerText = locationText;
         document.getElementById("client-contact").innerText = (quote.parceiro.telefone || quote.parceiro.email || 'Não informado');
@@ -4396,7 +4409,40 @@
     // PROPOSAL DELIVERY & WHATSAPP TRACKING FLOW
     // ==========================================
     let sendDeliveryContacts = [];
+    let sendDeliveryTemplate = '';
     let selectedContactId = null;
+
+    function updateSendMessagePreviewWithName(recipientName) {
+        const previewTextarea = document.getElementById("send-message-preview");
+        if (!previewTextarea) return;
+        const name = (recipientName || '').trim() || (quote?.parceiro?.nome_fantasia || quote?.parceiro?.razao_social || 'Cliente');
+        if (sendDeliveryTemplate && sendDeliveryTemplate.includes('{nome_contato}')) {
+            let msg = sendDeliveryTemplate.replace(/{nome_contato}/g, name);
+            msg = msg.replace(/{nome_representante}/g, quote.representante?.nome || 'Representante');
+            msg = msg.replace(/{numero_cotacao}/g, quote.numero);
+            const totalFmt = (quote.total ? parseFloat(quote.total) : 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            msg = msg.replace(/{total}/g, totalFmt);
+            const validadeFmt = quote.data_validade ? new Date(quote.data_validade).toLocaleDateString('pt-BR') : '';
+            msg = msg.replace(/{validade}/g, validadeFmt);
+            msg = msg.replace(/{link}/g, '🔗 link da proposta');
+            previewTextarea.value = normalizeCurrencyInText(msg);
+        } else {
+            let currentText = previewTextarea.value;
+            if (/^(Olá|Ola)\s+[^,\n]+,/i.test(currentText)) {
+                previewTextarea.value = currentText.replace(/^(Olá|Ola)\s+[^,\n]+,/i, `Olá ${name},`);
+            } else if (currentText.includes('{nome_contato}')) {
+                previewTextarea.value = currentText.replace(/{nome_contato}/g, name);
+            }
+        }
+    }
+
+    function onRecipientNameInput(val) {
+        const customNameInput = document.getElementById("send-custom-name");
+        if (selectedContactId === 'outro' && customNameInput) {
+            customNameInput.value = val;
+        }
+        updateSendMessagePreviewWithName(val);
+    }
 
     function formatPhoneNumber(phone) {
         if (!phone) return '';
@@ -4533,9 +4579,19 @@
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
                 sendDeliveryContacts = data.contatos || [];
+                sendDeliveryTemplate = data.template_mensagem || '';
                 renderSendContactsList(sendDeliveryContacts);
+                const sug = sendDeliveryContacts.find(x => x.is_sugerido) || sendDeliveryContacts[0];
+                const initialName = sug ? sug.nome_contato : (quote.parceiro?.nome_fantasia || quote.parceiro?.razao_social || '');
+                const displayInput = document.getElementById("send-contact-display-name");
+                if (displayInput) {
+                    displayInput.value = initialName;
+                }
                 if (previewTextarea && data.previa_mensagem) {
                     previewTextarea.value = normalizeCurrencyInText(data.previa_mensagem);
+                }
+                if (initialName) {
+                    updateSendMessagePreviewWithName(initialName);
                 }
                 const customNameInput = document.getElementById("send-custom-name");
                 if (customNameInput && quote && quote.parceiro) {
@@ -4719,16 +4775,26 @@
         }
 
         const customBox = document.getElementById("send-custom-contact-box");
+        const displayInput = document.getElementById("send-contact-display-name");
         if (val === 'outro') {
             customBox.style.display = "block";
             const customNameInput = document.getElementById("send-custom-name");
-            if (customNameInput && !customNameInput.value && quote && quote.parceiro) {
-                customNameInput.value = quote.parceiro.nome_fantasia || quote.parceiro.razao_social || '';
+            const defaultName = (quote?.parceiro?.nome_fantasia || quote?.parceiro?.razao_social || '');
+            if (customNameInput && !customNameInput.value) {
+                customNameInput.value = defaultName;
             }
+            const activeName = (customNameInput ? customNameInput.value : '') || defaultName;
+            if (displayInput) displayInput.value = activeName;
+            updateSendMessagePreviewWithName(activeName);
             validateSendContactForm(false);
             document.getElementById("send-custom-phone")?.focus();
         } else {
             customBox.style.display = "none";
+            const c = sendDeliveryContacts.find(x => String(x._key || x.id) === String(val))
+                   || sendDeliveryContacts.find(x => String(x.id) === String(val));
+            const contactName = c ? c.nome_contato : (quote?.parceiro?.nome_fantasia || quote?.parceiro?.razao_social || '');
+            if (displayInput) displayInput.value = contactName;
+            updateSendMessagePreviewWithName(contactName);
             validateSendContactForm(false);
         }
     }
@@ -4749,7 +4815,10 @@
     }
 
     function onCustomContactInput() {
-        // optionally update preview with name
+        const customName = document.getElementById("send-custom-name")?.value || '';
+        const displayInput = document.getElementById("send-contact-display-name");
+        if (displayInput) displayInput.value = customName;
+        updateSendMessagePreviewWithName(customName);
     }
 
     async function submitSendQuote(canal) {
@@ -4770,11 +4839,12 @@
 
             const checkedRadio = document.querySelector('input[name="delivery_contact_choice"]:checked');
             const activeChoice = checkedRadio ? checkedRadio.value : (selectedContactId || (sendDeliveryContacts.length ? (sendDeliveryContacts[0]._key || sendDeliveryContacts[0].id) : 'outro'));
+            const displayName = document.getElementById("send-contact-display-name")?.value?.trim();
 
             if (activeChoice === 'outro' || !sendDeliveryContacts || sendDeliveryContacts.length === 0) {
                 const rawPhone = document.getElementById("send-custom-phone")?.value || '';
                 const fallbackName = (quote?.parceiro?.nome_fantasia || quote?.parceiro?.razao_social || 'Cliente');
-                const contactName = document.getElementById("send-custom-name")?.value?.trim() || fallbackName;
+                const contactName = displayName || document.getElementById("send-custom-name")?.value?.trim() || fallbackName;
                 const digits = rawPhone.replace(/\D/g, '');
                 
                 payload.telefone = digits;
@@ -4788,7 +4858,7 @@
                         payload.contato_id = Number(c.id);
                     }
                     payload.telefone = c.telefone;
-                    payload.nome_contato = c.nome_contato;
+                    payload.nome_contato = displayName || c.nome_contato;
                 }
             }
 

@@ -235,8 +235,10 @@ class QuoteDeliveryService
             ? $quote->data_validade->format('d/m/Y') 
             : now()->addHours($quote->validade_horas ?: 24)->format('d/m/Y');
 
+        $effectiveContactName = $contactName ?: ($partnerDefaultName ?: 'Cliente');
+
         $replacements = [
-            '{nome_contato}' => $contactName ?: 'Cliente',
+            '{nome_contato}' => $effectiveContactName,
             '{nome_representante}' => $repNome,
             '{numero_cotacao}' => $quote->numero,
             '{total}' => $totalFormatted,
@@ -263,6 +265,12 @@ class QuoteDeliveryService
             }
             if (!$replaced && !str_contains($mensagemFinal, $linkProposta)) {
                 $mensagemFinal .= "\n\n" . $linkProposta;
+            }
+
+            // Garante que o nome do contato correto esteja na saudação da mensagem
+            if (!empty($contactName) && $contactName !== 'Cliente') {
+                $mensagemFinal = str_replace('{nome_contato}', $contactName, $mensagemFinal);
+                $mensagemFinal = preg_replace('/^(Olá|Ola)\s+[^,\n]+,/i', "Olá {$contactName},", $mensagemFinal);
             }
         } else {
             $mensagemFinal = str_replace(array_keys($replacements), array_values($replacements), $template);
@@ -297,7 +305,9 @@ class QuoteDeliveryService
                     ]);
 
                     $effectiveName = $contactName ?: ($contato->nome_contato ?: ($partnerDefaultName ?: 'Cliente'));
-                    if (empty($contato->nome_contato) && !empty($effectiveName)) {
+                    if (!empty($contactName)) {
+                        $contato->nome_contato = $contactName;
+                    } elseif (empty($contato->nome_contato) && !empty($effectiveName)) {
                         $contato->nome_contato = $effectiveName;
                     }
 
@@ -312,6 +322,9 @@ class QuoteDeliveryService
                     $contato->ultimo_envio_em = now();
                     $contato->save();
                 } elseif ($contato) {
+                    if (!empty($contactName) && $contactName !== 'Cliente') {
+                        $contato->nome_contato = $contactName;
+                    }
                     $contato->qtd_envios = ($contato->qtd_envios ?? 0) + 1;
                     $contato->ultimo_envio_em = now();
                     $contato->save();
