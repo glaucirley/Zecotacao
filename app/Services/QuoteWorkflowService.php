@@ -297,30 +297,11 @@ class QuoteWorkflowService
         $autoApproveReason = '';
 
         if (!$hasItemsBelowMin) {
-            if ($regraLiberacao === 'PRECO_MINIMO') {
-                $canAutoApprove = true;
-                $autoApproveReason = sprintf(
-                    'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo (Regra: PRECO_MINIMO. Desconto aplicado: %.2f%%).',
-                    $calculatedDiscount
-                );
-            } else {
-                // Default: ALCADA_REPRESENTANTE (Regra A)
-                if ($calculatedDiscount <= $repLimit) {
-                    $canAutoApprove = true;
-                    $autoApproveReason = $calculatedDiscount > 0
-                        ? sprintf(
-                            'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo e o desconto aplicado (%.2f%%) está dentro da alçada comercial do representante (%s: %.2f%%).',
-                            $calculatedDiscount,
-                            $representante?->nome ?? 'Representante',
-                            $repLimit
-                        )
-                        : sprintf(
-                            'Liberada automaticamente pelo sistema: cotação sem desconto adicional nos itens (preço sugerido/tabela mantido) e acima do preço mínimo (Alçada do representante %s: %.2f%%).',
-                            $representante?->nome ?? 'Representante',
-                            $repLimit
-                        );
-                }
-            }
+            $canAutoApprove = true;
+            $autoApproveReason = sprintf(
+                'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo (Desconto aplicado: %.2f%%).',
+                $calculatedDiscount
+            );
         }
 
         // 4. Auto-approve if permitted
@@ -342,11 +323,7 @@ class QuoteWorkflowService
                 'condicao' => $autoApproveReason,
             ]);
 
-            $autoApproveMsg = ($regraLiberacao === 'PRECO_MINIMO')
-                ? 'Aprovada automaticamente: todos os itens respeitam o preço mínimo. O envio ao cliente já está liberado!'
-                : (($calculatedDiscount <= 0)
-                    ? 'Aprovada automaticamente: sem desconto, não precisa de gestor. O envio ao cliente já está liberado!'
-                    : sprintf('Aprovada automaticamente: desconto de %.2f%% dentro da sua alçada (até %.2f%%), não precisa de gestor.', $calculatedDiscount, $repLimit));
+            $autoApproveMsg = 'Aprovada automaticamente: todos os itens respeitam o preço mínimo. O envio ao cliente já está liberado!';
 
             return [
                 'success' => true,
@@ -356,10 +333,8 @@ class QuoteWorkflowService
             ];
         }
 
-        // 5. Quote requires manual approval! Check justification requirements if below min or discount exceeds allowance
-        $requiresApproval = ($regraLiberacao === 'PRECO_MINIMO')
-            ? $hasItemsBelowMin
-            : ($hasItemsBelowMin || $calculatedDiscount > $repLimit);
+        // 5. Quote requires manual approval ONLY if items below minimum
+        $requiresApproval = $hasItemsBelowMin;
         if ($requiresApproval) {
             $exigeAnexo = filter_var(ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN);
             $hasJustification = $quote->justificativas()

@@ -2489,9 +2489,7 @@
             : 0;
 
         const effectiveDiscount = Math.max(maxItemDiscount, quoteDiscount);
-        const isAboveRepLimit = effectiveDiscount > (repLimit + 0.0001);
-        const isPrecoMinimoRule = (typeof REGRA_LIBERACAO_DESCONTO !== 'undefined' ? REGRA_LIBERACAO_DESCONTO : 'PRECO_MINIMO') === 'PRECO_MINIMO';
-        const requiresApproval = isPrecoMinimoRule ? hasItemBelowMin : (hasItemBelowMin || isAboveRepLimit);
+        const requiresApproval = hasItemBelowMin;
 
         return {
             hasPriceDifference,
@@ -2988,21 +2986,7 @@
         if (propPrice < sugPrice) {
             const discount = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100) : 0;
             const perc = discount.toFixed(1).replace('.', ',');
-
-            const isPrecoMinimoRule = (typeof REGRA_LIBERACAO_DESCONTO !== 'undefined' ? REGRA_LIBERACAO_DESCONTO : 'PRECO_MINIMO') === 'PRECO_MINIMO';
-            if (isPrecoMinimoRule) {
-                return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">−${perc}% · Acima do mínimo (Liberado)</span>`;
-            }
-
-            if (discount <= (repLimit + 0.0001)) {
-                return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">−${perc}% · Liberado na sua alçada</span>`;
-            } else if (isPendingApprovalQueue) {
-                return `<span class="badge-price-tag tag-below-min" style="background:#fffbeb; color:#b45309; border:1px solid #fcd34d; font-weight:600;">−${perc}% · ${pendingDestLabel}</span>`;
-            } else if (hasGestor && discount <= (gestorLimit + 0.0001)) {
-                return `<span class="badge-price-tag tag-below-min" style="background:#fffbeb; color:#b45309; border:1px solid #fcd34d; font-weight:600;">−${perc}% · Acima da sua alçada, vai para o gestor</span>`;
-            } else {
-                return `<span class="badge-price-tag tag-below-min" style="background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600;">−${perc}% · Acima da sua alçada, vai para a diretoria</span>`;
-            }
+            return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">−${perc}% · Preço liberado (Dentro do mínimo)</span>`;
         } else {
             const perc = sugPrice > 0 ? (((propPrice - sugPrice) / sugPrice) * 100).toFixed(1).replace('.', ',') : '0';
             return `<span class="badge-price-tag tag-above">+${perc}%</span>`;
