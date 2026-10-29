@@ -251,6 +251,7 @@ Route::middleware('auth')->group(function () {
             'condicoesPagamento' => $condicoesPagamento,
             'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
             'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
+            'regraLiberacao' => \App\Models\ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'PRECO_MINIMO'),
         ]);
     });
     

@@ -1525,6 +1525,7 @@
     const API_URL = "{{ url('/api/v1') }}";
     const QUOTE_BASE_URL = TOKEN ? `${API_URL}/cotacoes/token/${encodeURIComponent(TOKEN)}` : `${API_URL}/cotacoes/${QUOTE_ID}`;
     let EXIGE_ANEXO_JUSTIFICATIVA = {{ isset($exigeAnexo) ? ($exigeAnexo ? 'true' : 'false') : (\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true) ? 'true' : 'false') }};
+    let REGRA_LIBERACAO_DESCONTO = "{{ isset($regraLiberacao) ? $regraLiberacao : \App\Models\ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'PRECO_MINIMO') }}";
     let quote = null;
     let productsList = [];
     let isEditingLocked = false;
@@ -2489,7 +2490,8 @@
 
         const effectiveDiscount = Math.max(maxItemDiscount, quoteDiscount);
         const isAboveRepLimit = effectiveDiscount > (repLimit + 0.0001);
-        const requiresApproval = hasItemBelowMin || isAboveRepLimit;
+        const isPrecoMinimoRule = (typeof REGRA_LIBERACAO_DESCONTO !== 'undefined' ? REGRA_LIBERACAO_DESCONTO : 'PRECO_MINIMO') === 'PRECO_MINIMO';
+        const requiresApproval = isPrecoMinimoRule ? hasItemBelowMin : (hasItemBelowMin || isAboveRepLimit);
 
         return {
             hasPriceDifference,
@@ -2986,6 +2988,11 @@
         if (propPrice < sugPrice) {
             const discount = sugPrice > 0 ? (((sugPrice - propPrice) / sugPrice) * 100) : 0;
             const perc = discount.toFixed(1).replace('.', ',');
+
+            const isPrecoMinimoRule = (typeof REGRA_LIBERACAO_DESCONTO !== 'undefined' ? REGRA_LIBERACAO_DESCONTO : 'PRECO_MINIMO') === 'PRECO_MINIMO';
+            if (isPrecoMinimoRule) {
+                return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">−${perc}% · Acima do mínimo (Liberado)</span>`;
+            }
 
             if (discount <= (repLimit + 0.0001)) {
                 return `<span class="badge-price-tag tag-discount" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:600;">−${perc}% · Liberado na sua alçada</span>`;

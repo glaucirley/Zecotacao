@@ -291,7 +291,7 @@ class QuoteWorkflowService
         // 3. Representative limits and rule evaluation
         $representante = $quote->representante;
         $repLimit = (float)($representante?->limite_desconto_percentual ?? 0.00);
-        $regraLiberacao = ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'ALCADA_REPRESENTANTE');
+        $regraLiberacao = ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'PRECO_MINIMO');
 
         $canAutoApprove = false;
         $autoApproveReason = '';
@@ -342,9 +342,11 @@ class QuoteWorkflowService
                 'condicao' => $autoApproveReason,
             ]);
 
-            $autoApproveMsg = ($calculatedDiscount <= 0)
-                ? 'Aprovada automaticamente: sem desconto, não precisa de gestor. O envio ao cliente já está liberado!'
-                : sprintf('Aprovada automaticamente: desconto de %.2f%% dentro da sua alçada (até %.2f%%), não precisa de gestor.', $calculatedDiscount, $repLimit);
+            $autoApproveMsg = ($regraLiberacao === 'PRECO_MINIMO')
+                ? 'Aprovada automaticamente: todos os itens respeitam o preço mínimo. O envio ao cliente já está liberado!'
+                : (($calculatedDiscount <= 0)
+                    ? 'Aprovada automaticamente: sem desconto, não precisa de gestor. O envio ao cliente já está liberado!'
+                    : sprintf('Aprovada automaticamente: desconto de %.2f%% dentro da sua alçada (até %.2f%%), não precisa de gestor.', $calculatedDiscount, $repLimit));
 
             return [
                 'success' => true,
@@ -355,7 +357,9 @@ class QuoteWorkflowService
         }
 
         // 5. Quote requires manual approval! Check justification requirements if below min or discount exceeds allowance
-        $requiresApproval = ($hasItemsBelowMin || $calculatedDiscount > $repLimit);
+        $requiresApproval = ($regraLiberacao === 'PRECO_MINIMO')
+            ? $hasItemsBelowMin
+            : ($hasItemsBelowMin || $calculatedDiscount > $repLimit);
         if ($requiresApproval) {
             $exigeAnexo = filter_var(ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN);
             $hasJustification = $quote->justificativas()
