@@ -127,14 +127,13 @@
             text-align: center !important;
         }
 
-        /* Totals Summary Block */
+        /* Totals & Brand Summary Block */
         .totals-container {
             width: 100%;
             margin-bottom: 12px;
         }
         .totals-table {
-            width: 280px;
-            float: right;
+            width: 100%;
             border-collapse: collapse;
         }
         .totals-table td {
@@ -160,6 +159,30 @@
             color: #0f5132;
             font-size: 14px;
             font-weight: bold;
+        }
+
+        /* Brand Summary Table */
+        .brand-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .brand-summary-table th {
+            font-size: 7.5px;
+            font-weight: bold;
+            color: #64748b;
+            text-transform: uppercase;
+            padding: 3px 4px;
+            border-bottom: 1px solid #cbd5e1;
+            background-color: #f8fafc;
+        }
+        .brand-summary-table td {
+            font-size: 8px;
+            padding: 3px 4px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .brand-summary-table .brand-name {
+            font-weight: bold;
+            color: #1e293b;
         }
 
         /* Commercial Conditions Box */
@@ -298,6 +321,9 @@
                     <td class="prod-code-badge">{{ $item->produto->codigo_sankhya ?? '---' }}</td>
                     <td>
                         <div class="prod-desc-title">{{ $item->produto->descricao ?? 'Produto indisponível' }}</div>
+                        @if(!empty($item->produto?->marca))
+                            <span style="font-size: 7.5px; color: #64748b; font-weight: bold; text-transform: uppercase;">Marca: {{ $item->produto->marca }}</span>
+                        @endif
                         @if($item->mostrar_selo_campanha || $item->campanha_id)
                             <div class="prod-campaign-subtext">Campanha: {{ $item->campanha_id ?: 'Condição Especial Aplicada' }}</div>
                         @endif
@@ -314,36 +340,67 @@
         </tbody>
     </table>
 
-    <!-- Totals Container -->
+    <!-- Totals & Brand Summary Container -->
     <div class="totals-container">
-        <table class="totals-table">
+        <table style="width: 100%; border-collapse: collapse;">
             <tr>
-                <td class="label">Subtotal</td>
-                <td class="val">R$ {{ number_format($quote->subtotal, 2, ',', '.') }}</td>
-            </tr>
-            @if($quote->desconto > 0)
-                <tr>
-                    <td class="label">Desconto</td>
-                    <td class="val" style="color: #dc2626;">− R$ {{ number_format($quote->desconto, 2, ',', '.') }}</td>
-                </tr>
-            @endif
-            <tr class="total-row">
-                <td class="label" style="font-weight: bold;">Total da cotação</td>
-                <td class="val">R$ {{ number_format($quote->total, 2, ',', '.') }}</td>
+                <td style="width: 58%; vertical-align: top; padding-right: 15px;">
+                    @if(!empty($brandSummary) && count($brandSummary) > 0)
+                        <div style="font-size: 8px; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px;">
+                            Resumo por Marca
+                        </div>
+                        <table class="brand-summary-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 48%; text-align: left;">MARCA</th>
+                                    <th style="width: 16%; text-align: center;">QTD</th>
+                                    <th style="width: 22%; text-align: right;">TOTAL</th>
+                                    <th style="width: 14%; text-align: right;">PART. (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($brandSummary as $b)
+                                    <tr>
+                                        <td class="brand-name">{{ $b['marca'] }}</td>
+                                        <td style="text-align: center; color: #475569;">{{ $b['qtd_itens'] }}</td>
+                                        <td style="text-align: right; font-weight: bold; color: #0f172a;">R$ {{ number_format($b['total'], 2, ',', '.') }}</td>
+                                        <td style="text-align: right; color: #475569;">{{ number_format(($b['total'] / max($quote->total, 0.01)) * 100, 1, ',', '.') }}%</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                </td>
+                <td style="width: 42%; vertical-align: top;">
+                    <table class="totals-table">
+                        <tr>
+                            <td class="label">Subtotal</td>
+                            <td class="val">R$ {{ number_format($quote->subtotal, 2, ',', '.') }}</td>
+                        </tr>
+                        @if($quote->desconto > 0)
+                            <tr>
+                                <td class="label">Desconto</td>
+                                <td class="val" style="color: #dc2626;">− R$ {{ number_format($quote->desconto, 2, ',', '.') }}</td>
+                            </tr>
+                        @endif
+                        <tr class="total-row">
+                            <td class="label" style="font-weight: bold;">Total da cotação</td>
+                            <td class="val">R$ {{ number_format($quote->total, 2, ',', '.') }}</td>
+                        </tr>
+                    </table>
+                </td>
             </tr>
         </table>
-        <div style="clear: both;"></div>
     </div>
 
     <!-- Commercial Conditions & Observations -->
     <table class="conditions-card">
         <tr>
             <td style="width: 50%;">
-                <span class="cond-label">Forma de pagamento:</span> <span class="cond-val">{{ $quote->forma_pagamento ?: 'A combinar' }}</span><br>
-                <span class="cond-label">Representante:</span> <span class="cond-val">{{ $quote->representante->nome ?? 'Atendimento Central' }}</span>
+                <span class="cond-label">Forma de pagamento:</span> <span class="cond-val">{{ $quote->forma_pagamento ?: 'A combinar' }}</span>
             </td>
             <td style="width: 50%; vertical-align: top;">
-                <span class="cond-label">Prazo de entrega:</span> <span class="cond-val">{{ $quote->prazo_entrega ?: 'Até 3 dias úteis' }}</span>
+                <span class="cond-label">Representante:</span> <span class="cond-val">{{ $quote->representante->nome ?? 'Atendimento Central' }}</span>
             </td>
         </tr>
         @if($quote->observacao_cliente)

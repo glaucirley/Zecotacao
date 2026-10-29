@@ -79,13 +79,35 @@ class PdfService
         // Recalculate totals based strictly on approved items to guarantee accuracy in the PDF
         $approvedSubtotal = 0;
         $approvedTotal = 0;
+        $brandSummary = [];
+
         foreach ($items as $it) {
             $sug = (float)($it->preco_unit_sugerido ?? $it->preco_unit_proposto);
             $prop = (float)$it->preco_unit_proposto;
             $approvedSubtotal += $it->qtd * max($sug, $prop);
             $approvedTotal += (float)$it->subtotal;
+
+            // Group summary by brand (Marca)
+            $marca = trim((string)($it->produto?->marca ?? ''));
+            if ($marca === '') {
+                $marca = 'OUTRAS / DIVERSOS';
+            }
+            if (!isset($brandSummary[$marca])) {
+                $brandSummary[$marca] = [
+                    'marca' => $marca,
+                    'qtd_itens' => 0,
+                    'qtd_produtos' => 0,
+                    'total' => 0.0,
+                ];
+            }
+            $brandSummary[$marca]['qtd_itens'] += (int)$it->qtd;
+            $brandSummary[$marca]['qtd_produtos'] += 1;
+            $brandSummary[$marca]['total'] += (float)$it->subtotal;
         }
         $approvedDiscount = max(0, $approvedSubtotal - $approvedTotal);
+
+        // Sort brands by total descending
+        uasort($brandSummary, fn($a, $b) => $b['total'] <=> $a['total']);
 
         // Keep quote object in sync for the PDF template view
         $quote->subtotal = $approvedSubtotal;
@@ -94,7 +116,8 @@ class PdfService
 
         $pdf = Pdf::loadView('pdf.cotacao', [
             'quote' => $quote,
-            'items' => $items
+            'items' => $items,
+            'brandSummary' => $brandSummary,
         ]);
 
         // Customize paper dimensions and render settings
