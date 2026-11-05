@@ -45,6 +45,35 @@ class QuoteWorkflowService
             ];
         }
 
+        // Validação definitiva de Restrições Comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
+        $restricaoService = app(\App\Services\RestricaoComercialService::class);
+        $itensRestritos = $restricaoService->validarCotacao($quote, 'ZC');
+
+        if (!empty($itensRestritos)) {
+            $count = count($itensRestritos);
+            $nomes = collect($itensRestritos)->map(function ($it) {
+                $desc = $it->produto?->descricao ?? "Produto #{$it->produto_id}";
+                $motivo = $it->restricao_msg_vendedor ? " ({$it->restricao_msg_vendedor})" : '';
+                return "\"{$desc}\"{$motivo}";
+            })->take(3)->implode(', ');
+
+            // Grava histórico de bloqueio definitivo
+            \App\Models\CotacaoHistorico::create([
+                'cotacao_id' => $quote->id,
+                'evento' => 'ENVIO_BLOQUEADO_RESTRICAO',
+                'usuario_id' => auth()->id() ?? $quote->representante_id,
+                'papel' => auth()->user()?->papel ?? 'representante',
+                'condicao' => "Envio barrado por restrições comerciais. {$count} item(ns) não permitido(s) para este cliente: {$nomes}.",
+            ]);
+
+            return [
+                'success' => false,
+                'error' => 'PRODUTOS_RESTRITOS',
+                'message' => "Esta cotação contém {$count} produto(s) não permitido(s) para este cliente ({$nomes}). Remova os itens restritos para prosseguir.",
+                'itens_restritos' => $itensRestritos,
+            ];
+        }
+
         // Calculate totals for priority assessment and overall margin
         $totalQuantity = 0;
         $totalNetRevenue = 0.00;
@@ -52,7 +81,7 @@ class QuoteWorkflowService
         $itensComDadosValidos = 0;
 
         foreach ($quote->itens as $item) {
-            if ($item->status_item === 'recusado' || $item->nao_encontrado) {
+            if ($item->status_item === 'recusado' || $item->nao_encontrado || $item->isBloqueado()) {
                 continue;
             }
 
@@ -218,6 +247,9 @@ class QuoteWorkflowService
         $inconsistentItems = [];
 
         foreach ($quote->itens as $item) {
+            if ($item->isBloqueado()) {
+                continue;
+            }
             $suggested = (float)$item->preco_unit_sugerido;
             $minPrice = (float)$item->preco_minimo;
             $proposedPrice = (float)$item->preco_unit_proposto;
@@ -239,7 +271,7 @@ class QuoteWorkflowService
             // a referência para exigir justificativa de piso é o preço sugerido (vendendo pelo sugerido nunca exige justificativa).
             $effectiveMin = $isInconsistent ? $suggested : $minPrice;
 
-            if ($proposedPrice < $effectiveMin) {
+            if ($proposedPrice < ($effectiveMin - 0.005)) {
                 $hasItemsBelowMin = true;
             }
         }
@@ -256,7 +288,7 @@ class QuoteWorkflowService
         if ($modoAvaliacao === 'ITEM_A_ITEM') {
             $maxDiscount = 0.00;
             foreach ($quote->itens as $item) {
-                if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
+                if ($item->isBloqueado() || ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado')) {
                     continue;
                 }
                 $precoSugerido = (float)$item->preco_unit_sugerido;
@@ -276,7 +308,7 @@ class QuoteWorkflowService
             $totalProposto = 0.00;
 
             foreach ($quote->itens as $item) {
-                if ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado') {
+                if ($item->isBloqueado() || ($reenvioModo === 'SO_ITENS_ALTERADOS' && $item->status_item === 'aprovado')) {
                     continue;
                 }
                 $totalSugerido += $item->qtd * (float)$item->preco_unit_sugerido;

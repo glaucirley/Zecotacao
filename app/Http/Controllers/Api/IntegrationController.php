@@ -73,6 +73,41 @@ class IntegrationController extends Controller
             }
         }
 
+        // Merge any root-level restricted items arrays sent by n8n into $rawInput['itens']
+        $restrictedRootKeys = ['itens_restritos', 'produtos_restritos'];
+        foreach ($restrictedRootKeys as $rootKey) {
+            if (!empty($rawInput[$rootKey]) && is_array($rawInput[$rootKey])) {
+                foreach ($rawInput[$rootKey] as $rawRestricted) {
+                    if (is_array($rawRestricted)) {
+                        $descRest = $rawRestricted['descricao']
+                            ?? $rawRestricted['descricao_original']
+                            ?? $rawRestricted['produto']
+                            ?? 'Item com restrição comercial';
+                        $qtdRest = $rawRestricted['qtd'] ?? $rawRestricted['quantidade'] ?? 1;
+                        $motivoRest = $rawRestricted['restricao_msg_vendedor']
+                            ?? $rawRestricted['motivo_restricao']
+                            ?? $rawRestricted['motivo']
+                            ?? $rawRestricted['msg_vendedor']
+                            ?? 'Produto restrito para este cliente';
+                        $fonteRest = $rawRestricted['restricao_fonte']
+                            ?? $rawRestricted['fonte']
+                            ?? 'RESTRICAO';
+
+                        $rawInput['itens'][] = array_merge($rawRestricted, [
+                            'descricao' => $descRest,
+                            'descricao_original' => $descRest,
+                            'qtd' => max(1, (int)round($this->sanitizeFloat($qtdRest))),
+                            'restricao_efeito' => 'B',
+                            'restricao_fonte' => $fonteRest,
+                            'restricao_msg_vendedor' => $motivoRest,
+                            'restricao_origem' => 'N8N',
+                            'restricao_validada_em' => now(),
+                        ]);
+                    }
+                }
+            }
+        }
+
         if (isset($rawInput['itens']) && is_array($rawInput['itens'])) {
             foreach ($rawInput['itens'] as $idx => $item) {
                 if (!is_array($item)) {
@@ -476,7 +511,7 @@ class IntegrationController extends Controller
                     $precoProposto = (float)($item['preco_unit_proposto'] ?? 0.00);
                     $itemSubtotal = (isset($item['subtotal']) && (float)$item['subtotal'] > 0)
                         ? (float)$item['subtotal']
-                        : round($qtd * ($precoProposto > 0 ? $precoProposto : $precoSugerido), 2);
+                        : ceil(round(round($qtd * ($precoProposto > 0 ? $precoProposto : $precoSugerido), 4) * 100, 2)) / 100;
 
                     CotacaoItem::create([
                         'cotacao_id' => $quote->id,
@@ -499,10 +534,31 @@ class IntegrationController extends Controller
                             ? trim((string)$item['descricao_original'])
                             : (!empty(trim((string)($item['descricao'] ?? ''))) ? trim((string)$item['descricao']) : null),
                         'observacao_ia' => $item['observacao_ia'] ?? ($isUnfound ? 'Item não identificado automaticamente no catálogo Sankhya' : null),
+                        'restricao_efeito' => $item['restricao_efeito'] ?? 'L',
+                        'restricao_fonte' => $item['restricao_fonte'] ?? null,
+                        'restricao_msg_vendedor' => $item['restricao_msg_vendedor'] ?? null,
+                        'restricao_validada_em' => !empty($item['restricao_validada_em']) ? $item['restricao_validada_em'] : null,
+                        'restricao_origem' => $item['restricao_origem'] ?? 'N8N',
                     ]);
                 }
 
-                // Recalculate quotation totals based on inserted items
+                // 6.1 Validate Commercial Restrictions (AD_EXCPRODUTO e AD_EXCMARCA)
+                if (!empty($data['restricoes_validadas'])) {
+                    $quote->update([
+                        'restricoes_validadas' => true,
+                        'restricoes_validadas_em' => now(),
+                    ]);
+                } else {
+                    try {
+                        $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                        $restricaoService->validarCotacao($quote, 'N8N');
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning("Falha ao validar restrições comerciais na importação N8N: " . $e->getMessage());
+                    }
+                }
+                $restrictedCount = $quote->itensRestritos()->count();
+
+                // Recalculate quotation totals based on inserted items (excluding blocked items)
                 $quote->recalcularTotais();
 
                 // 7. Write Audit Trail (Historico)
@@ -510,6 +566,9 @@ class IntegrationController extends Controller
                 $cond = $existingQuote ? 'Cotação atualizada via N8N payload' : 'Cotação importada com sucesso via N8N';
                 if ($unfoundCount > 0) {
                     $cond .= " ({$unfoundCount} item(ns) não encontrado(s) pela IA aguardando inclusão manual)";
+                }
+                if ($restrictedCount > 0) {
+                    $cond .= " ({$restrictedCount} item(ns) com restrição comercial não permitido(s) para este cliente)";
                 }
                 
                 CotacaoHistorico::create([
@@ -525,9 +584,12 @@ class IntegrationController extends Controller
                 if ($unfoundCount > 0) {
                     $notifMsg .= " Atenção: {$unfoundCount} item(ns) solicitado(s) pelo cliente não foram encontrados pela IA e aguardam sua inclusão manual.";
                 }
+                if ($restrictedCount > 0) {
+                    $notifMsg .= " Atenção: {$restrictedCount} item(ns) possuem restrições comerciais para este cliente e precisam ser removidos antes do envio.";
+                }
                 \App\Models\Notificacao::create([
                     'usuario_id' => $representative->id,
-                    'titulo' => $unfoundCount > 0 ? '⚠️ Nova Cotação (Itens não encontrados pela IA)' : 'Nova Cotação Recebida!',
+                    'titulo' => $restrictedCount > 0 ? '⚠️ Nova Cotação (Itens com restrição comercial)' : ($unfoundCount > 0 ? '⚠️ Nova Cotação (Itens não encontrados pela IA)' : 'Nova Cotação Recebida!'),
                     'mensagem' => $notifMsg,
                     'link' => url("/cotacoes/id/{$quote->id}"),
                     'lida' => false,

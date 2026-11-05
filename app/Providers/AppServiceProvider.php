@@ -82,6 +82,46 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
 
+            $restricoesLock = storage_path('framework/schema_restricoes_comerciais_2026_11_05.lock');
+            if (!is_file($restricoesLock)) {
+                try {
+                    if (Schema::hasTable('cotacao_itens')) {
+                        Schema::table('cotacao_itens', function (\Illuminate\Database\Schema\Blueprint $table) {
+                            if (!Schema::hasColumn('cotacao_itens', 'restricao_efeito')) {
+                                $table->char('restricao_efeito', 1)->default('L')->after('validade');
+                            }
+                            if (!Schema::hasColumn('cotacao_itens', 'restricao_fonte')) {
+                                $table->string('restricao_fonte', 30)->nullable()->after('restricao_efeito');
+                            }
+                            if (!Schema::hasColumn('cotacao_itens', 'restricao_msg_vendedor')) {
+                                $table->string('restricao_msg_vendedor', 400)->nullable()->after('restricao_fonte');
+                            }
+                            if (!Schema::hasColumn('cotacao_itens', 'restricao_validada_em')) {
+                                $table->dateTime('restricao_validada_em')->nullable()->after('restricao_msg_vendedor');
+                            }
+                            if (!Schema::hasColumn('cotacao_itens', 'restricao_origem')) {
+                                $table->string('restricao_origem', 20)->default('PAINEL')->after('restricao_validada_em');
+                            }
+                        });
+                    }
+                    if (Schema::hasTable('cotacoes')) {
+                        Schema::table('cotacoes', function (\Illuminate\Database\Schema\Blueprint $table) {
+                            if (!Schema::hasColumn('cotacoes', 'restricoes_validadas')) {
+                                $table->boolean('restricoes_validadas')->default(true)->after('inconsistente');
+                            }
+                            if (!Schema::hasColumn('cotacoes', 'restricoes_validadas_em')) {
+                                $table->dateTime('restricoes_validadas_em')->nullable()->after('restricoes_validadas');
+                            }
+                        });
+                    }
+                    if (Schema::hasColumn('cotacao_itens', 'restricao_efeito') && Schema::hasColumn('cotacoes', 'restricoes_validadas')) {
+                        @file_put_contents($restricoesLock, date('c'));
+                    }
+                } catch (\Throwable $e) {
+                    // Fail silently if DB cannot be altered right now
+                }
+            }
+
             $lockFile = storage_path('framework/cleanup_2026_10_18_v1.lock');
             if (!is_file($lockFile)) {
                 try {

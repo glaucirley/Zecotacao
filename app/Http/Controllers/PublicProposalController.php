@@ -91,10 +91,14 @@ class PublicProposalController extends Controller
         $quote = $envio->cotacao;
         $isExpired = $this->isProposalExpired($envio);
 
-        // Itens aprovados para a exibição oficial ao cliente
-        $items = $quote->itens->where('status_item', 'aprovado');
+        // Itens aprovados para a exibição oficial ao cliente (filtrando itens restritos e não encontrados)
+        $items = $quote->itens->where('status_item', 'aprovado')->reject(function ($it) {
+            return (bool)$it->nao_encontrado || (method_exists($it, 'isBloqueado') && $it->isBloqueado());
+        });
         if ($items->isEmpty()) {
-            $items = $quote->itens->where('status_item', '!=', 'recusado');
+            $items = $quote->itens->where('status_item', '!=', 'recusado')->reject(function ($it) {
+                return (bool)$it->nao_encontrado || (method_exists($it, 'isBloqueado') && $it->isBloqueado());
+            });
         }
 
         // WhatsApp do representante para retorno rápido do cliente

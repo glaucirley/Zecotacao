@@ -3162,6 +3162,11 @@
             renderProductSearchResults(allProductsList ? allProductsList.slice(0, 40) : []);
         }
 
+        function roundUpCents(val) {
+            const clean = Math.round((parseFloat(val || 0) + Number.EPSILON) * 10000) / 10000;
+            return Math.ceil(Math.round(clean * 100 * 100) / 100) / 100;
+        }
+
         function addToCart(prodId) {
             const prod = allProductsList.find(p => p.id == prodId);
             if (!prod) {
@@ -3169,7 +3174,9 @@
                 return;
             }
 
-            const rawPrice = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
+            const rawSug = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
+            const rawMin = parseFloat(prod.preco_minimo || prod.venda_minima || 0);
+            const rawPrice = (rawMin > 0) ? rawMin : rawSug;
             const unitPrice = (isNaN(rawPrice) || rawPrice <= 0) ? 100.00 : rawPrice;
 
             const existingIndex = quoteCartItems.findIndex(item => item.product_id == prodId);
@@ -3291,7 +3298,7 @@
         }
 
         function renderCartTotalOnly() {
-            const total = quoteCartItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
+            const total = roundUpCents(quoteCartItems.reduce((acc, item) => acc + roundUpCents(item.price * item.qty), 0));
             const formatted = `R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
             const el = document.getElementById("cart-total-val");

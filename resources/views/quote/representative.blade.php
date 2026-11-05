@@ -1023,6 +1023,30 @@
         </div>
     </div>
 
+    <!-- Dedicated Panel: Itens Não Permitidos para este Cliente (Restrições Comerciais AD_EXCPRODUTO / AD_EXCMARCA) -->
+    <div id="restricted-items-panel" class="card" style="display: none; margin-bottom: 16px; padding: 16px; background: #fff7ed; border: 1.5px solid #fdba74; border-radius: 12px; box-shadow: 0 2px 8px rgba(194, 65, 12, 0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+            <div>
+                <h3 style="font-size: 15.5px; margin: 0; font-weight: 800; color: #9a3412; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2.5" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    <span>Itens não permitidos para este cliente</span>
+                    <span id="restricted-items-count-badge" style="background: #ea580c; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px;">0</span>
+                </h3>
+                <p style="font-size: 12.5px; color: #c2410c; margin: 4px 0 0 0; line-height: 1.4;">
+                    Os produtos abaixo possuem restrição contratual, logística ou comercial para este cliente. Eles <strong>não serão enviados</strong> na proposta e precisam ser removidos para liberar o envio.
+                </p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline" onclick="removeAllRestrictedItems()" style="font-size: 12px; font-weight: 700; color: #c2410c; border-color: #fdba74; background: #fff; padding: 6px 12px; border-radius: 6px;">
+                    Remover todos os itens não permitidos
+                </button>
+            </div>
+        </div>
+        <div id="restricted-items-list" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Preenchido via JS -->
+        </div>
+    </div>
+
     <!-- Items Section Card -->
     <div class="card" style="margin-bottom: 16px; padding: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
@@ -2424,6 +2448,11 @@
         if (!quote) return;
         if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
             const pricing = typeof getQuotePricingStatus === 'function' ? getQuotePricingStatus() : null;
+            if (pricing && pricing.restrictedItemsCount > 0) {
+                showToast(`Existem ${pricing.restrictedItemsCount} produto(s) não permitido(s) para este cliente. Remova-os antes de avançar.`, 'warning');
+                document.getElementById("restricted-items-panel")?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
             if (pricing && pricing.pendingUnfoundCount > 0) {
                 showToast(`Existem ${pricing.pendingUnfoundCount} item(ns) não encontrado(s) pela IA pendentes. Substitua ou dispense os itens antes de avançar.`, 'warning');
                 document.getElementById("ai-unfound-items-panel")?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2450,10 +2479,15 @@
         let totalProp = 0;
         let pendingUnfoundCount = 0;
         let activeItemsCount = 0;
+        let restrictedItemsCount = 0;
 
         if (quote && quote.itens) {
             quote.itens.forEach(i => {
                 if (i.status_item === 'recusado') return;
+                if (i.restricao_efeito === 'B') {
+                    restrictedItemsCount++;
+                    return;
+                }
                 if (i.nao_encontrado) {
                     pendingUnfoundCount++;
                     return;
@@ -2464,7 +2498,7 @@
                 const sug = parseFloat(i.preco_unit_sugerido || 0);
                 const qtd = parseInt(i.qtd || 1);
 
-                if (prop < minEf && i.status_item !== 'aprovado') {
+                if (prop < (minEf - 0.005) && i.status_item !== 'aprovado') {
                     hasItemBelowMin = true;
                 }
 
@@ -2497,7 +2531,8 @@
             effectiveDiscount,
             requiresApproval,
             pendingUnfoundCount,
-            activeItemsCount
+            activeItemsCount,
+            restrictedItemsCount
         };
     }
 
@@ -2514,7 +2549,15 @@
         if (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status)) {
             const pricing = getQuotePricingStatus();
 
-            if (pricing.pendingUnfoundCount > 0) {
+            if (pricing.restrictedItemsCount > 0) {
+                primaryBtn.style.background = "#ea580c";
+                primaryBtn.style.color = "#ffffff";
+                primaryBtn.style.boxShadow = "0 3px 10px rgba(234, 88, 12, 0.35)";
+                primaryBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    <span>Remover itens não permitidos (${pricing.restrictedItemsCount})</span>
+                `;
+            } else if (pricing.pendingUnfoundCount > 0) {
                 primaryBtn.style.background = "#d97706";
                 primaryBtn.style.color = "#ffffff";
                 primaryBtn.style.boxShadow = "0 3px 10px rgba(217, 119, 6, 0.3)";
@@ -2808,7 +2851,7 @@
 
             const isApprovedOrSent = ['APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO'].includes(quote.status);
             const pricing = getQuotePricingStatus();
-            const canAccessPdf = isApprovedOrSent || (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status) && !pricing.requiresApproval && pricing.pendingUnfoundCount === 0);
+            const canAccessPdf = isApprovedOrSent || (['EM_CRIACAO', 'DEVOLVIDA'].includes(quote.status) && !pricing.requiresApproval && pricing.pendingUnfoundCount === 0 && pricing.restrictedItemsCount === 0);
 
             if (menuSendWa) menuSendWa.style.display = isApprovedOrSent ? "flex" : "none";
             if (menuSharePdf) menuSharePdf.style.display = canAccessPdf ? "flex" : "none";
@@ -2943,7 +2986,7 @@
         const propPrice = parseFloat(item.preco_unit_proposto || 0);
         const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
         const minEf = getItemEffectiveMin(item);
-        const isBelowMin = propPrice < minEf;
+        const isBelowMin = propPrice < (minEf - 0.005);
         const { repLimit, gestorLimit, hasGestor } = getRepresentativeLimits();
         const isQuoteApprovedOrAfter = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'].includes(quote?.status);
         const isItemApproved = (item.status_item === 'aprovado') || isQuoteApprovedOrAfter;
@@ -3042,6 +3085,72 @@
             }
         }
         return rawDesc || 'Item solicitado pelo cliente';
+    }
+
+    function renderRestrictedItemsPanel() {
+        const panel = document.getElementById("restricted-items-panel");
+        const listEl = document.getElementById("restricted-items-list");
+        const badgeEl = document.getElementById("restricted-items-count-badge");
+        if (!panel || !listEl) return;
+
+        const restrictedItems = (quote && Array.isArray(quote.itens))
+            ? quote.itens.filter(i => (i.restricao_efeito === 'B' || i.restricao_msg_vendedor) && i.status_item !== 'recusado')
+            : [];
+
+        if (restrictedItems.length === 0) {
+            panel.style.display = "none";
+            listEl.innerHTML = "";
+            return;
+        }
+
+        panel.style.display = "block";
+        if (badgeEl) badgeEl.innerText = restrictedItems.length;
+
+        listEl.innerHTML = restrictedItems.map(item => {
+            const desc = item.produto ? item.produto.descricao : (item.descricao_original || 'Produto Restrito');
+            const cod = item.produto ? item.produto.codigo_sankhya : (item.codigo_sankhya || '');
+            const motivo = item.restricao_msg_vendedor || 'Bloqueado por restrição comercial deste cliente';
+            const fonte = item.restricao_fonte ? ` (${item.restricao_fonte})` : '';
+
+            return `
+                <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <div style="font-size: 13.5px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">
+                            ${desc} ${cod ? `<span style="font-size: 11.5px; color: #64748b; font-weight: 500;">#${cod}</span>` : ''}
+                        </div>
+                        <div style="font-size: 12px; color: #c2410c; display: flex; align-items: center; gap: 6px;">
+                            <span style="background: #fee2e2; color: #b91c1c; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid #fca5a5;">
+                                🚫 Não permitido
+                            </span>
+                            <span>${motivo}${fonte}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-outline" onclick="deleteItem(${item.id})" style="font-size: 11.5px; font-weight: 700; color: #dc2626; border-color: #fca5a5; background: #fff5f5; padding: 6px 12px; border-radius: 6px;" title="Remover item da cotação">
+                            Remover item
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function removeAllRestrictedItems() {
+        if (!quote || !quote.itens) return;
+        const restrictedItems = quote.itens.filter(i => (i.restricao_efeito === 'B' || i.restricao_msg_vendedor) && i.status_item !== 'recusado');
+        if (restrictedItems.length === 0) return;
+
+        if (!confirm(`Deseja remover todos os ${restrictedItems.length} itens não permitidos desta cotação?`)) return;
+
+        for (const item of restrictedItems) {
+            try {
+                await fetch(`${QUOTE_BASE_URL}/itens/${item.id}`, { method: "DELETE" });
+            } catch (e) {
+                console.error("Erro ao remover item restrito:", e);
+            }
+        }
+        await loadQuote();
+        showToast("Itens não permitidos removidos com sucesso.", "success");
     }
 
     function renderUnfoundItemsPanel() {
@@ -3154,6 +3263,7 @@
     // Render Compact 3-Line Cards (Point 1)
     function renderItems() {
         renderUnfoundItemsPanel();
+        renderRestrictedItemsPanel();
 
         const container = document.getElementById("items-cards-container");
         if (!container) return;
@@ -3167,8 +3277,11 @@
         let countRejected = 0;
 
         quote.itens.forEach(item => {
+            if (item.restricao_efeito === 'B') {
+                return; // Renderizado exclusivamente no painel de itens não permitidos
+            }
             const minEf = getItemEffectiveMin(item);
-            const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < minEf;
+            const isBelowMin = parseFloat(item.preco_unit_proposto || 0) < (minEf - 0.005);
             const isRejected = item.status_item === 'recusado';
             const isUnfound = Boolean(item.nao_encontrado);
 
@@ -3225,6 +3338,9 @@
 
         // Filter items for display
         const filtered = quote.itens.filter(item => {
+            if (item.restricao_efeito === 'B') {
+                return false; // Exibido exclusivamente no painel de itens não permitidos
+            }
             const isUnfound = Boolean(item.nao_encontrado);
             const isRejected = item.status_item === 'recusado';
 
@@ -3512,6 +3628,11 @@
         recalculateTotalsFromState();
     }
 
+    function roundUpCents(val) {
+        const clean = Math.round((parseFloat(val || 0) + Number.EPSILON) * 10000) / 10000;
+        return Math.ceil(Math.round(clean * 100 * 100) / 100) / 100;
+    }
+
     function updateItemCalculations(itemId, newQtd, newPrice) {
         if (isEditingLocked) return;
         const item = quote.itens.find(i => i.id === itemId);
@@ -3520,7 +3641,7 @@
         if (newQtd !== null) item.qtd = parseInt(newQtd) || 1;
         if (newPrice !== null) item.preco_unit_proposto = parseFloat(parseFloat(newPrice).toFixed(2)) || 0.00;
 
-        item.subtotal = item.qtd * item.preco_unit_proposto;
+        item.subtotal = roundUpCents(item.qtd * item.preco_unit_proposto);
         
         // Recalculate discount percentage
         const sugerido = parseFloat(item.preco_unit_sugerido);
@@ -3538,7 +3659,7 @@
             const inputPrice = card.querySelector(".price-input");
             const priceStepper = card.querySelector(".price-stepper");
             const minEf = getItemEffectiveMin(item);
-            const isBelowMin = parseFloat(item.preco_unit_proposto) < minEf;
+            const isBelowMin = parseFloat(item.preco_unit_proposto) < (minEf - 0.005);
             
             if (isBelowMin) {
                 if (inputPrice) inputPrice.classList.add("price-below-min");
@@ -3576,14 +3697,20 @@
         let total = 0;
 
         quote.itens.forEach(item => {
-            if (item.status_item === 'recusado' || item.nao_encontrado) {
+            if (item.status_item === 'recusado' || item.nao_encontrado || item.restricao_efeito === 'B') {
                 return;
             }
-            subtotal += item.qtd * Math.max(parseFloat(item.preco_unit_sugerido), parseFloat(item.preco_unit_proposto));
-            total += parseFloat(item.subtotal);
+            const itemSubtotal = roundUpCents(item.subtotal || (item.qtd * item.preco_unit_proposto) || 0);
+            item.subtotal = itemSubtotal;
+            const itemSugTotal = roundUpCents(item.qtd * Math.max(parseFloat(item.preco_unit_sugerido || 0), parseFloat(item.preco_unit_proposto || 0)));
+            subtotal += itemSugTotal;
+            total += itemSubtotal;
         });
 
-        const desconto = subtotal - total;
+        subtotal = roundUpCents(subtotal);
+        total = roundUpCents(total);
+
+        const desconto = Math.max(0, subtotal - total);
         const descontoPerc = subtotal > 0 && desconto > 0 ? ((desconto / subtotal) * 100).toFixed(1) : 0;
 
         // Sticky Footer Totals
@@ -3709,13 +3836,14 @@
         document.getElementById("add-product-search-input").value = `${p.codigo_sankhya} - ${p.descricao}`;
         document.getElementById("clear-selected-prod-btn").style.display = "block";
         
-        // Set pricing from database or default
+        // Set pricing from database or default (preço inicial padrão é o mínimo de venda)
         const sugerido = parseFloat(p.preco_sugerido || 0);
         const minimo = p.preco_minimo ? parseFloat(p.preco_minimo) : roundNumber(sugerido * 0.90, 2);
+        const precoInicial = (minimo > 0) ? minimo : sugerido;
 
         document.getElementById("new-item-sugerido").value = sugerido.toFixed(2);
         document.getElementById("new-item-minimo").value = minimo.toFixed(2);
-        document.getElementById("new-item-proposto").value = sugerido.toFixed(2);
+        document.getElementById("new-item-proposto").value = precoInicial.toFixed(2);
 
         // Show selected badge
         const badge = document.getElementById("selected-product-badge");
@@ -3776,7 +3904,7 @@
     function calculateNewItemSubtotal() {
         const qtd = parseInt(document.getElementById("new-item-qtd").value) || 0;
         const proposto = parseFloat(document.getElementById("new-item-proposto").value) || 0.00;
-        const sub = qtd * proposto;
+        const sub = roundUpCents(qtd * proposto);
         document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ " + formatCurrency(sub);
     }
 

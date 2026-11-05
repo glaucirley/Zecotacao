@@ -31,6 +31,11 @@ class CotacaoItem extends Model
         'campanha_id',
         'mostrar_selo_campanha',
         'ordem_exibicao',
+        'restricao_efeito',
+        'restricao_fonte',
+        'restricao_msg_vendedor',
+        'restricao_validada_em',
+        'restricao_origem',
     ];
 
     protected $casts = [
@@ -47,6 +52,7 @@ class CotacaoItem extends Model
         'mostrar_selo_campanha' => 'boolean',
         'inconsistente' => 'boolean',
         'nao_encontrado' => 'boolean',
+        'restricao_validada_em' => 'datetime',
     ];
 
     protected $appends = [
@@ -285,5 +291,10 @@ class CotacaoItem extends Model
     public function historico()
     {
         return $this->hasMany(CotacaoHistorico::class, 'cotacao_item_id');
+    }
+
+    public function isBloqueado(): bool
+    {
+        return $this->restricao_efeito === 'B';
     }
 }

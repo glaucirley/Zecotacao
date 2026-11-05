@@ -280,7 +280,7 @@ class QuoteController extends Controller
                     }
 
                     $ajuste = $sugerido > 0 ? (($precoProposto - $sugerido) / $sugerido) * 100 : 0;
-                    $itemSubtotal = $qtd * $precoProposto;
+                    $itemSubtotal = ceil(round(round($qtd * $precoProposto, 4) * 100, 2)) / 100;
 
                     // Margin
                     $margem = null;
@@ -309,12 +309,14 @@ class QuoteController extends Controller
 
                     CotacaoItem::create($itemDataToCreate);
 
-                    $subtotal += $qtd * max($sugerido, $precoProposto);
+                    $subtotal += ceil(round(round($qtd * max($sugerido, $precoProposto), 4) * 100, 2)) / 100;
                     $total += $itemSubtotal;
                 }
 
-                // Update quote totals
-                $desconto = $subtotal - $total;
+                // Update quote totals com arredondamento para cima
+                $subtotal = ceil(round(round($subtotal, 4) * 100, 2)) / 100;
+                $total = ceil(round(round($total, 4) * 100, 2)) / 100;
+                $desconto = round(max(0.00, $subtotal - $total), 2);
                 $quote->update([
                     'subtotal' => $subtotal,
                     'desconto' => $desconto,
@@ -665,6 +667,44 @@ class QuoteController extends Controller
             ], 422);
         }
 
+        // Validação de Restrição Comercial (AD_EXCPRODUTO e AD_EXCMARCA)
+        $codvend = $quote->representante?->codigo_sankhya ?? auth()->user()?->codigo_sankhya;
+        $codparc = $quote->parceiro?->codigo_sankhya;
+        $codprod = $produto->codigo_sankhya;
+
+        if (!empty($codvend) && !empty($codparc) && !empty($codprod)) {
+            try {
+                $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                $resRestricao = $restricaoService->validarItem($codvend, $codparc, $codprod, 'ZC');
+
+                if (($resRestricao['efeito'] ?? 'L') === 'B') {
+                    $motivoBloqueio = $resRestricao['msg_vendedor'] ?? 'Produto não permitido para este cliente pelas regras comerciais.';
+                    $fonteBloqueio = $resRestricao['fonte'] ?? 'RESTRICAO';
+
+                    // Registra log no Oracle
+                    $restricaoService->registrarBloqueio($codvend, $codparc, $codprod, $quote->id, $fonteBloqueio, $motivoBloqueio, 'ZC');
+
+                    // Registra no histórico do Zé Cotação
+                    $actor = Auth::user() ?: $quote->representante;
+                    CotacaoHistorico::create([
+                        'cotacao_id' => $quote->id,
+                        'evento' => 'ITEM_RESTRITO_RECUSADO',
+                        'usuario_id' => $actor?->id ?? $quote->representante_id,
+                        'papel' => $actor?->papel ?? 'representante',
+                        'condicao' => "Inclusão de '{$produto->descricao}' barrada por restrição comercial ({$fonteBloqueio}): {$motivoBloqueio}",
+                    ]);
+
+                    return response()->json([
+                        'error' => 'PRODUTO_RESTRITO',
+                        'message' => $motivoBloqueio,
+                        'fonte' => $fonteBloqueio,
+                    ], 422);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Falha na validação de restrição do item: " . $e->getMessage());
+            }
+        }
+
         try {
             DB::transaction(function () use ($request, $quote, $produto, $priceItem) {
                 $precoProposto = round((float)$request->input('preco_unit_proposto'), 2);
@@ -726,7 +766,7 @@ class QuoteController extends Controller
                     'preco_minimo' => $precoMinimo,
                     'preco_unit_proposto' => $precoProposto,
                     'ajuste_percentual' => $ajuste,
-                    'subtotal' => round($qtd * $precoProposto, 2),
+                    'subtotal' => ceil(round(round($qtd * $precoProposto, 4) * 100, 2)) / 100,
                     'status_item' => 'pendente',
                     'inconsistente' => $isInconsistente,
                     'margem_calculada' => $margem,
@@ -736,6 +776,9 @@ class QuoteController extends Controller
                     'mostrar_selo_campanha' => $request->input('mostrar_selo_campanha', false),
                     'ordem_exibicao' => $displayOrder,
                     'nao_encontrado' => false,
+                    'restricao_efeito' => 'L',
+                    'restricao_validada_em' => now(),
+                    'restricao_origem' => 'PAINEL',
                 ];
                 if (CotacaoItem::hasValidadeColumn() && !empty($produto->validade_proxima)) {
                     $itemData['validade'] = $produto->validade_proxima;
@@ -817,16 +860,22 @@ class QuoteController extends Controller
         try {
             DB::transaction(function () use ($quote, $item) {
                 $itemDesc = $item->descricao_original ?: ($item->produto?->descricao ?? "ID {$item->id}");
+                $isBloqueado = $item->isBloqueado();
                 $item->delete();
                 $this->recalculateQuoteTotals($quote);
 
                 $actor = Auth::user() ?: $quote->representante;
+                $evento = $isBloqueado ? 'ITEM_RESTRITO_REMOVIDO' : 'ITEM_REMOVIDO';
+                $condicao = $isBloqueado
+                    ? "Item não permitido para este cliente \"{$itemDesc}\" removido da cotação por " . ($actor?->nome ?? 'representante') . '.'
+                    : "Item \"{$itemDesc}\" removido da cotação por " . ($actor?->nome ?? 'representante') . '.';
+
                 CotacaoHistorico::create([
                     'cotacao_id' => $quote->id,
-                    'evento' => 'ITEM_REMOVIDO',
+                    'evento' => $evento,
                     'usuario_id' => $actor?->id ?? $quote->representante_id,
                     'papel' => $actor?->papel ?? 'representante',
-                    'condicao' => "Item \"{$itemDesc}\" removido da cotação por " . ($actor?->nome ?? 'representante') . '.',
+                    'condicao' => $condicao,
                 ]);
             });
 
@@ -1376,6 +1425,46 @@ class QuoteController extends Controller
 
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
         $rawProducts = $query->take(200)->get();
+
+        // Resolve vendor and customer for commercial restriction filtering (AD_EXCPRODUTO and AD_EXCMARCA)
+        $codvend = null;
+        $codparc = null;
+        $quoteForFilter = $request->cotacao;
+        if (!$quoteForFilter) {
+            $cotacaoId = $request->route('id') ?? $request->input('cotacao_id');
+            if ($cotacaoId) {
+                $quoteForFilter = Cotacao::with(['parceiro', 'representante'])->find($cotacaoId);
+            }
+        }
+        if (!$quoteForFilter && $request->route('token')) {
+            $quoteForFilter = Cotacao::findQuoteByRepresentativeToken($request->route('token'));
+        }
+        if ($quoteForFilter) {
+            $codvend = $quoteForFilter->representante?->codigo_sankhya;
+            $codparc = $quoteForFilter->parceiro?->codigo_sankhya;
+        }
+        if (empty($codparc) && $request->filled('parceiro_id')) {
+            $parceiro = \App\Models\Parceiro::find($request->input('parceiro_id'));
+            $codparc = $parceiro?->codigo_sankhya;
+        }
+        if (empty($codvend)) {
+            $user = auth()->user();
+            $codvend = $user?->codigo_sankhya;
+        }
+
+        if (!empty($codvend) && !empty($codparc)) {
+            try {
+                $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                $codigosRestritos = $restricaoService->codigosProdutosRestritos($codvend, $codparc, 'ZC');
+                if (!empty($codigosRestritos)) {
+                    $rawProducts = $rawProducts->reject(function ($p) use ($codigosRestritos) {
+                        return in_array((string)$p->codigo_sankhya, $codigosRestritos, true);
+                    });
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Falha ao filtrar produtos restritos na listagem: " . $e->getMessage());
+            }
+        }
 
         $prodIds = $rawProducts->pluck('id')->filter()->all();
         $prodCodes = $rawProducts->pluck('codigo_sankhya')->filter()->all();

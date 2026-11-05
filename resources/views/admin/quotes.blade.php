@@ -2518,7 +2518,7 @@
 
         const priceInput = document.querySelector(`#admin-prod-row-${rowId} .admin-item-price`);
         if (priceInput && (!priceInput.value || parseFloat(priceInput.value) <= 0)) {
-            priceInput.value = sugPrice.toFixed(2);
+            priceInput.value = (minPrice > 0 ? minPrice : sugPrice).toFixed(2);
         }
 
         if (badge) badge.style.display = "flex";
@@ -2555,6 +2555,11 @@
         calcAdminQuoteTotal();
     }
 
+    function roundUpCents(val) {
+        const clean = Math.round((parseFloat(val || 0) + Number.EPSILON) * 10000) / 10000;
+        return Math.ceil(Math.round(clean * 100 * 100) / 100) / 100;
+    }
+
     function calcAdminQuoteTotal() {
         let total = 0;
         const rows = document.querySelectorAll("#manual-items-container .admin-prod-row-item");
@@ -2568,7 +2573,7 @@
             const qtd = qtdEl ? (parseFloat(qtdEl.value) || 0) : 0;
             const price = priceEl ? (parseFloat(priceEl.value) || 0) : 0;
             const minPrice = parseFloat(r.dataset.minPrice || 0);
-            const subtotal = qtd * price;
+            const subtotal = roundUpCents(qtd * price);
 
             if (subtotalEl) {
                 subtotalEl.innerText = "R$ " + subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -2586,6 +2591,8 @@
 
             total += subtotal;
         });
+
+        total = roundUpCents(total);
 
         let validItemCount = 0;
         rows.forEach(r => {

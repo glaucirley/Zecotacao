@@ -30,6 +30,8 @@ class Cotacao extends Model
         'observacao_interna',
         'token_representante',
         'token_acesso_em',
+        'restricoes_validadas',
+        'restricoes_validadas_em',
     ];
 
     protected $hidden = [
@@ -40,6 +42,8 @@ class Cotacao extends Model
         'data_emissao' => 'datetime',
         'data_validade' => 'datetime',
         'token_acesso_em' => 'datetime',
+        'restricoes_validadas_em' => 'datetime',
+        'restricoes_validadas' => 'boolean',
         'subtotal' => 'decimal:2',
         'desconto' => 'decimal:2',
         'total' => 'decimal:2',
@@ -95,6 +99,16 @@ class Cotacao extends Model
     public function itens()
     {
         return $this->hasMany(CotacaoItem::class, 'cotacao_id');
+    }
+
+    public function itensRestritos()
+    {
+        return $this->hasMany(CotacaoItem::class, 'cotacao_id')->where('restricao_efeito', 'B');
+    }
+
+    public function hasItensRestritos(): bool
+    {
+        return $this->itens()->where('restricao_efeito', 'B')->exists();
     }
 
     public function vinculos()
@@ -181,7 +195,7 @@ class Cotacao extends Model
         $total = 0.00;
 
         foreach ($itens as $item) {
-            if ($item->status_item === 'recusado' || (bool)$item->nao_encontrado) {
+            if ($item->status_item === 'recusado' || (bool)$item->nao_encontrado || $item->isBloqueado()) {
                 continue;
             }
 
@@ -190,21 +204,26 @@ class Cotacao extends Model
             $prop = (float)($item->preco_unit_proposto ?? 0);
             $itemSubtotal = (float)($item->subtotal ?? 0);
 
-            // Garante subtotal no item se estiver zerado
-            if ($itemSubtotal <= 0 && $qtd > 0) {
-                $unit = $prop > 0 ? $prop : $sug;
-                $itemSubtotal = round($qtd * $unit, 2);
-                if ($itemSubtotal > 0 && $item->exists) {
+            // Garante subtotal no item se estiver zerado ou recalcula com arredondamento para cima quando houver fração de centavo
+            $unit = $prop > 0 ? $prop : $sug;
+            $rawItemSubtotal = $qtd * $unit;
+            // Arredonda para 4 casas decimais para limpar resíduos de ponto flutuante e aplica ceil no centavo
+            $calcSubtotal = ceil(round(round($rawItemSubtotal, 4) * 100, 2)) / 100;
+
+            if ($itemSubtotal <= 0 || abs($itemSubtotal - $calcSubtotal) > 0.001) {
+                $itemSubtotal = $calcSubtotal;
+                if ($item->exists) {
                     $item->update(['subtotal' => $itemSubtotal]);
                 }
             }
 
-            $subtotal += $qtd * max($sug, $prop);
+            $rawItemSug = $qtd * max($sug, $prop);
+            $subtotal += ceil(round(round($rawItemSug, 4) * 100, 2)) / 100;
             $total += $itemSubtotal;
         }
 
-        $subtotal = round($subtotal, 2);
-        $total = round($total, 2);
+        $subtotal = ceil(round(round($subtotal, 4) * 100, 2)) / 100;
+        $total = ceil(round(round($total, 4) * 100, 2)) / 100;
         $desconto = round(max(0.00, $subtotal - $total), 2);
 
         $this->update([
