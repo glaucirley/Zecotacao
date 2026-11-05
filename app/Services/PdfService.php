@@ -87,7 +87,7 @@ class PdfService
         foreach ($items as $it) {
             $sug = (float)($it->preco_unit_sugerido ?? $it->preco_unit_proposto);
             $prop = (float)$it->preco_unit_proposto;
-            $approvedSubtotal += $it->qtd * max($sug, $prop);
+            $approvedSubtotal += ceil(round(round((float)$it->qtd * max($sug, $prop), 4) * 100, 2)) / 100;
             $approvedTotal += (float)$it->subtotal;
 
             // Group summary by brand (Marca)
@@ -105,9 +105,12 @@ class PdfService
             }
             $brandSummary[$marca]['qtd_itens'] += (int)$it->qtd;
             $brandSummary[$marca]['qtd_produtos'] += 1;
-            $brandSummary[$marca]['total'] += (float)$it->subtotal;
+            $brandSummary[$marca]['total'] = ceil(round(round(($brandSummary[$marca]['total'] + (float)$it->subtotal), 4) * 100, 2)) / 100;
         }
-        $approvedDiscount = max(0, $approvedSubtotal - $approvedTotal);
+
+        $approvedSubtotal = ceil(round(round($approvedSubtotal, 4) * 100, 2)) / 100;
+        $approvedTotal = ceil(round(round($approvedTotal, 4) * 100, 2)) / 100;
+        $approvedDiscount = round(max(0, $approvedSubtotal - $approvedTotal), 2);
 
         // Sort brands by total descending
         uasort($brandSummary, fn($a, $b) => $b['total'] <=> $a['total']);

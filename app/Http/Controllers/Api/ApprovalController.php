@@ -503,23 +503,16 @@ class ApprovalController extends Controller
                                 'lida' => false,
                             ]);
                         } else {
-                            $finalSubtotal = 0;
-                            $finalTotal = 0;
+                            // Atualiza totais utilizando a regra centralizada com arredondamento para cima
+                            $quote->recalcularTotais();
 
-                            foreach ($approvedItems as $it) {
-                                $finalSubtotal += $it->qtd * max((float)$it->preco_unit_sugerido, (float)$it->preco_unit_proposto);
-                                $finalTotal += (float)$it->subtotal;
-                            }
-
-                            $desconto = $finalSubtotal - $finalTotal;
-                            $descontoPct = $finalSubtotal > 0 ? round(($desconto / $finalSubtotal) * 100, 2) : 0;
+                            $subtotalFinal = (float)$quote->subtotal;
+                            $descontoFinal = (float)$quote->desconto;
+                            $descontoPct = $subtotalFinal > 0 ? round(($descontoFinal / $subtotalFinal) * 100, 2) : 0;
 
                             // Transition quote status to APROVADA, update final totals, and renew validity window
                             $quote->update([
                                 'status' => 'APROVADA',
-                                'subtotal' => $finalSubtotal,
-                                'desconto' => $desconto,
-                                'total' => $finalTotal,
                                 'data_validade' => ($quote->data_validade && $quote->data_validade->gt($renewedValidity)) ? $quote->data_validade : $renewedValidity,
                             ]);
 

@@ -3094,7 +3094,7 @@
         if (!panel || !listEl) return;
 
         const restrictedItems = (quote && Array.isArray(quote.itens))
-            ? quote.itens.filter(i => (i.restricao_efeito === 'B' || i.restricao_msg_vendedor) && i.status_item !== 'recusado')
+            ? quote.itens.filter(i => i.restricao_efeito === 'B' && i.status_item !== 'recusado')
             : [];
 
         if (restrictedItems.length === 0) {
@@ -3137,7 +3137,7 @@
 
     async function removeAllRestrictedItems() {
         if (!quote || !quote.itens) return;
-        const restrictedItems = quote.itens.filter(i => (i.restricao_efeito === 'B' || i.restricao_msg_vendedor) && i.status_item !== 'recusado');
+        const restrictedItems = quote.itens.filter(i => i.restricao_efeito === 'B' && i.status_item !== 'recusado');
         if (restrictedItems.length === 0) return;
 
         if (!confirm(`Deseja remover todos os ${restrictedItems.length} itens não permitidos desta cotação?`)) return;
@@ -3149,7 +3149,7 @@
                 console.error("Erro ao remover item restrito:", e);
             }
         }
-        await loadQuote();
+        await loadData();
         showToast("Itens não permitidos removidos com sucesso.", "success");
     }
 

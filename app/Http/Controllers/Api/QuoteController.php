@@ -520,6 +520,16 @@ class QuoteController extends Controller
                 if ($quote->isDirty()) {
                     $changedFields = array_keys($quote->getDirty());
                     $quote->save();
+
+                    // Se alterou o parceiro/cliente, revalida as restrições comerciais no Sankhya
+                    if (in_array('parceiro_id', $changedFields)) {
+                        try {
+                            $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                            $restricaoService->validarCotacao($quote, 'ZC');
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning("Falha ao revalidar restrições após troca de parceiro na cotação #{$quote->id}: " . $e->getMessage());
+                        }
+                    }
                 }
 
                 // Update items if passed
@@ -570,7 +580,7 @@ class QuoteController extends Controller
                                 'qtd' => $qtd,
                                 'preco_unit_proposto' => $precoProposto,
                                 'ajuste_percentual' => $ajuste,
-                                'subtotal' => round($qtd * $precoProposto, 2),
+                                'subtotal' => ceil(round(round($qtd * $precoProposto, 4) * 100, 2)) / 100,
                                 'status_item' => $status,
                             ]);
                         }

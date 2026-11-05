@@ -47,13 +47,23 @@ class QuoteWorkflowService
 
         // Validação definitiva de Restrições Comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
         $restricaoService = app(\App\Services\RestricaoComercialService::class);
-        $itensRestritos = $restricaoService->validarCotacao($quote, 'ZC');
+        $resRestricao = $restricaoService->validarCotacao($quote, 'ZC');
 
-        if (!empty($itensRestritos)) {
-            $count = count($itensRestritos);
-            $nomes = collect($itensRestritos)->map(function ($it) {
-                $desc = $it->produto?->descricao ?? "Produto #{$it->produto_id}";
-                $motivo = $it->restricao_msg_vendedor ? " ({$it->restricao_msg_vendedor})" : '';
+        if (!empty($resRestricao['erro_conexao'])) {
+            return [
+                'success' => false,
+                'error' => 'RESTRICAO_ERRO_CONEXAO',
+                'message' => 'Não foi possível validar as restrições comerciais no momento. Por favor, tente novamente.',
+            ];
+        }
+
+        $itensBloqueados = $resRestricao['bloqueados'] ?? [];
+
+        if (!empty($itensBloqueados)) {
+            $count = count($itensBloqueados);
+            $nomes = collect($itensBloqueados)->map(function ($it) {
+                $desc = $it['descricao'] ?? ("Produto #" . ($it['codprod'] ?? ''));
+                $motivo = !empty($it['msg_vendedor']) ? " ({$it['msg_vendedor']})" : '';
                 return "\"{$desc}\"{$motivo}";
             })->take(3)->implode(', ');
 
@@ -70,7 +80,7 @@ class QuoteWorkflowService
                 'success' => false,
                 'error' => 'PRODUTOS_RESTRITOS',
                 'message' => "Esta cotação contém {$count} produto(s) não permitido(s) para este cliente ({$nomes}). Remova os itens restritos para prosseguir.",
-                'itens_restritos' => $itensRestritos,
+                'itens_restritos' => $itensBloqueados,
             ];
         }
 
