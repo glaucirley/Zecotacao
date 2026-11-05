@@ -332,6 +332,14 @@ class QuoteController extends Controller
                     'condicao' => 'Cotacao inserida manualmente no painel.'
                 ]);
 
+                // Validação de Restrições Comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
+                try {
+                    $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                    $restricaoService->validarCotacao($quote, 'ZC');
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Falha ao validar restrições na criação de cotação manual: " . $e->getMessage());
+                }
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Cotação criada manualmente com sucesso.',
@@ -1212,6 +1220,14 @@ class QuoteController extends Controller
             'papel' => $actor?->papel ?? 'representante',
             'condicao' => 'Cotação reaberta pelo representante para edição de itens ou condições comerciais.',
         ]);
+
+        // Revalidação de Restrições Comerciais na reabertura
+        try {
+            $restricaoService = app(\App\Services\RestricaoComercialService::class);
+            $restricaoService->validarCotacao($quote, 'ZC');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Falha ao revalidar restrições na reabertura da cotação ID {$quote->id}: " . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,

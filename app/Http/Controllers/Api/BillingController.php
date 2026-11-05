@@ -111,6 +111,24 @@ class BillingController extends Controller
             ], 422);
         }
 
+        // Validação definitiva de Restrições Comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
+        $restricaoService = app(\App\Services\RestricaoComercialService::class);
+        $resRestricao = $restricaoService->validarCotacao($quote, 'ZC');
+        if (!empty($resRestricao['erro_conexao'])) {
+            return response()->json([
+                'error' => 'RESTRICAO_ERRO_CONEXAO',
+                'message' => 'Não foi possível validar as restrições comerciais no momento. Por favor, tente novamente.',
+            ], 422);
+        }
+        if (!empty($resRestricao['bloqueados'])) {
+            $count = count($resRestricao['bloqueados']);
+            return response()->json([
+                'error' => 'PRODUTOS_RESTRITOS',
+                'message' => "Esta cotação possui {$count} produto(s) bloqueado(s) por restrições comerciais. O registro do pedido foi bloqueado.",
+                'itens_restritos' => $resRestricao['bloqueados'],
+            ], 422);
+        }
+
         try {
             DB::transaction(function () use ($request, $quote, $user, $numeroPedido) {
                 // Upsert PedidoExterno

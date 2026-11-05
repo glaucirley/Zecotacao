@@ -543,18 +543,12 @@ class IntegrationController extends Controller
                 }
 
                 // 6.1 Validate Commercial Restrictions (AD_EXCPRODUTO e AD_EXCMARCA)
-                if (!empty($data['restricoes_validadas'])) {
-                    $quote->update([
-                        'restricoes_validadas' => true,
-                        'restricoes_validadas_em' => now(),
-                    ]);
-                } else {
-                    try {
-                        $restricaoService = app(\App\Services\RestricaoComercialService::class);
-                        $restricaoService->validarCotacao($quote, 'N8N');
-                    } catch (\Throwable $e) {
-                        \Illuminate\Support\Facades\Log::warning("Falha ao validar restrições comerciais na importação N8N: " . $e->getMessage());
-                    }
+                // Revalida sempre todos os itens com validarCotacao conforme especificação técnica
+                try {
+                    $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                    $restricaoService->validarCotacao($quote, 'N8N');
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Falha ao validar restrições comerciais na importação N8N: " . $e->getMessage());
                 }
                 $restrictedCount = $quote->itensRestritos()->count();
 

@@ -2413,7 +2413,8 @@
 
     async function executeAdminServerProductSearch(rowId, query) {
         try {
-            const res = await fetch(`${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=40`);
+            const partnerParam = (adminSelectedPartner && adminSelectedPartner.id) ? `&parceiro_id=${adminSelectedPartner.id}` : '';
+            const res = await fetch(`${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=40${partnerParam}`);
             const data = await res.json();
             
             let results = [];
@@ -2460,9 +2461,12 @@
         container.style.display = "block";
         container.innerHTML = "";
         products.forEach(p => {
-            const price = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
-            const isQuotable = (p.cotavel !== false) && price > 0;
-            const priceStr = isQuotable ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'Sem preço na tabela';
+            const sugPrice = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
+            const minPrice = parseFloat(p.preco_minimo || (sugPrice * 0.90));
+            const isQuotable = (p.cotavel !== false) && sugPrice > 0;
+            const priceStr = isQuotable 
+                ? `<span style="color:#059669; font-weight:700;">Mín: R$ ${minPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span> <span style="font-size:10px; color:#64748b; font-weight:normal;">(Tabela: R$ ${sugPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})})</span>` 
+                : '<span style="color:#ef4444; font-weight:700;">Sem preço na tabela</span>';
             const codeStr = p.codigo_sankhya || p.codprod || p.id;
             const brandStr = p.marca ? ` | ${p.marca}` : '';
 
@@ -2480,7 +2484,7 @@
                 <div style="font-weight:700; color:#1e293b;">${escapeHtml(p.descricao)}</div>
                 <div style="font-size:10.5px; color:#64748b; display:flex; justify-content:space-between; margin-top:2px;">
                     <span>Cód: ${escapeHtml(codeStr)}${escapeHtml(brandStr)}</span>
-                    <span style="color:${isQuotable ? 'var(--color-primary)' : '#ef4444'}; font-weight:700;">${priceStr}</span>
+                    <div>${priceStr}</div>
                 </div>
             `;
             container.appendChild(itemDiv);
@@ -2491,8 +2495,8 @@
         const prod = adminProductsList.find(p => p.id == prodId);
         if (!prod) return;
 
-        const price = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
-        if ((prod.cotavel === false || price <= 0) && !['PROD001', 'PROD002', 'PROD003'].includes(prod.codigo_sankhya)) {
+        const sugPrice = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
+        if ((prod.cotavel === false || sugPrice <= 0) && !['PROD001', 'PROD002', 'PROD003'].includes(prod.codigo_sankhya)) {
             showToast(`O produto "${prod.descricao}" não possui preço cadastrado na tabela de preços e não pode ser cotado.`, 'warning');
             return;
         }
@@ -2506,7 +2510,6 @@
         const codeStr = prod.codigo_sankhya || prod.codprod || prod.id;
 
         const rowEl = document.getElementById(`admin-prod-row-${rowId}`);
-        const sugPrice = price;
         const minPrice = parseFloat(prod.preco_minimo || (sugPrice * 0.9));
         if (rowEl) {
             rowEl.dataset.sugPrice = sugPrice;
@@ -2514,10 +2517,10 @@
         }
 
         document.getElementById(`admin-prod-selected-title-${rowId}`).innerText = prod.descricao;
-        document.getElementById(`admin-prod-selected-meta-${rowId}`).innerText = `Cód: ${codeStr} ${prod.marca ? '| ' + prod.marca : ''} | Sugerido: R$ ${sugPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})} · Mínimo: R$ ${minPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById(`admin-prod-selected-meta-${rowId}`).innerText = `Cód: ${codeStr} ${prod.marca ? '| ' + prod.marca : ''} | Preço Mínimo: R$ ${minPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})} · Tabela: R$ ${sugPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 
         const priceInput = document.querySelector(`#admin-prod-row-${rowId} .admin-item-price`);
-        if (priceInput && (!priceInput.value || parseFloat(priceInput.value) <= 0)) {
+        if (priceInput) {
             priceInput.value = (minPrice > 0 ? minPrice : sugPrice).toFixed(2);
         }
 

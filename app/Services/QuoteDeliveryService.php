@@ -179,6 +179,17 @@ class QuoteDeliveryService
             throw new \Exception("Envio não permitido para cotações com status {$quote->status}. Apenas propostas aprovadas ou finalizadas podem ser enviadas ao cliente.");
         }
 
+        // 2.1 Validar restrições comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
+        $restricaoService = app(\App\Services\RestricaoComercialService::class);
+        $resRestricao = $restricaoService->validarCotacao($quote, 'ZC');
+        if (!empty($resRestricao['erro_conexao'])) {
+            throw new \Exception('Não foi possível validar as restrições comerciais no momento. Por favor, tente novamente.');
+        }
+        if (!empty($resRestricao['bloqueados'])) {
+            $count = count($resRestricao['bloqueados']);
+            throw new \Exception("A cotação possui {$count} produto(s) restrito(s) comercialmente para este cliente. Remova os itens não permitidos antes de enviar.");
+        }
+
         // 3. Se o PDF ainda não existe (status APROVADA), gerar e consolidar antes
         if ($quote->status === 'APROVADA') {
             try {

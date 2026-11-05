@@ -256,7 +256,7 @@ class CotacaoItem extends Model
 
     public function setSubtotalAttribute($value): void
     {
-        $this->attributes['subtotal'] = round((float)$value, 2);
+        $this->attributes['subtotal'] = ceil(round(round((float)$value, 4) * 100, 2)) / 100;
     }
 
     protected function updateInconsistenteFlag(): void

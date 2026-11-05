@@ -46,6 +46,14 @@ class QuoteWorkflowService
         }
 
         // Validação definitiva de Restrições Comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
+        if (empty($quote->representante?->codigo_sankhya)) {
+            return [
+                'success' => false,
+                'error' => 'VENDEDOR_SEM_CODIGO_SANKHYA',
+                'message' => 'Cadastro do vendedor sem código Sankhya. As regras por vendedor não teriam como ser conferidas.',
+            ];
+        }
+
         $restricaoService = app(\App\Services\RestricaoComercialService::class);
         $resRestricao = $restricaoService->validarCotacao($quote, 'ZC');
 

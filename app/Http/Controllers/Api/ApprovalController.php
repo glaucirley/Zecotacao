@@ -132,26 +132,11 @@ class ApprovalController extends Controller
                     'preco_unit_proposto' => $precoProposto,
                     'ajuste_percentual' => round($ajuste, 2),
                     'margem_calculada' => round($margem, 2),
-                    'subtotal' => round($item->qtd * $precoProposto, 2),
+                    'subtotal' => ceil(round(round($item->qtd * $precoProposto, 4) * 100, 2)) / 100,
                 ]);
 
-                // Recalculate quote totals
-                $subtotal = 0;
-                $total = 0;
-                $quote->refresh();
-                foreach ($quote->itens as $it) {
-                    if ($it->status_item === 'recusado' || $it->nao_encontrado) {
-                        continue;
-                    }
-                    $subtotal += $it->qtd * max((float)$it->preco_unit_sugerido, (float)$it->preco_unit_proposto);
-                    $total += (float)$it->subtotal;
-                }
-                $desconto = $subtotal - $total;
-                $quote->update([
-                    'subtotal' => $subtotal,
-                    'desconto' => $desconto,
-                    'total' => $total,
-                ]);
+                // Recalculate quote totals using central ceiling rounding
+                $quote->recalcularTotais();
 
                 // Log audit history
                 CotacaoHistorico::create([
@@ -374,6 +359,28 @@ class ApprovalController extends Controller
                         $displayMargin
                     ),
                 ], 422);
+            }
+        }
+
+        if ($acao === 'decidir_itens') {
+            $hasAnyApproval = collect($request->input('itens', []))->contains(fn($it) => ($it['status'] ?? '') === 'aprovado');
+            if ($hasAnyApproval) {
+                $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                $resRestricao = $restricaoService->validarCotacao($quote, 'ZC');
+                if (!empty($resRestricao['erro_conexao'])) {
+                    return response()->json([
+                        'error' => 'RESTRICAO_ERRO_CONEXAO',
+                        'message' => 'Não foi possível validar as restrições comerciais no momento. Por favor, tente novamente.',
+                    ], 422);
+                }
+                if (!empty($resRestricao['bloqueados'])) {
+                    $count = count($resRestricao['bloqueados']);
+                    return response()->json([
+                        'error' => 'PRODUTOS_RESTRITOS',
+                        'message' => "Esta cotação possui {$count} produto(s) bloqueado(s) por restrições comerciais que devem ser removidos pelo representante antes da aprovação.",
+                        'itens_restritos' => $resRestricao['bloqueados'],
+                    ], 422);
+                }
             }
         }
 

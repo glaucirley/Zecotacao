@@ -3788,7 +3788,10 @@
             div.className = "product-autocomplete-item";
             const isQuotable = (p.cotavel !== false) && parseFloat(p.preco_sugerido || 0) > 0;
             const sugVal = parseFloat(p.preco_sugerido || 0);
-            const sugText = isQuotable ? `R$ ${formatCurrency(sugVal)}` : 'Sem preço na tabela';
+            const minVal = p.preco_minimo ? parseFloat(p.preco_minimo) : roundNumber(sugVal * 0.90, 2);
+            const priceHtml = isQuotable 
+                ? `<div style="text-align: right;"><span style="color: #059669; font-weight: 700; font-size: 12.5px;">Mín: R$ ${formatCurrency(minVal)}</span><br><span style="font-size: 10.5px; color: #64748b;">Tab: R$ ${formatCurrency(sugVal)}</span></div>` 
+                : '<span style="color: #ef4444; font-size: 11px; font-weight: 700;">Sem preço</span>';
 
             if (!isQuotable) {
                 div.style.opacity = '0.55';
@@ -3816,7 +3819,7 @@
                         ${p.campanha ? `<span style="background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; padding: 1px 5px; border-radius: 4px; font-weight: 700;">🎁 ${escapeHtml(p.campanha)}</span>` : ''}
                     </div>
                 </div>
-                <div class="prod-price" style="${isQuotable ? '' : 'color: #ef4444; font-size: 11px;'}">${sugText}</div>
+                <div class="prod-price">${priceHtml}</div>
             `;
             menu.appendChild(div);
         });
