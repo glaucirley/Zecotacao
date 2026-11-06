@@ -805,6 +805,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                     <td>
                         ${escapeHtml(prodDesc)}
                         ${item.mostrar_selo_campanha && item.campanha_id ? '<span class="badge-campanha">Campanha</span>' : ''}
+                        ${item.restricao_efeito === 'B' ? `<span class="badge" style="background-color: #fff7ed; color: #c2410c; font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px solid #fed7aa; margin-left:6px; font-weight:700;" title="${escapeHtml(item.restricao_msg_vendedor || 'Restrição Comercial')}">🚫 Não permitido (${escapeHtml(item.restricao_msg_vendedor || 'Restrição Comercial')})</span>` : ''}
                         ${isInconsistent ? '<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #fcd34d; margin-left:6px; font-weight:600;" title="Preço mínimo cadastral maior que o sugerido.">⚠️ Mín > Sugerido</span>' : ''}
                         ${isNegativeMargin ? `<span class="badge" style="background-color: #fee2e2; color: #991b1b; font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px solid #f87171; margin-left:6px; font-weight:700;" title="Venda abaixo do custo unitário (Custo: R$ ${cost.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})})">🚨 Abaixo do custo</span>` : ''}
                         ${bindGroupLabel}
@@ -871,7 +872,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 isRejected = true;
             }
 
-            if (isRejected || item.nao_encontrado) {
+            if (isRejected || item.nao_encontrado || item.restricao_efeito === 'B') {
                 return;
             }
 

@@ -1773,6 +1773,7 @@
                     <td>
                         <strong>${escapeHtml(desc)}</strong>
                         ${item.nao_encontrado ? '<span style="display:inline-block; margin-left:6px; background:#fff1f2; color:#be123c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fecdd3;">⚠️ Não encontrado pela IA</span>' : ''}
+                        ${item.restricao_efeito === 'B' ? `<span style="display:inline-block; margin-left:6px; background:#fff7ed; color:#c2410c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fed7aa;">🚫 Não permitido: ${escapeHtml(item.restricao_msg_vendedor || 'Restrição comercial')}</span>` : ''}
                         ${item.descricao_original ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Original: "${escapeHtml(item.descricao_original)}" ${item.observacao_ia ? `<span style="color:#be123c;">(${escapeHtml(item.observacao_ia)})</span>` : ''}</div>` : ''}
                     </td>
                     <td class="text-center">${item.quantidade}</td>
