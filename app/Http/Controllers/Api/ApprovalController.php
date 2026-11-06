@@ -123,10 +123,8 @@ class ApprovalController extends Controller
                 $precoProposto = (float)$request->input('preco_unit_proposto');
                 $precoSugerido = (float)$item->preco_unit_sugerido;
                 $custo = (float)$item->custo;
-                $imposto = (float)$item->imposto;
                 $ajuste = $precoSugerido > 0 ? (($precoProposto - $precoSugerido) / $precoSugerido) * 100 : 0;
-                $precoLiquido = $precoProposto * (1 - ($imposto / 100));
-                $margem = ($custo > 0 && $precoLiquido > 0) ? (($precoLiquido - $custo) / $precoLiquido) * 100 : (float)$item->margem_calculada;
+                $margem = ($custo > 0 && $precoProposto > 0) ? (($precoProposto - $custo) / $precoProposto) * 100 : (float)$item->margem_calculada;
 
                 $item->update([
                     'preco_unit_proposto' => $precoProposto,
@@ -313,27 +311,27 @@ class ApprovalController extends Controller
                 $sug = (float)$qItem->preco_unit_sugerido;
                 $min = (float)$qItem->preco_minimo;
                 $cost = (float)$qItem->custo;
-                $tax = (float)$qItem->imposto;
                 $qty = max(1, (int)$qItem->qtd);
 
                 $isInconsistent = ($sug > 0 && $min > $sug)
                     || ($cost <= 0 || ($sug > 0 && $cost > $sug))
-                    || ($tax < 0 || $tax >= 100)
                     || ($prop <= 0);
 
                 if (!$isInconsistent) {
-                    $netPrice = $prop * (1 - ($tax / 100));
-                    $itemMargin = $netPrice > 0 ? (($netPrice - $cost) / $netPrice) * 100 : -100.0;
-                    if ($itemMargin < -0.001) {
+                    $itemMargin = $prop > 0 ? (($prop - $cost) / $prop) * 100 : -100.0;
+                    
+                    // Só é margem negativa se o preço proposto for abaixo do custo E abaixo do preço mínimo
+                    $isBelowMin = ($min > 0) ? ($prop < ($min - 0.005)) : true;
+                    if ($itemMargin < -0.001 && $isBelowMin) {
                         $hasNegativeMarginApproval = true;
                         if ($itemMargin < $minApprovedItemMargin) {
                             $minApprovedItemMargin = $itemMargin;
                         }
                     }
-                    $totalNetRevenue += ($qty * $netPrice);
+                    $totalNetRevenue += ($qty * $prop);
                     $totalCost += ($qty * $cost);
                     $validItemsForMargin++;
-                } elseif ((float)$qItem->margem_calculada < -0.001) {
+                } elseif ((float)$qItem->margem_calculada < -0.001 && ($min <= 0 || $prop < ($min - 0.005))) {
                     $hasNegativeMarginApproval = true;
                     if ((float)$qItem->margem_calculada < $minApprovedItemMargin) {
                         $minApprovedItemMargin = (float)$qItem->margem_calculada;

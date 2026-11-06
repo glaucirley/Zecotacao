@@ -282,11 +282,10 @@ class QuoteController extends Controller
                     $ajuste = $sugerido > 0 ? (($precoProposto - $sugerido) / $sugerido) * 100 : 0;
                     $itemSubtotal = ceil(round(round($qtd * $precoProposto, 4) * 100, 2)) / 100;
 
-                    // Margin
+                    // Margin (Margem comercial direta sem imposto arbitrário)
                     $margem = null;
                     if ($precoProposto > 0 && $custo > 0) {
-                        $impostoFator = 1 - ($imposto / 100);
-                        $margem = (($precoProposto * $impostoFator - $custo) / ($precoProposto * $impostoFator)) * 100;
+                        $margem = (($precoProposto - $custo) / $precoProposto) * 100;
                     }
 
                     $itemDataToCreate = [
@@ -767,12 +766,8 @@ class QuoteController extends Controller
                     $rawMargem = (float)$request->input('margem_calculada');
                     $margem = round(max(-999.99, min(999.99, $rawMargem)), 2);
                 } elseif ($precoProposto > 0 && $custo > 0) {
-                    $impostoFator = 1 - ($imposto / 100);
-                    $divisor = $precoProposto * $impostoFator;
-                    if ($divisor > 0) {
-                        $rawMargem = (($divisor - $custo) / $divisor) * 100;
-                        $margem = round(max(-999.99, min(999.99, $rawMargem)), 2);
-                    }
+                    $rawMargem = (($precoProposto - $custo) / $precoProposto) * 100;
+                    $margem = round(max(-999.99, min(999.99, $rawMargem)), 2);
                 }
 
                 $itemData = [

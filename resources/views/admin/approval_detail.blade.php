@@ -756,11 +756,10 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         const min = parseFloat(item.preco_minimo || 0);
         const prop = parseFloat(item.preco_unit_proposto || 0);
         const cost = parseFloat(item.custo || 0);
-        const tax = parseFloat(item.imposto || 0);
-        const isInconsistent = (sug > 0 && min > sug) || (cost <= 0 || (sug > 0 && cost > sug)) || (tax < 0 || tax >= 100) || (prop <= 0);
+        const isInconsistent = (sug > 0 && min > sug) || (cost <= 0 || (sug > 0 && cost > sug)) || (prop <= 0);
         if (!isInconsistent) {
-            const net = prop * (1 - (tax / 100));
-            return net > 0 ? ((net - cost) / net) * 100 : -100;
+            // Margem comercial direta sem imposto arbitrário
+            return prop > 0 ? ((prop - cost) / prop) * 100 : -100;
         }
         return parseFloat(item.margem_calculada || 0);
     }
@@ -780,7 +779,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             
             // Margin Color coding
             const margin = parseFloat(computeEffectiveItemMargin(item).toFixed(2));
-            const isNegativeMargin = margin < 0;
+            const isNegativeMargin = margin < 0 && (minEf > 0 ? (prop < (minEf - 0.005)) : true);
             let marginColor = "#ef4444"; // red
             if (margin >= 25) marginColor = "#10b981"; // green
             else if (margin >= 15) marginColor = "#d97706"; // yellow
@@ -892,20 +891,20 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             // Ignorar itens com dados inconsistentes no cálculo da margem:
             const isInconsistent = (suggestedPrice > 0 && minPrice > suggestedPrice)
                 || (cost <= 0 || (suggestedPrice > 0 && cost > suggestedPrice))
-                || (tax < 0 || tax >= 100)
                 || (proposedPrice <= 0);
 
             if (!isInconsistent) {
-                const itemNetRevenue = qty * proposedPrice * (1 - (tax / 100));
+                const itemRevenue = qty * proposedPrice;
                 const itemTotalCost = qty * cost;
-                totalNetRevenue += itemNetRevenue;
+                totalNetRevenue += itemRevenue;
                 totalCost += itemTotalCost;
                 validItemsForMargin++;
 
-                const itemMargin = itemNetRevenue > 0 ? ((itemNetRevenue - itemTotalCost) / itemNetRevenue) * 100 : -100;
-                if (itemMargin < -0.001) {
+                const itemMargin = itemRevenue > 0 ? ((itemRevenue - itemTotalCost) / itemRevenue) * 100 : -100;
+                const isBelowMin = minPrice > 0 ? (proposedPrice < (minPrice - 0.005)) : true;
+                if (itemMargin < -0.001 && isBelowMin) {
                     const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Item');
-                    const loss = Math.max(0, itemTotalCost - itemNetRevenue);
+                    const loss = Math.max(0, itemTotalCost - itemRevenue);
                     estimatedLoss += loss;
                     negativeItems.push({
                         id: item.id,
@@ -917,7 +916,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                         prejuizo: loss
                     });
                 }
-            } else if (parseFloat(item.margem_calculada || 0) < -0.001) {
+            } else if (parseFloat(item.margem_calculada || 0) < -0.001 && (minPrice <= 0 || proposedPrice < (minPrice - 0.005))) {
                 const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Item');
                 negativeItems.push({
                     id: item.id,

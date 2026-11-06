@@ -67,16 +67,25 @@ class CotacaoItem extends Model
 
     public function getTemMargemNegativaAttribute(): bool
     {
-        if ($this->margem_calculada !== null && (float)$this->margem_calculada < 0) {
-            return true;
-        }
         $custo = (float)($this->custo ?? 0);
         $prop = (float)($this->preco_unit_proposto ?? 0);
-        $imposto = (float)($this->imposto ?? 0);
-        if ($custo > 0 && $prop > 0) {
-            $net = $prop * (1 - ($imposto / 100));
-            return ($net < $custo);
+        $min = (float)($this->preco_minimo ?? 0);
+
+        // Se o preço proposto está no preço mínimo (ou acima) da política comercial, nunca é margem negativa
+        if ($min > 0 && $prop >= ($min - 0.005)) {
+            return false;
         }
+
+        // Se a margem calculada oficial foi informada
+        if ($this->margem_calculada !== null) {
+            return (float)$this->margem_calculada < 0;
+        }
+
+        // Venda abaixo do custo cadastrado (margem comercial direta, sem desconto arbitrário de imposto)
+        if ($custo > 0 && $prop > 0) {
+            return $prop < ($custo - 0.005);
+        }
+
         return false;
     }
 

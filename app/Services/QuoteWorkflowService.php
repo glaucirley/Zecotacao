@@ -115,18 +115,17 @@ class QuoteWorkflowService
             // Ignorar itens com dados cadastrais ou numéricos inconsistentes no cálculo da margem:
             // 1. Preço mínimo maior que o sugerido/tabela (inconsistência cadastral, ex: item com dados invertidos)
             // 2. Custo inválido (zerado, negativo ou maior que o preço de referência)
-            // 3. Alíquota de imposto inválida (< 0% ou >= 100%)
-            // 4. Preço proposto zerado ou negativo
+            // 3. Preço proposto zerado ou negativo
             $hasInconsistentData = ($suggested > 0 && $minPrice > $suggested)
                 || ($cost <= 0 || ($suggested > 0 && $cost > $suggested))
-                || ($tax < 0 || $tax >= 100)
                 || ($proposedPrice <= 0);
 
             if ($hasInconsistentData) {
                 continue;
             }
 
-            $totalNetRevenue += $qty * $proposedPrice * (1 - ($tax / 100));
+            // Margem comercial direta (sem dedução arbitrária de imposto)
+            $totalNetRevenue += $qty * $proposedPrice;
             $totalCost += $qty * $cost;
             $itensComDadosValidos++;
         }
