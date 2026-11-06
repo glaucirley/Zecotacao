@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zé Cotação — Login</title>
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ asset('brand-logo.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('brand-logo.png') }}">
 </head>
 <body class="centered-layout">
 

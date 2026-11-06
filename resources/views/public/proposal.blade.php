@@ -34,6 +34,11 @@
     <meta name="twitter:description" content="Proposta Comercial {{ $quote->numero }} · Central Veterinária">
     <meta name="twitter:image" content="{{ $ogImageUrl }}">
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ asset('brand-logo.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('brand-logo.png') }}">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">

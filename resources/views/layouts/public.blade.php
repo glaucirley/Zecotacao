@@ -6,6 +6,9 @@
     <title>Zé Cotação — Cotação Comercial</title>
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/png" href="{{ asset('brand-logo.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('brand-logo.png') }}">
     <style>
         .toast-container {
             position: fixed;
