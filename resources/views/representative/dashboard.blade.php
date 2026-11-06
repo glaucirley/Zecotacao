@@ -1341,7 +1341,7 @@
                 <!-- STEP 3: Condições Comerciais & Envio -->
                 <div id="step-content-3" class="step-panel" style="display:none;">
                     <div class="form-group-mobile">
-                        <label class="form-label-mobile">Forma de Pagamento</label>
+                        <label class="form-label-mobile">Forma de Pagamento <span style="color:#dc2626; font-weight:700;" title="Obrigatório">*</span></label>
                         <select id="nq-forma-pagamento" class="select-mobile" onchange="onNqFormaPagamentoChange()">
                             <option value="">Selecione a condição...</option>
                             @if(isset($condicoesPagamento) && count($condicoesPagamento) > 0)
@@ -1353,7 +1353,7 @@
                             @endif
                             <option value="__custom__">Outra (digitar manualmente)...</option>
                         </select>
-                        <input type="text" id="nq-forma-pagamento-custom" class="input-mobile" style="display: none; margin-top: 6px;" placeholder="Digite a forma de pagamento...">
+                        <input type="text" id="nq-forma-pagamento-custom" class="input-mobile" style="display: none; margin-top: 6px;" placeholder="Digite a forma de pagamento..." oninput="this.style.borderColor=''; this.style.boxShadow=''; clearQuoteFormError();">
                         <div id="nq-forma-pagamento-warning" style="display: none; margin-top: 4px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 11px; color: #b45309;"></div>
                     </div>
 
@@ -2341,6 +2341,16 @@
         function clearQuoteFormError() {
             const banner = document.getElementById("new-quote-error-banner");
             if (banner) banner.style.display = "none";
+            const sel = document.getElementById("nq-forma-pagamento");
+            if (sel) {
+                sel.style.borderColor = "";
+                sel.style.boxShadow = "";
+            }
+            const custom = document.getElementById("nq-forma-pagamento-custom");
+            if (custom) {
+                custom.style.borderColor = "";
+                custom.style.boxShadow = "";
+            }
         }
 
         async function openNewQuoteModal() {
@@ -2506,6 +2516,14 @@
             const custom = document.getElementById("nq-forma-pagamento-custom");
             const warning = document.getElementById("nq-forma-pagamento-warning");
             if (!sel) return;
+
+            sel.style.borderColor = "";
+            sel.style.boxShadow = "";
+            if (custom) {
+                custom.style.borderColor = "";
+                custom.style.boxShadow = "";
+            }
+            clearQuoteFormError();
 
             if (sel.value === '__custom__') {
                 if (custom) {
@@ -3399,6 +3417,31 @@
                 return;
             }
 
+            const fpSelect = document.getElementById("nq-forma-pagamento");
+            const fpCustom = document.getElementById("nq-forma-pagamento-custom");
+            const fpValue = fpSelect ? fpSelect.value : "";
+            const isCustom = fpValue === "__custom__";
+            const customText = fpCustom ? fpCustom.value.trim() : "";
+
+            if (!fpValue || (isCustom && !customText)) {
+                showToast("Escolha a forma de pagamento.", "warning");
+                showQuoteFormError("Escolha a forma de pagamento para continuar.", "Atenção");
+                if (fpSelect) {
+                    fpSelect.style.borderColor = "#dc2626";
+                    fpSelect.style.boxShadow = "0 0 0 3px rgba(220, 38, 38, 0.15)";
+                    if (!isCustom) {
+                        fpSelect.focus();
+                    }
+                }
+                if (isCustom && fpCustom) {
+                    fpCustom.style.borderColor = "#dc2626";
+                    fpCustom.style.boxShadow = "0 0 0 3px rgba(220, 38, 38, 0.15)";
+                    fpCustom.focus();
+                }
+                goToStep(3);
+                return;
+            }
+
             const btn = document.getElementById("btn-submit-quote");
             const origText = btn.innerHTML;
             btn.innerHTML = `
@@ -3476,10 +3519,18 @@
                         errMsg = `Erro no servidor (código ${res.status}). Por favor, tente novamente.`;
                     }
                     if (data?.messages && typeof data.messages === 'object') {
+                        if (data.messages.forma_pagamento) {
+                            if (fpSelect) {
+                                fpSelect.style.borderColor = "#dc2626";
+                                fpSelect.style.boxShadow = "0 0 0 3px rgba(220, 38, 38, 0.15)";
+                                fpSelect.focus();
+                            }
+                            goToStep(3);
+                        }
                         const details = Object.values(data.messages).flat().join("<br>• ");
-                        errMsg += "<br><br>• " + details;
+                        errMsg = details;
                     }
-                    showQuoteFormError(errMsg, "Falha ao gerar cotação");
+                    showQuoteFormError(errMsg, "Atenção");
                 }
             } catch(e) {
                 console.error("Error submitting quote:", e);

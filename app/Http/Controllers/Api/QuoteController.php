@@ -193,7 +193,7 @@ class QuoteController extends Controller
         $validator = Validator::make($request->all(), [
             'parceiro_id' => 'required|exists:parceiros,id',
             'representante_id' => 'required|exists:usuarios,id',
-            'forma_pagamento' => 'nullable|string',
+            'forma_pagamento' => 'required|string|not_in:__custom__',
             'condicao_pagamento_id' => 'nullable|integer',
             'prazo_entrega' => 'nullable|string',
             'frete_tipo' => 'nullable|in:CIF,FOB',
@@ -203,10 +203,22 @@ class QuoteController extends Controller
             'itens.*.produto_id' => 'required|exists:produtos,id',
             'itens.*.qtd' => 'required|integer|min:1',
             'itens.*.preco_unit_proposto' => 'required|numeric|min:0.01'
+        ], [
+            'forma_pagamento.required' => 'Escolha a forma de pagamento.',
+            'forma_pagamento.not_in' => 'Escolha a forma de pagamento.',
+            'parceiro_id.required' => 'Selecione um cliente para a cotação.',
+            'itens.required' => 'Adicione pelo menos um item à cotação.',
+            'itens.min' => 'Adicione pelo menos um item à cotação.',
+            'itens.*.preco_unit_proposto.min' => 'O preço unitário proposto deve ser de no mínimo R$ 0,01.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
+            $firstMsg = $validator->errors()->first();
+            return response()->json([
+                'error' => 'Erro de validação',
+                'message' => $firstMsg ?: 'Erro de validação nos dados da cotação.',
+                'messages' => $validator->errors()
+            ], 422);
         }
 
         // Access check: representatives can only create quotes for themselves
