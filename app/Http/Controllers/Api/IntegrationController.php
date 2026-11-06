@@ -18,24 +18,8 @@ use Illuminate\Support\Str;
 
 class IntegrationController extends Controller
 {
-    /**
-     * Tenta auto-executar a migration pendente caso as novas colunas de restrição ainda não existam.
-     */
-    protected function ensureSchemaReady(): void
-    {
-        try {
-            if (!\Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'restricao_efeito') || !\Illuminate\Support\Facades\Schema::hasColumn('cotacoes', 'restricoes_validadas')) {
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Falha ao auto-executar migrate de restrições no webhook: ' . $e->getMessage());
-        }
-    }
-
     public function store(Request $request)
     {
-        $this->ensureSchemaReady();
-
         $rawInput = $request->all();
 
         // Pre-process numeric fields to handle PT-BR commas and 3-decimal strings from n8n / Sankhya

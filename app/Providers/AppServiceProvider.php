@@ -25,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
-        if (!\Illuminate\Support\Facades\Cache::get('app_boot_schema_lock_2026_11_06')) {
+        if (!\Illuminate\Support\Facades\Cache::get('app_boot_schema_lock_2026_10_18')) {
             if (Schema::hasTable('parametros_sistema')) {
                 $iaSchemaLock = storage_path('framework/schema_ia_unfound_2026_10_18.lock');
             if (!is_file($iaSchemaLock)) {
@@ -194,7 +194,7 @@ class AppServiceProvider extends ServiceProvider
                     // Fail silently if DB is not ready
                 }
             }
-            \Illuminate\Support\Facades\Cache::forever('app_boot_schema_lock_2026_11_06', true);
+            \Illuminate\Support\Facades\Cache::forever('app_boot_schema_lock_2026_10_18', true);
         }
     }
 }
