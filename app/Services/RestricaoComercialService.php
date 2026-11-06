@@ -226,18 +226,52 @@ class RestricaoComercialService
         $bloqueados = [];
         $houveFalhaConexao = false;
 
+        // Otimização de Performance: Consulta lote de restrições em 1 única query (ou direto do cache de 10 min)
+        $batchMap = null;
+        try {
+            $batchList = $this->produtosRestritos($codVend, $codParc, $canal);
+            $batchMap = [];
+            foreach ($batchList as $r) {
+                $cProd = (string)($r['CODPROD'] ?? $r['codprod'] ?? '');
+                if ($cProd !== '') {
+                    $batchMap[$cProd] = [
+                        'efeito' => 'B',
+                        'fonte' => $r['FONTE'] ?? $r['fonte'] ?? 'RESTRICAO_COMERCIAL',
+                        'msg_vendedor' => $r['MSG_VENDEDOR'] ?? $r['msg_vendedor'] ?? 'Produto restrito comercialmente para este cliente.',
+                        'msg_cliente' => $r['MSG_CLIENTE'] ?? $r['msg_cliente'] ?? 'Produto indisponível para o seu cadastro.',
+                        'sucesso_consulta' => true,
+                    ];
+                }
+            }
+        } catch (\Throwable $eBatch) {
+            Log::warning("RestricaoComercialService::validarCotacao - Falha ao carregar lote de restrições, usando fallback: " . $eBatch->getMessage());
+            $batchMap = null;
+        }
+
         foreach ($quote->itens as $item) {
             // Ignora item que ainda não possui produto vinculado (não encontrado)
             if ($item->nao_encontrado && empty($item->produto_id)) {
                 continue;
             }
 
-            $codProd = $item->produto?->codigo_sankhya;
+            $codProd = (string)($item->produto?->codigo_sankhya ?? '');
             if (empty($codProd)) {
                 continue;
             }
 
-            $res = $this->validarItem($codVend, $codParc, (string)$codProd, $canal);
+            if ($batchMap !== null) {
+                // Resolução instantânea em memória a partir do lote de restrições
+                $res = $batchMap[$codProd] ?? [
+                    'efeito' => 'L',
+                    'fonte' => null,
+                    'msg_vendedor' => null,
+                    'msg_cliente' => null,
+                    'sucesso_consulta' => true,
+                ];
+            } else {
+                // Fallback item a item caso a procedure em lote falhe
+                $res = $this->validarItem($codVend, $codParc, $codProd, $canal);
+            }
 
             if (!$res['sucesso_consulta']) {
                 $houveFalhaConexao = true;
@@ -253,7 +287,9 @@ class RestricaoComercialService
             if (empty($item->restricao_origem)) {
                 $item->restricao_origem = ($canal === 'N8N') ? 'N8N' : 'PAINEL';
             }
-            $item->save();
+            if ($item->isDirty()) {
+                $item->save();
+            }
 
             if ($res['efeito'] === 'B') {
                 $itemInfo = [

@@ -30,8 +30,8 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Não autenticado.'], 401);
         }
 
-        // Trigger automatic expiration check for overdue quotes (throttled to at most once every 60s)
-        if (\Illuminate\Support\Facades\Cache::add('quote_expiration_check_lock', true, 60)) {
+        // Trigger automatic expiration check for overdue quotes (throttled to at most once every 300s / 5min)
+        if (\Illuminate\Support\Facades\Cache::add('quote_expiration_check_lock', true, 300)) {
             try {
                 \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
             } catch (\Throwable $e) {
@@ -494,12 +494,13 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
         }
 
+        // Carrega todos os itens existentes da cotação em 1 única query (evita N+1 de 50 queries)
+        $existingItems = $request->has('itens') ? $quote->itens()->get()->keyBy('id') : collect();
+
         // Validate that found items have price >= 0.01 (unfound items have placeholder price 0.00)
         if ($request->has('itens')) {
             foreach ($request->input('itens') as $idx => $itemData) {
-                $existingItem = CotacaoItem::where('cotacao_id', $quote->id)
-                    ->where('id', $itemData['id'])
-                    ->first();
+                $existingItem = $existingItems->get($itemData['id']);
                 if ($existingItem && !$existingItem->nao_encontrado && (float)($itemData['preco_unit_proposto'] ?? 0) < 0.01) {
                     return response()->json([
                         'error' => 'Erro de validação',
@@ -511,7 +512,7 @@ class QuoteController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $quote) {
+            DB::transaction(function () use ($request, $quote, $existingItems) {
                 $changedFields = [];
 
                 // Update quote fields
@@ -544,9 +545,7 @@ class QuoteController extends Controller
                 $changedItems = 0;
                 if ($request->has('itens')) {
                     foreach ($request->input('itens') as $itemData) {
-                        $item = CotacaoItem::where('cotacao_id', $quote->id)
-                            ->where('id', $itemData['id'])
-                            ->first();
+                        $item = $existingItems->get($itemData['id']);
 
                         if ($item) {
                             $qtd = (int)$itemData['qtd'];

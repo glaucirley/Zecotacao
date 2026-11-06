@@ -1552,6 +1552,7 @@
     let REGRA_LIBERACAO_DESCONTO = "{{ isset($regraLiberacao) ? $regraLiberacao : \App\Models\ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'PRECO_MINIMO') }}";
     let quote = null;
     let productsList = [];
+    let loggedUser = @json(auth()->check() ? ['id' => auth()->id(), 'nome' => auth()->user()->nome, 'email' => auth()->user()->email, 'papel' => auth()->user()->papel] : null);
     let isEditingLocked = false;
     const INITIAL_QUOTE = {!! isset($initialQuoteJson) ? $initialQuoteJson : 'null' !!};
 
@@ -1666,19 +1667,6 @@
 
             // Render view immediately with quote details (Instant response, zero lag!)
             renderView();
-
-            // Background fetch products catalog for addition only if quote is editable
-            const editableStatuses = ['EM_CRIACAO', 'DEVOLVIDA'];
-            if (editableStatuses.includes(quote.status)) {
-                fetch(`${QUOTE_BASE_URL}/produtos?limit=50`)
-                    .then(res => res.json())
-                    .then(prodData => {
-                        if (prodData && prodData.success) {
-                            productsList = prodData.data;
-                        }
-                    })
-                    .catch(errProd => console.warn("Background produtos:", errProd));
-            }
         } else {
             loadData();
         }
@@ -1743,19 +1731,6 @@
 
             // Render view immediately with quote details (Instant response, zero lag!)
             renderView();
-
-            // Background fetch products catalog for addition only if quote is editable
-            const editableStatuses = ['EM_CRIACAO', 'DEVOLVIDA'];
-            if (editableStatuses.includes(quote.status)) {
-                fetch(`${QUOTE_BASE_URL}/produtos?limit=50`)
-                    .then(res => res.json())
-                    .then(prodData => {
-                        if (prodData && prodData.success) {
-                            productsList = prodData.data;
-                        }
-                    })
-                    .catch(errProd => console.warn("Background produtos:", errProd));
-            }
         } catch (e) {
             console.error("Erro em loadData:", e);
             showToast("Falha na conexão com o servidor: " + (e.message || "Erro de rede"), 'error');
@@ -4462,9 +4437,11 @@
         }
     }
 
-    let loggedUser = null;
-
     async function checkUserSession() {
+        if (loggedUser) {
+            renderUserAuthBar(loggedUser);
+            return;
+        }
         try {
             const authRes = await fetch(`${API_URL}/auth/me`);
             if (authRes.ok) {
