@@ -29,7 +29,7 @@ class RestricaoComercialService
 
     /**
      * Retorna a lista de produtos restritos para um determinado vendedor e cliente.
-     * Resultado é mantido em cache por 10 minutos (600s).
+     * Resultado é mantido em cache por 2 horas (7200s).
      *
      * @param string $codVend Código Sankhya do Vendedor
      * @param string $codParc Código Sankhya do Parceiro (Cliente)
@@ -44,7 +44,8 @@ class RestricaoComercialService
 
         $cacheKey = $this->getCacheKey($codVend, $codParc);
 
-        return Cache::remember($cacheKey, 600, function () use ($codVend, $codParc, $canal) {
+        return Cache::remember($cacheKey, 7200, function () use ($codVend, $codParc, $canal) {
+            $t0 = microtime(true);
             try {
                 $conn = $this->sankhyaDb->connect();
                 $sql = "SELECT CODPROD, FONTE, MSG_VENDEDOR FROM TABLE(AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS(:v, :p, :canal))";
@@ -55,7 +56,7 @@ class RestricaoComercialService
                         ':p' => (string)$codParc,
                         ':canal' => (string)$canal,
                     ]);
-                    return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                    $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
                 } catch (\PDOException $e1) {
                     $sqlPrefix = "SELECT CODPROD, FONTE, MSG_VENDEDOR FROM TABLE(SANKHYA.AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS(:v, :p, :canal))";
                     $stmt = $conn->prepare($sqlPrefix);
@@ -64,10 +65,15 @@ class RestricaoComercialService
                         ':p' => (string)$codParc,
                         ':canal' => (string)$canal,
                     ]);
-                    return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+                    $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
                 }
+                $elapsed = round(microtime(true) - $t0, 3);
+                $count = count($rows);
+                Log::info("RestricaoComercialService::produtosRestritos [Oracle AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS] VEND={$codVend}, PARC={$codParc}, CANAL={$canal} finalizado em {$elapsed}s (retornou {$count} restrições).");
+                return $rows;
             } catch (\Throwable $e) {
-                Log::warning("RestricaoComercialService::produtosRestritos falhou para VEND={$codVend}, PARC={$codParc}: " . $e->getMessage());
+                $elapsed = round(microtime(true) - $t0, 3);
+                Log::warning("RestricaoComercialService::produtosRestritos falhou após {$elapsed}s para VEND={$codVend}, PARC={$codParc}: " . $e->getMessage());
                 return [];
             }
         });

@@ -1734,6 +1734,11 @@
                 EXIGE_ANEXO_JUSTIFICATIVA = Boolean(quoteData.exige_anexo_justificativa);
             }
 
+            // Pré-aquece restrições comerciais no Oracle em segundo plano
+            if (typeof QUOTE_BASE_URL !== 'undefined' && QUOTE_BASE_URL) {
+                fetch(`${QUOTE_BASE_URL}/restricoes/pre-aquecer`).catch(() => {});
+            }
+
             // Update Navbar and Tab Title dynamically
             const pageTitleEl = document.querySelector(".page-title");
             if (pageTitleEl) {

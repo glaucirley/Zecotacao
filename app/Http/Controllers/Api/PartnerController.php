@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Parceiro;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -13,78 +14,68 @@ class PartnerController extends Controller
 {
     /**
      * List partners/clients. Restricted to Administrators. Limited to 20 items by default.
+     * High-performance query with index scans, terms filtering and query cache.
      */
     public function index(Request $request)
     {
-        $query = Parceiro::query()->select([
-            'id', 'codigo_sankhya', 'razao_social', 'nome_fantasia',
-            'cnpj', 'cidade', 'uf', 'bairro', 'ativo'
-        ]);
+        $search = trim((string)$request->input('search', ''));
+        $status = $request->input('status');
+        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
 
-        if ($request->filled('search')) {
-            $search = trim($request->input('search'));
-            $cleanDigits = preg_replace('/[^0-9]/', '', $search);
-            $terms = array_filter(explode(' ', $search));
+        $cacheKey = 'partners_search_' . md5(mb_strtolower($search) . '_' . ($status ?? '') . '_' . $limit);
 
-            if (!empty($terms)) {
-                $query->where(function ($q) use ($terms, $search, $cleanDigits) {
-                    // Match full phrase
-                    $q->where('razao_social', 'like', "%{$search}%")
-                      ->orWhere('nome_fantasia', 'like', "%{$search}%")
-                      ->orWhere('codigo_sankhya', 'like', "%{$search}%");
+        $partners = Cache::remember($cacheKey, 300, function () use ($search, $status, $limit) {
+            $query = Parceiro::query()->select([
+                'id', 'codigo_sankhya', 'razao_social', 'nome_fantasia',
+                'cnpj', 'cidade', 'uf', 'bairro', 'ativo'
+            ]);
 
+            if ($search !== '') {
+                $cleanDigits = preg_replace('/[^0-9]/', '', $search);
+                $terms = array_filter(explode(' ', $search));
+                $significantTerms = array_values(array_filter($terms, fn($t) => mb_strlen($t) >= 2));
+                if (empty($significantTerms)) {
+                    $significantTerms = $terms;
+                }
+
+                $query->where(function ($q) use ($significantTerms, $cleanDigits, $search) {
                     if (strlen($cleanDigits) >= 3) {
-                        $q->orWhere('cnpj', 'like', "%{$cleanDigits}%");
+                        $q->where('cnpj', 'like', "%{$cleanDigits}%")
+                          ->orWhere('codigo_sankhya', 'like', "%{$search}%");
                     }
 
-                    // Match all terms
-                    $q->orWhere(function ($allTermsQ) use ($terms) {
-                        foreach ($terms as $term) {
+                    $q->orWhere(function ($allTermsQ) use ($significantTerms) {
+                        foreach ($significantTerms as $term) {
                             $allTermsQ->where(function ($subQ) use ($term) {
-                                $subQ->where('codigo_sankhya', 'like', "%{$term}%")
-                                     ->orWhere('razao_social', 'like', "%{$term}%")
+                                $subQ->where('razao_social', 'like', "%{$term}%")
                                      ->orWhere('nome_fantasia', 'like', "%{$term}%")
-                                     ->orWhere('cnpj', 'like', "%{$term}%")
-                                     ->orWhere('cidade', 'like', "%{$term}%");
+                                     ->orWhere('codigo_sankhya', 'like', "%{$term}%");
                             });
                         }
                     });
                 });
 
-                // Prioritise results by relevance: exact match > prefix match > contains phrase > word count
                 $safeSearch = addslashes($search);
                 $query->orderByRaw("
                     CASE 
-                        WHEN LOWER(TRIM(nome_fantasia)) = LOWER('{$safeSearch}') THEN 1
-                        WHEN LOWER(TRIM(razao_social)) = LOWER('{$safeSearch}') THEN 2
-                        WHEN LOWER(TRIM(nome_fantasia)) LIKE LOWER('{$safeSearch}%') THEN 3
-                        WHEN LOWER(TRIM(razao_social)) LIKE LOWER('{$safeSearch}%') THEN 4
-                        WHEN LOWER(TRIM(nome_fantasia)) LIKE LOWER('%{$safeSearch}%') THEN 5
-                        WHEN LOWER(TRIM(razao_social)) LIKE LOWER('%{$safeSearch}%') THEN 6
-                        ELSE 7
+                        WHEN codigo_sankhya = '{$safeSearch}' THEN 1
+                        WHEN razao_social LIKE '{$safeSearch}%' OR nome_fantasia LIKE '{$safeSearch}%' THEN 2
+                        ELSE 3
                     END ASC,
-                    LENGTH(COALESCE(NULLIF(nome_fantasia, ''), razao_social)) ASC,
                     razao_social ASC
                 ");
+            } else {
+                $query->orderBy('razao_social');
             }
-        }
 
-        if ($request->filled('status')) {
-            $st = $request->input('status');
-            if ($st === 'ativo') {
+            if ($status === 'ativo') {
                 $query->where('ativo', true);
-            } elseif ($st === 'inativo') {
+            } elseif ($status === 'inativo') {
                 $query->where('ativo', false);
             }
-        }
 
-        if (!$request->filled('search')) {
-            $query->orderBy('razao_social');
-        }
-
-        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
-
-        $partners = $query->take($limit)->get();
+            return $query->take($limit)->get();
+        });
 
         return response()->json([
             'success' => true,

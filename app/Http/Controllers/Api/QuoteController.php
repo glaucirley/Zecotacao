@@ -1433,6 +1433,66 @@ class QuoteController extends Controller
     }
 
     /**
+     * Pre-warms commercial restrictions cache from Oracle for the selected partner/rep.
+     * Triggered in background as soon as customer is chosen so subsequent product searches are instant (<0.3s).
+     */
+    public function prewarmRestrictions(Request $request)
+    {
+        $codvend = null;
+        $codparc = null;
+
+        $cotacao = $request->cotacao;
+        if (!$cotacao) {
+            $cotacaoId = $request->route('id') ?? $request->input('cotacao_id');
+            if ($cotacaoId) {
+                $cotacao = Cotacao::with(['parceiro', 'representante'])->find($cotacaoId);
+            }
+        }
+        if (!$cotacao && $request->route('token')) {
+            $cotacao = Cotacao::findQuoteByRepresentativeToken($request->route('token'));
+        }
+
+        if ($cotacao) {
+            $codvend = $cotacao->representante?->codigo_sankhya;
+            $codparc = $cotacao->parceiro?->codigo_sankhya;
+        }
+
+        if (empty($codparc) && $request->filled('parceiro_id')) {
+            $parceiro = \App\Models\Parceiro::find($request->input('parceiro_id'));
+            $codparc = $parceiro?->codigo_sankhya;
+        }
+
+        if (empty($codvend)) {
+            $user = auth()->user();
+            $codvend = $user?->codigo_sankhya;
+        }
+
+        if (empty($codvend) || empty($codparc)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vendedor ou parceiro não identificados para pré-aquecimento.'
+            ], 400);
+        }
+
+        $restricaoService = app(\App\Services\RestricaoComercialService::class);
+        $cacheKey = $restricaoService->getCacheKey((string)$codvend, (string)$codparc);
+        $wasCached = \Illuminate\Support\Facades\Cache::has($cacheKey);
+
+        $t0 = microtime(true);
+        $items = $restricaoService->produtosRestritos((string)$codvend, (string)$codparc, 'ZC');
+        $elapsed = round(microtime(true) - $t0, 3);
+
+        return response()->json([
+            'success' => true,
+            'codvend' => $codvend,
+            'codparc' => $codparc,
+            'tempo_execucao_segundos' => $elapsed,
+            'total_restricoes' => count($items),
+            'origem' => $wasCached ? 'cache' : 'oracle'
+        ]);
+    }
+
+    /**
      * List active products for quotation addition (limited to 50 by default, with live search & price lookup).
      */
     public function listProducts(Request $request)

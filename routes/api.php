@@ -44,6 +44,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/cotacoes/{id}/pdf', [QuoteController::class, 'generatePdf']);
             Route::post('/cotacoes/manual', [QuoteController::class, 'storeManual']);
             Route::get('/produtos', [QuoteController::class, 'listProducts']);
+            Route::get('/restricoes/pre-aquecer', [QuoteController::class, 'prewarmRestrictions']);
             Route::get('/condicoes-pagamento', function () {
                 return response()->json([
                     'success' => true,
@@ -134,6 +135,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/cotacoes/token/{token}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/token/{token}/pdf', [QuoteController::class, 'generatePdf']);
         Route::get('/cotacoes/token/{token}/produtos', [QuoteController::class, 'listProducts']);
+        Route::get('/cotacoes/token/{token}/restricoes/pre-aquecer', [QuoteController::class, 'prewarmRestrictions']);
         Route::get('/cotacoes/token/{token}/contatos-envio', [QuoteDeliveryController::class, 'getDeliveryData']);
         Route::post('/cotacoes/token/{token}/envios', [QuoteDeliveryController::class, 'send']);
 
@@ -149,6 +151,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/cotacoes/{id}/faturar', [QuoteController::class, 'releaseForBilling']);
         Route::get('/cotacoes/{id}/pdf', [QuoteController::class, 'generatePdf']);
         Route::get('/cotacoes/{id}/produtos', [QuoteController::class, 'listProducts']);
+        Route::get('/cotacoes/{id}/restricoes/pre-aquecer', [QuoteController::class, 'prewarmRestrictions']);
         Route::get('/cotacoes/{id}/contatos-envio', [QuoteDeliveryController::class, 'getDeliveryData']);
         Route::post('/cotacoes/{id}/envios', [QuoteDeliveryController::class, 'send']);
         Route::patch('/cliente-contatos/{id}/inativar', [QuoteDeliveryController::class, 'inactivateContact']);

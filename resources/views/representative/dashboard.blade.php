@@ -2803,6 +2803,27 @@
             
             if (card) card.style.display = "block";
             if (container) container.style.display = "none";
+
+            // Pré-carrega restrições comerciais no Oracle em segundo plano logo na seleção do cliente
+            preloadCommercialRestrictions(selectedPartner.id);
+        }
+
+        let activePreloadPartnerId = null;
+        async function preloadCommercialRestrictions(partnerId) {
+            if (!partnerId || activePreloadPartnerId == partnerId) return;
+            activePreloadPartnerId = partnerId;
+            try {
+                fetch(`${API_URL}/restricoes/pre-aquecer?parceiro_id=${encodeURIComponent(partnerId)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.success) {
+                            console.log(`[ZeCotacao] Restrições pré-aquecidas para cliente ${partnerId}: ${data.total_restricoes} restrições em ${data.tempo_execucao_segundos}s (${data.origem})`);
+                        }
+                    })
+                    .catch(e => {
+                        console.warn("[ZeCotacao] Aviso no pré-aquecimento de restrições:", e);
+                    });
+            } catch (err) {}
         }
 
         function clearSelectedPartner() {
