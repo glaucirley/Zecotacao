@@ -123,13 +123,15 @@ class ApprovalController extends Controller
                 $precoProposto = (float)$request->input('preco_unit_proposto');
                 $precoSugerido = (float)$item->preco_unit_sugerido;
                 $custo = (float)$item->custo;
-                $ajuste = $precoSugerido > 0 ? (($precoProposto - $precoSugerido) / $precoSugerido) * 100 : 0;
-                $margem = ($custo > 0 && $precoProposto > 0) ? (($precoProposto - $custo) / $precoProposto) * 100 : (float)$item->margem_calculada;
+                $rawAjuste = $precoSugerido > 0 ? (($precoProposto - $precoSugerido) / $precoSugerido) * 100 : 0;
+                $ajuste = round(max(-999.99, min(999.99, $rawAjuste)), 2);
+                $rawMargem = ($custo > 0 && $precoProposto > 0) ? (($precoProposto - $custo) / $precoProposto) * 100 : (float)$item->margem_calculada;
+                $margem = round(max(-999.99, min(999.99, $rawMargem)), 2);
 
                 $item->update([
                     'preco_unit_proposto' => $precoProposto,
-                    'ajuste_percentual' => round($ajuste, 2),
-                    'margem_calculada' => round($margem, 2),
+                    'ajuste_percentual' => $ajuste,
+                    'margem_calculada' => $margem,
                     'subtotal' => ceil(round(round($item->qtd * $precoProposto, 4) * 100, 2)) / 100,
                 ]);
 

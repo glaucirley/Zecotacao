@@ -279,13 +279,15 @@ class QuoteController extends Controller
                         throw new \InvalidArgumentException("O produto '{$prod->descricao}' não possui preço cadastrado na tabela de preços e não pode ser cotado.");
                     }
 
-                    $ajuste = $sugerido > 0 ? (($precoProposto - $sugerido) / $sugerido) * 100 : 0;
+                    $rawAjuste = $sugerido > 0 ? (($precoProposto - $sugerido) / $sugerido) * 100 : 0;
+                    $ajuste = round(max(-999.99, min(999.99, $rawAjuste)), 2);
                     $itemSubtotal = ceil(round(round($qtd * $precoProposto, 4) * 100, 2)) / 100;
 
                     // Margin (Margem comercial direta sem imposto arbitrário)
                     $margem = null;
                     if ($precoProposto > 0 && $custo > 0) {
-                        $margem = (($precoProposto - $custo) / $precoProposto) * 100;
+                        $rawMargem = (($precoProposto - $custo) / $precoProposto) * 100;
+                        $margem = round(max(-999.99, min(999.99, $rawMargem)), 2);
                     }
 
                     $itemDataToCreate = [
@@ -304,6 +306,12 @@ class QuoteController extends Controller
                     ];
                     if (CotacaoItem::hasValidadeColumn() && !empty($prod->validade_proxima)) {
                         $itemDataToCreate['validade'] = $prod->validade_proxima;
+                    }
+                    if (CotacaoItem::hasEstoqueColumn() && $prod->estoque !== null) {
+                        $itemDataToCreate['estoque'] = $prod->estoque;
+                    }
+                    if (CotacaoItem::hasCampanhaColumn() && !empty($prod->campanha)) {
+                        $itemDataToCreate['campanha'] = $prod->campanha;
                     }
 
                     CotacaoItem::create($itemDataToCreate);
@@ -356,15 +364,12 @@ class QuoteController extends Controller
                 'user_id' => $user->id ?? null,
                 'request' => $request->except(['_token'])
             ]);
-            $msg = 'Ocorreu um erro interno ao processar a cotação. Por favor, tente novamente ou contate o suporte.';
-            if (config('app.debug')) {
-                $msg .= ' (' . $e->getMessage() . ')';
-            }
+            $msg = 'Ocorreu um erro ao processar a cotação: ' . $e->getMessage();
             return response()->json([
                 'error' => 'Erro interno do servidor',
                 'code' => 'QUOTE_CREATE_ERROR',
                 'message' => $msg,
-                'detail' => config('app.debug') ? $e->getMessage() : null
+                'detail' => $e->getMessage()
             ], 500);
         }
     }

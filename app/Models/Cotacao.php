@@ -170,16 +170,30 @@ class Cotacao extends Model
         $year = date('Y');
         $prefix = "COT-{$year}-";
 
-        $latest = self::where('numero', 'like', "{$prefix}%")
-            ->orderByDesc('id')
-            ->value('numero');
+        // Busca todas as cotações deste ano para determinar a maior sequência numérica
+        $numeros = self::where('numero', 'like', "{$prefix}%")
+            ->pluck('numero')
+            ->toArray();
 
-        $nextSeq = 1;
-        if ($latest && preg_match('/COT-\d{4}-(\d+)/', $latest, $matches)) {
-            $nextSeq = ((int)$matches[1]) + 1;
+        $maxSeq = 0;
+        foreach ($numeros as $num) {
+            if (preg_match('/COT-\d{4}-(\d+)/', $num, $matches)) {
+                $seq = (int)$matches[1];
+                if ($seq > $maxSeq) {
+                    $maxSeq = $seq;
+                }
+            }
         }
 
-        return $prefix . str_pad($nextSeq, 6, '0', STR_PAD_LEFT);
+        $nextSeq = $maxSeq + 1;
+
+        // Loop de garantia de unicidade
+        do {
+            $candidate = $prefix . str_pad($nextSeq, 6, '0', STR_PAD_LEFT);
+            $nextSeq++;
+        } while (self::where('numero', $candidate)->exists());
+
+        return $candidate;
     }
 
     /**

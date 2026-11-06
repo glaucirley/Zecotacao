@@ -216,6 +216,17 @@ class CotacaoItem extends Model
     protected static function booted()
     {
         static::saving(function ($model) {
+            // Garante que percentuais nunca estourem o limite da coluna decimal(5, 2) [-999.99, 999.99]
+            if (isset($model->attributes['margem_calculada']) && $model->attributes['margem_calculada'] !== null) {
+                $model->attributes['margem_calculada'] = round(max(-999.99, min(999.99, (float)$model->attributes['margem_calculada'])), 2);
+            }
+            if (isset($model->attributes['ajuste_percentual']) && $model->attributes['ajuste_percentual'] !== null) {
+                $model->attributes['ajuste_percentual'] = round(max(-999.99, min(999.99, (float)$model->attributes['ajuste_percentual'])), 2);
+            }
+            if (isset($model->attributes['imposto']) && $model->attributes['imposto'] !== null) {
+                $model->attributes['imposto'] = round(max(-999.99, min(999.99, (float)$model->attributes['imposto'])), 2);
+            }
+
             if (!static::hasInconsistenteColumn()) {
                 unset($model->attributes['inconsistente']);
             }
