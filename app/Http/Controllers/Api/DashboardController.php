@@ -540,11 +540,21 @@ class DashboardController extends Controller
 
         // 3. Search Products
         $products = \App\Models\Produto::where(function($query) use ($q) {
+                $termAscii = \Illuminate\Support\Str::ascii($q);
                 $query->where('descricao', 'like', "%{$q}%")
                       ->orWhere('codigo_sankhya', 'like', "%{$q}%")
-                      ->orWhere('marca', 'like', "%{$q}%");
+                      ->orWhere('marca', 'like', "%{$q}%")
+                      ->orWhere('base', 'like', "%{$q}%")
+                      ->orWhere('principio_ativo', 'like', "%{$q}%");
+
+                if ($termAscii !== $q) {
+                    $query->orWhere('descricao', 'like', "%{$termAscii}%")
+                          ->orWhere('marca', 'like', "%{$termAscii}%")
+                          ->orWhere('base', 'like', "%{$termAscii}%")
+                          ->orWhere('principio_ativo', 'like', "%{$termAscii}%");
+                }
             })
-            ->limit(5)
+            ->limit(10)
             ->get();
 
         foreach ($products as $product) {

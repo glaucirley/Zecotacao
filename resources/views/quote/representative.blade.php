@@ -1077,7 +1077,7 @@
         <div class="items-filter-bar" style="margin-bottom: 14px;">
             <div class="search-box-wrapper">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="item-search-input" class="search-items-input" placeholder="Buscar por código ou produto..." oninput="onSearchInput(this.value)">
+                <input type="text" id="item-search-input" class="search-items-input" placeholder="Buscar por código, produto ou marca..." oninput="onSearchInput(this.value)">
             </div>
             <div class="filter-tabs-wrapper">
                 <button type="button" class="filter-tab-btn active" id="tab-all" onclick="setFilterTab('all')">
@@ -1124,11 +1124,11 @@
             <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
                 <!-- Live Product Search Box with Dropdown -->
                 <div style="flex-grow: 1; min-width: 240px; position: relative;">
-                    <label class="form-label" style="font-size: 12px; font-weight: 600;">Produto (Código ou Descrição)</label>
+                    <label class="form-label" style="font-size: 12px; font-weight: 600;">Produto (Código, Descrição ou Marca)</label>
                     <input type="hidden" id="selected-product-id">
                     <div style="position: relative;">
                         <input type="text" id="add-product-search-input" class="form-control" 
-                               placeholder="🔍 Buscar produto no catálogo..." 
+                               placeholder="🔍 Buscar produto por código, nome ou marca..." 
                                oninput="onAddProductSearchInput(this.value)" 
                                onfocus="onAddProductSearchFocus()" 
                                autocomplete="off" 
@@ -1512,6 +1512,19 @@
             .replace(/'/g, '&#039;');
     }
     window.escapeHtml = escapeHtml;
+
+    function normalizeStr(str) {
+        if (!str) return '';
+        try {
+            return String(str)
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase();
+        } catch(e) {
+            return String(str).toLowerCase();
+        }
+    }
+    window.normalizeStr = normalizeStr;
 
     // Global override to guarantee no native alert locks the mobile screen
     window.alert = function(msg) {
@@ -3333,10 +3346,17 @@
             const prodCode = item.produto ? item.produto.codigo_sankhya : '';
 
             if (currentSearchQuery) {
-                const q = currentSearchQuery;
-                const code = String(prodCode).toLowerCase();
-                const desc = String(prodDesc).toLowerCase();
-                if (!code.includes(q) && !desc.includes(q)) return false;
+                const qNorm = (typeof normalizeStr === 'function' ? normalizeStr(currentSearchQuery) : currentSearchQuery.toLowerCase()).trim();
+                const terms = qNorm.split(/\s+/).filter(Boolean);
+                const code = (typeof normalizeStr === 'function' ? normalizeStr(prodCode) : String(prodCode).toLowerCase());
+                const desc = (typeof normalizeStr === 'function' ? normalizeStr(prodDesc) : String(prodDesc).toLowerCase());
+                const marca = (typeof normalizeStr === 'function' ? normalizeStr(item.produto?.marca || item.marca || '') : String(item.produto?.marca || item.marca || '').toLowerCase());
+                const princ = (typeof normalizeStr === 'function' ? normalizeStr(item.produto?.principio_ativo || '') : String(item.produto?.principio_ativo || '').toLowerCase());
+                const base = (typeof normalizeStr === 'function' ? normalizeStr(item.produto?.base || '') : String(item.produto?.base || '').toLowerCase());
+                const searchString = `${code} ${desc} ${marca} ${princ} ${base}`;
+
+                const matches = terms.every(term => searchString.includes(term));
+                if (!matches) return false;
             }
 
             const minEf = getItemEffectiveMin(item);
@@ -3430,6 +3450,7 @@
                     const prodDesc = item.produto ? item.produto.descricao : (item.descricao_original || 'Produto sem cadastro');
                     const prodCode = item.produto ? item.produto.codigo_sankhya : 'S/C';
                     const prodUn = item.produto ? item.produto.unidade : 'UN';
+                    const prodMarca = item.produto?.marca || item.marca || '';
                     const isUnfound = Boolean(item.nao_encontrado);
                     const prodStock = (item.produto && item.produto.estoque !== null && item.produto.estoque !== undefined) 
                         ? parseFloat(item.produto.estoque) 
@@ -3447,7 +3468,7 @@
                             <div class="item-line-1">
                                 <div class="item-desc-wrap" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
                                     <span class="item-desc" style="font-weight:700; ${isRejected ? 'color:#991b1b;' : (isUnfound ? 'color:#be123c;' : '')}">${escapeHtml(isUnfound ? (item.descricao_original || prodDesc) : prodDesc)}</span>
-                                    <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">${isUnfound ? 'Sem código no catálogo' : '#' + escapeHtml(prodCode)} · ${escapeHtml(prodUn)}</span>
+                                    <span class="item-code-un" style="color:var(--color-text-muted); font-size:12px;">${isUnfound ? 'Sem código no catálogo' : '#' + escapeHtml(prodCode)} · ${escapeHtml(prodUn)}${prodMarca ? ' · ' + escapeHtml(prodMarca) : ''}</span>
                                     ${!isUnfound && prodStock !== null ? `
                                         <span class="badge-estoque" style="font-size:11.5px; font-weight:600; padding:2px 7px; border-radius:5px; background:${prodStock > 0 ? '#f0fdf4' : '#fef2f2'}; color:${prodStock > 0 ? '#166534' : '#991b1b'}; border:1px solid ${prodStock > 0 ? '#bbf7d0' : '#fecaca'}; display:inline-flex; align-items:center; gap:3px;">
                                             📦 Estoque: <strong>${item.estoque_formatado || item.produto?.estoque_formatado || prodStock}</strong>

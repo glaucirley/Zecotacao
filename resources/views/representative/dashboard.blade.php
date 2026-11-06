@@ -1272,7 +1272,7 @@
                     <div id="step2-view-catalog">
                         <div class="form-group-mobile" style="margin-bottom:8px;">
                             <div style="position:relative;">
-                                <input type="text" id="prod-search-input" class="input-mobile" placeholder="🔍 Digite código ou nome do produto..." oninput="filterProducts()" style="padding-right:36px;">
+                                <input type="text" id="prod-search-input" class="input-mobile" placeholder="🔍 Digite código, nome ou marca do produto..." oninput="filterProducts()" style="padding-right:36px;">
                                 <button type="button" onclick="clearProdSearch()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer; padding:4px;" title="Limpar busca">&times;</button>
                             </div>
                         </div>
@@ -2984,14 +2984,26 @@
                     normalizeStr(p.codigo_sankhya),
                     normalizeStr(p.codprod),
                     normalizeStr(p.marca),
+                    normalizeStr(p.base),
+                    normalizeStr(p.principio_ativo),
                 ].join(" ");
                 return terms.every(term => searchables.includes(term));
             });
 
-            // Immediately render local matches (or empty state)
-            renderProductSearchResults(localMatches, true);
+            if (localMatches.length > 0) {
+                renderProductSearchResults(localMatches, true);
+            } else {
+                const container = document.getElementById("prod-search-results");
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align:center; padding:18px; color:var(--color-primary); font-size:12.5px; font-weight:600;">
+                            🔍 Buscando "<strong>${escapeHtml(query)}</strong>" no catálogo completo...
+                        </div>
+                    `;
+                }
+            }
 
-            // Debounced live server query across ALL 6,141 products in MySQL
+            // Debounced live server query across ALL products in MySQL
             prodSearchTimer = setTimeout(() => {
                 executeServerProductSearch(query);
             }, 250);
@@ -2999,7 +3011,9 @@
 
         async function executeServerProductSearch(query) {
             try {
-                const res = await fetch(`${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=40`);
+                const partnerId = selectedPartner ? selectedPartner.id : '';
+                const url = `${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=50${partnerId ? `&parceiro_id=${partnerId}` : ''}`;
+                const res = await fetch(url);
                 const data = await res.json();
                 
                 let results = [];

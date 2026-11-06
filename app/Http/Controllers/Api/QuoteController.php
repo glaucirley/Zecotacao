@@ -1450,10 +1450,21 @@ class QuoteController extends Controller
                 $query->where(function ($q) use ($terms) {
                     foreach ($terms as $term) {
                         $q->where(function ($subQ) use ($term) {
+                            $termAscii = \Illuminate\Support\Str::ascii($term);
                             $subQ->where('codigo_sankhya', 'like', "%{$term}%")
                                  ->orWhere('descricao', 'like', "%{$term}%")
                                  ->orWhere('marca', 'like', "%{$term}%")
+                                 ->orWhere('base', 'like', "%{$term}%")
+                                 ->orWhere('principio_ativo', 'like', "%{$term}%")
+                                 ->orWhere('unidade', 'like', "%{$term}%")
                                  ->orWhere('ncm', 'like', "%{$term}%");
+
+                            if ($termAscii !== $term) {
+                                $subQ->orWhere('descricao', 'like', "%{$termAscii}%")
+                                     ->orWhere('marca', 'like', "%{$termAscii}%")
+                                     ->orWhere('base', 'like', "%{$termAscii}%")
+                                     ->orWhere('principio_ativo', 'like', "%{$termAscii}%");
+                            }
                         });
                     }
                 });
@@ -1461,7 +1472,8 @@ class QuoteController extends Controller
         }
 
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
-        $rawProducts = $query->take(200)->get();
+        $limitTake = $request->filled('search') ? 500 : 200;
+        $rawProducts = $query->take($limitTake)->get();
 
         // Resolve vendor and customer for commercial restriction filtering (AD_EXCPRODUTO and AD_EXCMARCA)
         $codvend = null;
