@@ -18,8 +18,24 @@ use Illuminate\Support\Str;
 
 class IntegrationController extends Controller
 {
+    /**
+     * Tenta auto-executar a migration pendente caso as novas colunas de restrição ainda não existam.
+     */
+    protected function ensureSchemaReady(): void
+    {
+        try {
+            if (!\Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'restricao_efeito') || !\Illuminate\Support\Facades\Schema::hasColumn('cotacoes', 'restricoes_validadas')) {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Falha ao auto-executar migrate de restrições no webhook: ' . $e->getMessage());
+        }
+    }
+
     public function store(Request $request)
     {
+        $this->ensureSchemaReady();
+
         $rawInput = $request->all();
 
         // Pre-process numeric fields to handle PT-BR commas and 3-decimal strings from n8n / Sankhya
@@ -513,7 +529,9 @@ class IntegrationController extends Controller
                         ? (float)$item['subtotal']
                         : ceil(round(round($qtd * ($precoProposto > 0 ? $precoProposto : $precoSugerido), 4) * 100, 2)) / 100;
 
-                    CotacaoItem::create([
+                    $hasRestrCols = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'restricao_efeito');
+
+                    $itemDataToCreate = [
                         'cotacao_id' => $quote->id,
                         'produto_id' => $productIdsMap[$itemCode],
                         'qtd' => $qtd,
@@ -534,23 +552,32 @@ class IntegrationController extends Controller
                             ? trim((string)$item['descricao_original'])
                             : (!empty(trim((string)($item['descricao'] ?? ''))) ? trim((string)$item['descricao']) : null),
                         'observacao_ia' => $item['observacao_ia'] ?? ($isUnfound ? 'Item não identificado automaticamente no catálogo Sankhya' : null),
-                        'restricao_efeito' => $item['restricao_efeito'] ?? 'L',
-                        'restricao_fonte' => $item['restricao_fonte'] ?? null,
-                        'restricao_msg_vendedor' => $item['restricao_msg_vendedor'] ?? null,
-                        'restricao_validada_em' => !empty($item['restricao_validada_em']) ? $item['restricao_validada_em'] : null,
-                        'restricao_origem' => $item['restricao_origem'] ?? 'N8N',
-                    ]);
+                    ];
+
+                    if ($hasRestrCols) {
+                        $itemDataToCreate['restricao_efeito'] = $item['restricao_efeito'] ?? 'L';
+                        $itemDataToCreate['restricao_fonte'] = $item['restricao_fonte'] ?? null;
+                        $itemDataToCreate['restricao_msg_vendedor'] = $item['restricao_msg_vendedor'] ?? null;
+                        $itemDataToCreate['restricao_validada_em'] = !empty($item['restricao_validada_em']) ? $item['restricao_validada_em'] : null;
+                        $itemDataToCreate['restricao_origem'] = $item['restricao_origem'] ?? 'N8N';
+                    }
+
+                    CotacaoItem::create($itemDataToCreate);
                 }
 
                 // 6.1 Validate Commercial Restrictions (AD_EXCPRODUTO e AD_EXCMARCA)
                 // Revalida sempre todos os itens com validarCotacao conforme especificação técnica
-                try {
-                    $restricaoService = app(\App\Services\RestricaoComercialService::class);
-                    $restricaoService->validarCotacao($quote, 'N8N');
-                } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::warning("Falha ao validar restrições comerciais na importação N8N: " . $e->getMessage());
+                if (\Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'restricao_efeito')) {
+                    try {
+                        $restricaoService = app(\App\Services\RestricaoComercialService::class);
+                        $restricaoService->validarCotacao($quote, 'N8N');
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning("Falha ao validar restrições comerciais na importação N8N: " . $e->getMessage());
+                    }
                 }
-                $restrictedCount = $quote->itensRestritos()->count();
+                $restrictedCount = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'restricao_efeito') 
+                    ? $quote->itensRestritos()->count() 
+                    : 0;
 
                 // Recalculate quotation totals based on inserted items (excluding blocked items)
                 $quote->recalcularTotais();
@@ -630,7 +657,8 @@ class IntegrationController extends Controller
             return response()->json([
                 'error' => $code === 422 ? 'Erro de validação' : 'Erro interno do servidor',
                 'code' => $errorCode,
-                'message' => $message
+                'message' => $message,
+                'detail' => $e->getMessage(),
             ], $code);
         }
     }
