@@ -1565,7 +1565,7 @@
     let REGRA_LIBERACAO_DESCONTO = "{{ isset($regraLiberacao) ? $regraLiberacao : \App\Models\ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'PRECO_MINIMO') }}";
     let quote = null;
     let productsList = [];
-    let loggedUser = null;
+    let loggedUser = {!! auth()->check() ? auth()->user()->toJson() : 'null' !!};
     let isEditingLocked = false;
     const INITIAL_QUOTE = {!! isset($initialQuoteJson) ? $initialQuoteJson : 'null' !!};
 

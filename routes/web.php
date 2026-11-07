@@ -231,18 +231,17 @@ Route::middleware('auth')->group(function () {
                 'justificativas.anexos',
                 'anexos',
                 'historico.usuario',
-                'ultimoEnvio.contato',
-                'ultimoEnvioAberto.contato',
-                'ultimoEnvioWhatsApp.contato',
                 'envios.contato'
             ]);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning("Erro ao hidratar relações iniciais da cotação ID {$quote->id}: " . $e->getMessage());
         }
 
-        $condicoesPagamento = \App\Models\CondicaoPagamento::where('ativa', true)
-            ->orderBy('descricao')
-            ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
+        $condicoesPagamento = \Illuminate\Support\Facades\Cache::remember('condicoes_pagamento_ativas_list', 3600, function () {
+            return \App\Models\CondicaoPagamento::where('ativa', true)
+                ->orderBy('descricao')
+                ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
+        });
 
         return view('quote.representative', [
             'quoteId' => $quote->id,

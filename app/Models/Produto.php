@@ -50,44 +50,19 @@ class Produto extends Model
         'estoque_formatado',
     ];
 
-    protected static ?bool $hasValidadeProximaColumn = null;
-    protected static ?bool $hasEstoqueColumn = null;
-    protected static ?bool $hasCampanhaColumn = null;
-
     public static function hasValidadeProximaColumn(): bool
     {
-        if (static::$hasValidadeProximaColumn === null) {
-            try {
-                static::$hasValidadeProximaColumn = \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'validade_proxima');
-            } catch (\Throwable $e) {
-                static::$hasValidadeProximaColumn = false;
-            }
-        }
-        return static::$hasValidadeProximaColumn;
+        return true;
     }
 
     public static function hasEstoqueColumn(): bool
     {
-        if (static::$hasEstoqueColumn === null) {
-            try {
-                static::$hasEstoqueColumn = \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'estoque');
-            } catch (\Throwable $e) {
-                static::$hasEstoqueColumn = false;
-            }
-        }
-        return static::$hasEstoqueColumn;
+        return true;
     }
 
     public static function hasCampanhaColumn(): bool
     {
-        if (static::$hasCampanhaColumn === null) {
-            try {
-                static::$hasCampanhaColumn = \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'campanha');
-            } catch (\Throwable $e) {
-                static::$hasCampanhaColumn = false;
-            }
-        }
-        return static::$hasCampanhaColumn;
+        return true;
     }
 
     protected static function booted()

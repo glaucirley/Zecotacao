@@ -1022,11 +1022,18 @@
             border: 1px solid #bfdbfe;
             margin-top: 12px;
         }
+
+        @keyframes moveTopGradient {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
     </style>
 </head>
 <body>
 
     <div class="mobile-container">
+        <!-- Barra de Progresso Superior Instantânea ao Clicar em Cotação -->
+        <div id="top-loading-bar" style="display:none; position:fixed; top:0; left:0; width:100%; height:3px; background:linear-gradient(90deg, #3b82f6, #10b981, #f59e0b, #3b82f6); background-size:200% 100%; animation:moveTopGradient 1s linear infinite; z-index:999999;"></div>
         
         <!-- Header -->
         <header class="app-header" style="padding-bottom: 12px;">
@@ -1663,7 +1670,7 @@
                     : '';
                 
                 container.innerHTML += `
-                    <a href="${PUBLIC_URL}/cotacoes/id/${q.id}" class="quote-card" style="${unfoundCnt > 0 ? 'border-color:#fda4af; background:#fffafb;' : ''}">
+                    <a href="${PUBLIC_URL}/cotacoes/id/${q.id}" class="quote-card" onclick="onQuoteCardClick(this, event)" onmouseenter="prefetchQuoteUrl(this.href)" onpointerdown="prefetchQuoteUrl(this.href)" style="${unfoundCnt > 0 ? 'border-color:#fda4af; background:#fffafb;' : ''}">
                         <div class="card-row-top" style="align-items: center;">
                             <span class="quote-num">${escapeHtml(q.numero)}</span>
                             <span class="status-badge" style="background:${stInfo.bg}; color:${stInfo.color}; border:1px solid ${stInfo.border};">${escapeHtml(stInfo.label)}</span>
@@ -1685,6 +1692,28 @@
                     </a>
                 `;
             });
+        }
+
+        const prefetchedUrls = new Set();
+        function prefetchQuoteUrl(url) {
+            if (!url || prefetchedUrls.has(url)) return;
+            prefetchedUrls.add(url);
+            try {
+                const link = document.createElement("link");
+                link.rel = "prefetch";
+                link.href = url;
+                document.head.appendChild(link);
+            } catch(e) {}
+        }
+
+        function onQuoteCardClick(el, event) {
+            const bar = document.getElementById("top-loading-bar");
+            if (bar) bar.style.display = "block";
+            el.style.opacity = '0.7';
+            el.style.borderColor = 'var(--color-primary)';
+            el.style.boxShadow = '0 0 0 2px rgba(26, 86, 219, 0.25)';
+            el.style.transform = 'scale(0.99)';
+            el.style.transition = 'all 0.1s ease';
         }
 
         let activeStatusFilter = 'ATIVAS';

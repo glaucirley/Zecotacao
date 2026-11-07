@@ -159,58 +159,24 @@ class CotacaoItem extends Model
         return round($min, 2);
     }
 
-    protected static ?bool $hasInconsistenteColumn = null;
-
     public static function hasInconsistenteColumn(): bool
     {
-        if (static::$hasInconsistenteColumn === null) {
-            try {
-                static::$hasInconsistenteColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'inconsistente');
-            } catch (\Throwable $e) {
-                static::$hasInconsistenteColumn = false;
-            }
-        }
-        return static::$hasInconsistenteColumn;
+        return true;
     }
-
-    protected static ?bool $hasValidadeColumn = null;
-    protected static ?bool $hasEstoqueColumn = null;
-    protected static ?bool $hasCampanhaColumn = null;
 
     public static function hasValidadeColumn(): bool
     {
-        if (static::$hasValidadeColumn === null) {
-            try {
-                static::$hasValidadeColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'validade');
-            } catch (\Throwable $e) {
-                static::$hasValidadeColumn = false;
-            }
-        }
-        return static::$hasValidadeColumn;
+        return true;
     }
 
     public static function hasEstoqueColumn(): bool
     {
-        if (static::$hasEstoqueColumn === null) {
-            try {
-                static::$hasEstoqueColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'estoque');
-            } catch (\Throwable $e) {
-                static::$hasEstoqueColumn = false;
-            }
-        }
-        return static::$hasEstoqueColumn;
+        return true;
     }
 
     public static function hasCampanhaColumn(): bool
     {
-        if (static::$hasCampanhaColumn === null) {
-            try {
-                static::$hasCampanhaColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'campanha');
-            } catch (\Throwable $e) {
-                static::$hasCampanhaColumn = false;
-            }
-        }
-        return static::$hasCampanhaColumn;
+        return true;
     }
 
     protected static function booted()

@@ -50,18 +50,9 @@ class Cotacao extends Model
         'prioridade' => 'boolean',
     ];
 
-    protected static ?bool $hasCondicaoPagamentoIdColumn = null;
-
     public static function hasCondicaoPagamentoIdColumn(): bool
     {
-        if (static::$hasCondicaoPagamentoIdColumn === null) {
-            try {
-                static::$hasCondicaoPagamentoIdColumn = \Illuminate\Support\Facades\Schema::hasColumn('cotacoes', 'condicao_pagamento_id');
-            } catch (\Throwable $e) {
-                static::$hasCondicaoPagamentoIdColumn = false;
-            }
-        }
-        return static::$hasCondicaoPagamentoIdColumn;
+        return true;
     }
 
     protected static function booted()
