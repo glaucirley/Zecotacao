@@ -1,257 +1,67 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PublicProposalController;
+use App\Http\Controllers\RepresentativeLinkController;
+use App\Http\Controllers\Web\WebAuthController;
+use App\Http\Controllers\Web\WebViewController;
 
 // Public Customer Proposal Routes (Accessed via link generated for WhatsApp / Web Share)
-Route::get('/p/{token}', [\App\Http\Controllers\PublicProposalController::class, 'show'])->name('public.proposal');
-Route::get('/p/{token}/pdf', [\App\Http\Controllers\PublicProposalController::class, 'downloadPdf'])->name('public.proposal.pdf');
-Route::post('/p/{token}/track', [\App\Http\Controllers\PublicProposalController::class, 'track'])->name('public.proposal.track');
+Route::get('/p/{token}', [PublicProposalController::class, 'show'])->name('public.proposal');
+Route::get('/p/{token}/pdf', [PublicProposalController::class, 'downloadPdf'])->name('public.proposal.pdf');
+Route::post('/p/{token}/track', [PublicProposalController::class, 'track'])->name('public.proposal.track');
 
-// 1. Root & Auth
-Route::get('/', function () {
-    return redirect('/login');
-});
+// 1. Root & Auth Routes
+Route::redirect('/', '/login');
 
-Route::get('/login', function (\Illuminate\Http\Request $request) {
-    if (auth()->check()) {
-        $redirect = $request->query('redirect');
-        if ($redirect && str_starts_with($redirect, '/') && !str_starts_with($redirect, '//')) {
-            return redirect($redirect);
-        }
-        $user = auth()->user();
-        if ($user->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        return redirect('/dashboard');
-    }
-    return view('auth.login');
-})->name('login');
+Route::get('/login', [WebAuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [WebAuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/logout', [WebAuthController::class, 'logout'])->name('logout');
 
-// 2. Web routes (already protected by Laravel's 'web' middleware group)
+// 2. Web routes (Representative Links)
+Route::get('/r/{token}', [RepresentativeLinkController::class, 'show'])->name('representative.link');
+Route::get('/cotacoes/token/{token}', [RepresentativeLinkController::class, 'redirectLegacyToken']);
 
-// Internal Representative Link (Secure /r/{token})
-Route::get('/r/{token}', [\App\Http\Controllers\RepresentativeLinkController::class, 'show'])->name('representative.link');
-
-// Legacy fallback route for representative token (redirects to /r/{token})
-Route::get('/cotacoes/token/{token}', function ($token) {
-    return redirect("/r/{token}");
-});
-
-// Auth route to handle standard POST submit from login form
-Route::post('/login', function (\Illuminate\Http\Request $request) {
-    $credentials = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|string',
-    ]);
-
-    $remember = $request->boolean('remember', true);
-
-    if (auth()->attempt($credentials, $remember)) {
-        $request->session()->regenerate();
-        $user = auth()->user();
-        
-        if (!$user->ativo) {
-            auth()->logout();
-            return back()->withErrors(['email' => 'Conta inativa.']);
-        }
-
-        $request->session()->put('zecotacao_internal_user', true);
-        \Illuminate\Support\Facades\Cookie::queue('zecotacao_internal', '1', 60 * 24 * 30);
-
-        // Safe internal redirect if provided
-        $redirect = $request->input('redirect');
-        if ($redirect && str_starts_with($redirect, '/') && !str_starts_with($redirect, '//')) {
-            return redirect($redirect);
-        }
-
-        // Intended URL if set by auth middleware
-        if ($intended = redirect()->getIntendedUrl()) {
-            return redirect()->intended();
-        }
-        
-        if ($user->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        return redirect('/dashboard');
-    }
-
-    return back()->withErrors(['email' => 'E-mail ou senha incorretos.']);
-});
-
-Route::post('/logout', function (\Illuminate\Http\Request $request) {
-    auth()->logout();
-    \Illuminate\Support\Facades\Cookie::queue(\Illuminate\Support\Facades\Cookie::forget('zecotacao_internal'));
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-    return redirect('/login');
-});
-
-// Protected Views
+// 3. Protected Views
 Route::middleware('auth')->group(function () {
-    
     // Master Quotations List (All authenticated users)
-    Route::get('/cotacoes', function () {
-        if (auth()->user()->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        $condicoesPagamento = \App\Models\CondicaoPagamento::where('ativa', true)
-            ->orderBy('descricao')
-            ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
-        return view('admin.quotes', compact('condicoesPagamento'));
-    });
+    Route::get('/cotacoes', [WebViewController::class, 'quotes']);
 
     // Quotation Sales Funnel (Gestor, Diretor, Faturamento & Administrador)
-    Route::get('/funil', function () {
-        if (auth()->user()->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        return view('admin.funnel');
-    });
+    Route::get('/funil', [WebViewController::class, 'funnel']);
 
     // Approvals (Gestor & Diretor)
-    Route::get('/aprovacoes', function () {
-        if (auth()->user()->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        if (auth()->user()->isFaturamento()) {
-            return redirect('/faturamento');
-        }
-        return view('admin.approvals');
-    });
-    
-    Route::get('/aprovacoes/{id}', function ($id) {
-        if (auth()->user()->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        if (auth()->user()->isFaturamento()) {
-            return redirect('/faturamento');
-        }
-        return view('admin.approval_detail', ['id' => $id]);
-    });
+    Route::get('/aprovacoes', [WebViewController::class, 'approvals']);
+    Route::get('/aprovacoes/{id}', [WebViewController::class, 'approvalDetail']);
 
     // Billing (Faturamento, Diretor & Administrador)
-    Route::get('/faturamento', function () {
-        if (auth()->user()->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
-            return redirect('/aprovacoes');
-        }
-        return view('admin.billing');
-    });
-    
-    Route::get('/faturamento/{id}', function ($id) {
-        if (auth()->user()->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        if (!auth()->user()->isFaturamento() && !auth()->user()->isDiretor() && !auth()->user()->isAdministrador()) {
-            return redirect('/aprovacoes');
-        }
-        return view('admin.billing_detail', ['id' => $id]);
-    });
+    Route::get('/faturamento', [WebViewController::class, 'billing']);
+    Route::get('/faturamento/{id}', [WebViewController::class, 'billingDetail']);
 
     // Parameters (Administrador and Diretor)
-    Route::get('/parametros', function () {
-        if (!auth()->user()->isAdministrador() && !auth()->user()->isDiretor()) {
-            return redirect('/aprovacoes');
-        }
-        return view('admin.parameters');
-    });
+    Route::get('/parametros', [WebViewController::class, 'parameters']);
 
     // User Management (Administrador only)
-    Route::get('/usuarios', function () {
-        if (!auth()->user()->isAdministrador()) {
-            return redirect('/aprovacoes');
-        }
-        return view('admin.users');
-    });
+    Route::get('/usuarios', [WebViewController::class, 'users']);
 
     // Client Management (Administrador only)
-    Route::get('/clientes', function () {
-        if (!auth()->user()->isAdministrador()) {
-            return redirect('/aprovacoes');
-        }
-        return view('admin.partners');
-    });
+    Route::get('/clientes', [WebViewController::class, 'partners']);
 
     // Product Catalog Management (Administrador only)
-    Route::get('/produtos', function () {
-        if (!auth()->user()->isAdministrador()) {
-            return redirect('/aprovacoes');
-        }
-        return view('admin.products');
-    });
+    Route::get('/produtos', [WebViewController::class, 'products']);
 
     // Representative Mobile Dashboard
-    Route::get('/painel-representante', function () {
-        if (!auth()->user()->isRepresentante()) {
-            return redirect('/aprovacoes');
-        }
-        $condicoesPagamento = \App\Models\CondicaoPagamento::where('ativa', true)
-            ->orderBy('descricao')
-            ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
-        return view('representative.dashboard', compact('condicoesPagamento'));
-    });
+    Route::get('/painel-representante', [WebViewController::class, 'representativeDashboard']);
 
     // General Business Intelligence Dashboard
-    Route::get('/dashboard', function () {
-        if (auth()->user()->isRepresentante()) {
-            return redirect('/painel-representante');
-        }
-        return view('admin.dashboard');
-    });
+    Route::get('/dashboard', [WebViewController::class, 'dashboard']);
 
     // Chat Logs Auditor (WhatsApp Web style)
-    Route::get('/conversas', function () {
-        if (!auth()->user()->hasChatAccess()) {
-            return redirect('/dashboard');
-        }
-        return view('admin.chat_audit');
-    });
+    Route::get('/conversas', [WebViewController::class, 'conversations']);
 
     // Quote Audit logs dedicated page
-    Route::get('/cotacoes/{id}/auditoria', function ($id) {
-        return view('admin.quote_audit', ['id' => $id]);
-    });
+    Route::get('/cotacoes/{id}/auditoria', [WebViewController::class, 'quoteAudit']);
 
     // Authenticated View/Edit Quote by ID
-    Route::get('/cotacoes/id/{id}', function (\Illuminate\Http\Request $request, $id) {
-        $quote = is_numeric($id) ? \App\Models\Cotacao::find($id) : \App\Models\Cotacao::where('numero', $id)->first();
-        if (!$quote) {
-            abort(404, 'Cotação não encontrada.');
-        }
-        if (!auth()->user()->canAccessQuote($quote)) {
-            abort(403, 'Acesso não autorizado. Esta cotação pertence a outro representante.');
-        }
-        try {
-            $quote->load([
-                'parceiro',
-                'representante.equipe.gestor',
-                'itens.produto',
-                'justificativas.anexos',
-                'anexos',
-                'historico.usuario',
-                'envios.contato'
-            ]);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Erro ao hidratar relações iniciais da cotação ID {$quote->id}: " . $e->getMessage());
-        }
-
-        $condicoesPagamento = \Illuminate\Support\Facades\Cache::remember('condicoes_pagamento_ativas_list', 3600, function () {
-            return \App\Models\CondicaoPagamento::where('ativa', true)
-                ->orderBy('descricao')
-                ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
-        });
-
-        return view('quote.representative', [
-            'quoteId' => $quote->id,
-            'quote' => $quote,
-            'initialQuoteJson' => $quote->toJson(),
-            'condicoesPagamento' => $condicoesPagamento,
-            'token' => null, // Não expõe o token secreto no HTML para usuário com sessão ativa
-            'exigeAnexo' => filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN),
-            'regraLiberacao' => \App\Models\ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'PRECO_MINIMO'),
-        ]);
-    });
-    
+    Route::get('/cotacoes/id/{id}', [WebViewController::class, 'quoteDetail']);
 });

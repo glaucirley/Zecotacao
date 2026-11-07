@@ -1667,4 +1667,21 @@ class QuoteController extends Controller
             'data' => array_values($products)
         ]);
     }
+
+    /**
+     * List active payment conditions.
+     */
+    public function listPaymentConditions()
+    {
+        $condicoes = \Illuminate\Support\Facades\Cache::remember('condicoes_pagamento_ativas_list', 3600, function () {
+            return \App\Models\CondicaoPagamento::where('ativa', true)
+                ->orderBy('descricao')
+                ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima']);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $condicoes,
+        ]);
+    }
 }

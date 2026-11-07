@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\Cookie;
 class RepresentativeLinkController extends Controller
 {
     /**
+     * Fallback redirect for legacy quotation token URLs.
+     */
+    public function redirectLegacyToken(string $token)
+    {
+        return redirect("/r/{$token}");
+    }
+
+    /**
      * Resolve and validate representative access link /r/{token}.
      */
     public function show(Request $request, string $token)

@@ -29,7 +29,7 @@ Route::prefix('v1')->group(function () {
         \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
         \Illuminate\Session\Middleware\StartSession::class,
     ])->group(function () {
-        Route::post('/auth/login', [AuthController::class, 'login']);
+        Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/auth/me', [AuthController::class, 'me']);
         
@@ -45,14 +45,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/cotacoes/manual', [QuoteController::class, 'storeManual']);
             Route::get('/produtos', [QuoteController::class, 'listProducts']);
             Route::get('/restricoes/pre-aquecer', [QuoteController::class, 'prewarmRestrictions']);
-            Route::get('/condicoes-pagamento', function () {
-                return response()->json([
-                    'success' => true,
-                    'data' => \App\Models\CondicaoPagamento::where('ativa', true)
-                        ->orderBy('descricao')
-                        ->get(['id', 'codigo_sankhya', 'descricao', 'venda_minima', 'venda_maxima'])
-                ]);
-            });
+            Route::get('/condicoes-pagamento', [QuoteController::class, 'listPaymentConditions']);
             Route::delete('/cotacoes/{id}', [QuoteController::class, 'destroy']);
             Route::patch('/aprovacoes/{cotacao_id}/itens/{item_id}', [ApprovalController::class, 'simulatePrice']);
             Route::post('/aprovacoes/{cotacao_id}/vincular', [ApprovalController::class, 'bindItems']);

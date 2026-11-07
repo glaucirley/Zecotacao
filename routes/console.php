@@ -12,26 +12,30 @@ Artisan::command('inspire', function () {
 use Illuminate\Support\Facades\Schema;
 
 // Dynamic automatic synchronization scheduling with Sankhya
-if (Schema::hasTable('parametros_sistema')) {
-    $autoSync = ParametroSistema::getVal('SANKHYA_SYNC_AUTO', false);
+try {
+    if (Schema::hasTable('parametros_sistema')) {
+        $autoSync = ParametroSistema::getVal('SANKHYA_SYNC_AUTO', false);
 
-    if ($autoSync) {
-        $interval = ParametroSistema::getVal('SANKHYA_SYNC_INTERVALO', 'DIARIO');
-        
-        // Command schedule configuration
-        $scheduleEvent = Schedule::command('sankhya:sync');
+        if ($autoSync) {
+            $interval = ParametroSistema::getVal('SANKHYA_SYNC_INTERVALO', 'DIARIO');
+            
+            // Command schedule configuration
+            $scheduleEvent = Schedule::command('sankhya:sync');
 
-        if ($interval === 'HORARIO') {
-            $scheduleEvent->hourly();
-        } elseif ($interval === 'CADA_6_HORAS') {
-            $scheduleEvent->everySixHours();
-        } elseif ($interval === 'CADA_12_HORAS') {
-            $scheduleEvent->everyTwelveHours();
-        } else {
-            // Default: Daily at 02:00 AM
-            $scheduleEvent->dailyAt('02:00');
+            if ($interval === 'HORARIO') {
+                $scheduleEvent->hourly();
+            } elseif ($interval === 'CADA_6_HORAS') {
+                $scheduleEvent->everySixHours();
+            } elseif ($interval === 'CADA_12_HORAS') {
+                $scheduleEvent->everyTwelveHours();
+            } else {
+                // Default: Daily at 02:00 AM
+                $scheduleEvent->dailyAt('02:00');
+            }
         }
     }
+} catch (\Throwable $e) {
+    // Silently continue if database is not reachable during build/cache
 }
 
 // Automatic quotation validity check every 15 minutes
