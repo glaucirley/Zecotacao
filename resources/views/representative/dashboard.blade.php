@@ -2382,23 +2382,78 @@
             }
         }
 
+        function saveOfflineBackup() {
+            try {
+                if (selectedPartner || (quoteCartItems && quoteCartItems.length > 0)) {
+                    localStorage.setItem('zecotacao_offline_draft', JSON.stringify({
+                        partner: selectedPartner,
+                        items: quoteCartItems,
+                        obs: (document.getElementById("nq-obs-cliente") && document.getElementById("nq-obs-cliente").value) || '',
+                        timestamp: Date.now()
+                    }));
+                }
+            } catch(e) {}
+        }
+
+        function clearOfflineBackup() {
+            try {
+                localStorage.removeItem('zecotacao_offline_draft');
+            } catch(e) {}
+        }
+
+        function getOfflineDraft() {
+            try {
+                const raw = localStorage.getItem('zecotacao_offline_draft');
+                if (!raw) return null;
+                const draft = JSON.parse(raw);
+                if (draft && draft.timestamp && (Date.now() - draft.timestamp) < 86400000) {
+                    if (draft.partner || (draft.items && draft.items.length > 0)) {
+                        return draft;
+                    }
+                }
+            } catch(e) {}
+            return null;
+        }
+
         async function openNewQuoteModal() {
             clearQuoteFormError();
             document.getElementById("new-quote-overlay").style.display = "block";
             document.getElementById("new-quote-drawer").style.display = "flex";
             
-            // Reset wizard
-            currentWizardStep = 1;
-            quoteCartItems = [];
-            currentStep2Tab = 'catalog';
-            clearSelectedPartner();
-            document.getElementById("partner-search-input").value = "";
-            document.getElementById("prod-search-input").value = "";
-            document.getElementById("nq-obs-cliente").value = "";
-            
-            updateStepView();
-            switchStep2Tab('catalog');
-            renderCart();
+            // Verifica rascunho salvo localmente no aparelho (offline-first)
+            const draft = getOfflineDraft();
+            if (draft && draft.items && draft.items.length > 0) {
+                quoteCartItems = draft.items;
+                currentStep2Tab = 'catalog';
+                if (draft.partner) {
+                    selectedPartner = draft.partner;
+                    selectPartnerById(draft.partner.id);
+                    currentWizardStep = 2;
+                } else {
+                    clearSelectedPartner();
+                    currentWizardStep = 1;
+                }
+                if (draft.obs && document.getElementById("nq-obs-cliente")) {
+                    document.getElementById("nq-obs-cliente").value = draft.obs;
+                }
+                updateStepView();
+                switchStep2Tab('catalog');
+                renderCart();
+                showToast(`Restauramos ${draft.items.length} item(ns) em andamento deste aparelho.`, 'info', 'Rascunho Local');
+            } else {
+                // Reset wizard
+                currentWizardStep = 1;
+                quoteCartItems = [];
+                currentStep2Tab = 'catalog';
+                clearSelectedPartner();
+                document.getElementById("partner-search-input").value = "";
+                document.getElementById("prod-search-input").value = "";
+                document.getElementById("nq-obs-cliente").value = "";
+                
+                updateStepView();
+                switchStep2Tab('catalog');
+                renderCart();
+            }
             
             // Force load partners and products afresh
             await Promise.all([
@@ -2472,6 +2527,7 @@
                 isSavingDraft = false;
 
                 if (res.ok && (data?.id || data?.success || data?.data)) {
+                    clearOfflineBackup();
                     selectedPartner = null;
                     quoteCartItems = [];
                     clearQuoteFormError();
@@ -2832,6 +2888,7 @@
             
             if (card) card.style.display = "block";
             if (container) container.style.display = "none";
+            saveOfflineBackup();
 
             // Pré-carrega restrições comerciais no Oracle em segundo plano logo na seleção do cliente
             preloadCommercialRestrictions(selectedPartner.id);
@@ -2857,6 +2914,7 @@
 
         function clearSelectedPartner() {
             selectedPartner = null;
+            clearOfflineBackup();
             const card = document.getElementById("selected-partner-card");
             const container = document.getElementById("partner-search-results");
             if (card) card.style.display = "none";
@@ -3393,6 +3451,7 @@
 
             const catValEl = document.getElementById("cat-summary-val");
             if (catValEl) catValEl.innerText = formatted;
+            saveOfflineBackup();
         }
 
         function renderCart() {
@@ -3559,6 +3618,7 @@
 
                 const newQuoteId = data?.data?.id || data?.id;
                 if (res.ok && (newQuoteId || data?.success)) {
+                    clearOfflineBackup();
                     selectedPartner = null;
                     quoteCartItems = [];
                     clearQuoteFormError();
