@@ -207,6 +207,17 @@
                 </select>
             </div>
 
+            <div class="form-group" id="tipo-vendedor-container" style="margin-bottom: 16px; display: none;">
+                <label for="user-tipo-vendedor" class="form-label">Canal / Interface do Vendedor</label>
+                <select id="user-tipo-vendedor" class="form-control">
+                    <option value="externo">Representante Externo / Campo (App Móvel)</option>
+                    <option value="interno">Televendas / Vendedor Interno (Desktop Completo)</option>
+                </select>
+                <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px;">
+                    * Quando sincronizado pelo Sankhya TGFVEN com TIPVEND = 'V', é definido automaticamente como Televendas (Desktop).
+                </div>
+            </div>
+
             <div style="margin-bottom: 16px; padding: 15px; border: 1px solid var(--color-border); border-radius: 12px; background-color: #f8fafc;">
                 <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer; color: var(--color-text);">
                     <input type="checkbox" id="user-acesso-chat" value="1">
@@ -437,7 +448,14 @@
             // Format Role
             let roleLabel = (u.papel || '').toUpperCase();
             let roleStyle = "background-color: var(--color-primary-hover);";
-            if (u.papel === 'representante') roleLabel = "REPRESENTANTE";
+            if (u.papel === 'representante') {
+                if (u.tipo_vendedor === 'interno') {
+                    roleLabel = "TELEVENDAS (DESKTOP)";
+                    roleStyle = "background-color: #0284c7; color: #ffffff;";
+                } else {
+                    roleLabel = "REPRESENTANTE (APP)";
+                }
+            }
             else if (u.papel === 'gestor') roleLabel = "GESTOR DE EQUIPE";
             else if (u.papel === 'diretor') roleLabel = "DIRETOR";
             else if (u.papel === 'faturamento') roleLabel = "FATURAMENTO";
@@ -724,6 +742,10 @@
 
     function onPapelChange(role) {
         const limitInput = document.getElementById("user-limite");
+        const tipoContainer = document.getElementById("tipo-vendedor-container");
+        if (tipoContainer) {
+            tipoContainer.style.display = (role === 'representante') ? "block" : "none";
+        }
         // Limit discount percentage is only valid for Gestor
         if (role === 'gestor') {
             limitInput.disabled = false;
@@ -756,6 +778,8 @@
         document.getElementById("user-password").required = true;
         
         document.getElementById("user-acesso-chat").checked = false;
+        const tipoVendInput = document.getElementById("user-tipo-vendedor");
+        if (tipoVendInput) tipoVendInput.value = "externo";
         
         onPapelChange('representante');
         document.getElementById("user-overlay").classList.add("open");
@@ -784,6 +808,8 @@
         document.getElementById("user-equipe").value = user.equipe_id || "";
         document.getElementById("user-ativo").value = user.ativo ? "1" : "0";
         document.getElementById("user-acesso-chat").checked = !!user.acesso_chat;
+        const tipoVendInput = document.getElementById("user-tipo-vendedor");
+        if (tipoVendInput) tipoVendInput.value = user.tipo_vendedor || "externo";
 
         const perms = user.permissoes_dashboard || getDefaultPermissions(user.papel);
         document.getElementById("user-perm-kpis").checked = !!perms.ver_kpis;
@@ -827,6 +853,11 @@
                 ver_top_clientes: document.getElementById("user-perm-clients").checked
             }
         };
+
+        if (payload.papel === 'representante') {
+            const tvEl = document.getElementById("user-tipo-vendedor");
+            payload.tipo_vendedor = tvEl ? tvEl.value : "externo";
+        }
 
         const password = document.getElementById("user-password").value;
         if (password) {

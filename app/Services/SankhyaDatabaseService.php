@@ -318,15 +318,19 @@ class SankhyaDatabaseService
         $conn = $this->connect();
 
         try {
-            return $conn->query("SELECT CODVEND, APELIDO, EMAIL, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+            return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
         } catch (\PDOException $e1) {
             try {
-                return $conn->query("SELECT CODVEND, APELIDO, EMAIL, AD_TELEFONE AS TELEFONE FROM TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND, AD_TELEFONE AS TELEFONE FROM TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
             } catch (\PDOException $e2) {
                 try {
-                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
                 } catch (\PDOException $e3) {
-                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                    try {
+                        return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND FROM TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                    } catch (\PDOException $e4) {
+                        return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                    }
                 }
             }
         }
@@ -665,6 +669,8 @@ class SankhyaDatabaseService
         $apelido = $row['APELIDO'] ?? $row['apelido'] ?? ('Vendedor ' . $codVend);
         $email = $row['EMAIL'] ?? $row['email'] ?? ('vendedor' . $codVend . '@zecotacao.com.br');
         $telefone = $row['TELEFONE'] ?? $row['telefone'] ?? $row['AD_TELEFONE'] ?? $row['ad_telefone'] ?? null;
+        $tipVend = strtoupper(trim((string)($row['TIPVEND'] ?? $row['tipvend'] ?? '')));
+        $tipoVendedor = ($tipVend === 'V') ? 'interno' : 'externo';
 
         $user = User::where('codigo_sankhya', $codVend)->first();
 
@@ -673,6 +679,7 @@ class SankhyaDatabaseService
                 'nome' => $apelido,
                 'email' => $email,
                 'telefone' => $telefone ?: $user->telefone,
+                'tipo_vendedor' => !empty($tipVend) ? $tipoVendedor : ($user->tipo_vendedor ?: 'externo'),
                 'ativo' => true,
             ]);
             return $user;
@@ -681,6 +688,7 @@ class SankhyaDatabaseService
         return User::create([
             'nome' => $apelido,
             'papel' => 'representante',
+            'tipo_vendedor' => $tipoVendedor,
             'email' => $email,
             'telefone' => $telefone,
             'senha_hash' => bcrypt(\Illuminate\Support\Str::random(16)),
@@ -696,7 +704,7 @@ class SankhyaDatabaseService
     {
         try {
             $conn = $this->connect();
-            $stmt = $conn->prepare("SELECT CODVEND, APELIDO, EMAIL, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE CODVEND = :code");
+            $stmt = $conn->prepare("SELECT CODVEND, APELIDO, EMAIL, TIPVEND, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE CODVEND = :code");
             $stmt->execute(['code' => $code]);
             $row = $stmt->fetch();
 

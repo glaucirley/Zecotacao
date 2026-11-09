@@ -278,7 +278,7 @@
                     <!-- SEÇÃO: OPERAÇÃO -->
                     <li class="sidebar-section-title"><span>Operação</span></li>
 
-                    @if(!auth()->user()->isSuporte())
+                    @if(!auth()->user()->isSuporte() && !auth()->user()->isRepresentante())
                     <li>
                         <a href="{{ url('/dashboard') }}" class="sidebar-link {{ request()->is('dashboard*') ? 'active' : '' }}">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
@@ -292,7 +292,7 @@
                             <span class="sidebar-text">Cotações</span>
                         </a>
                     </li>
-                    @if(!auth()->user()->isFaturamento() && !auth()->user()->isSuporte())
+                    @if(!auth()->user()->isFaturamento() && !auth()->user()->isSuporte() && !auth()->user()->isRepresentante())
                     <li>
                         <a href="{{ url('/funil') }}" class="sidebar-link {{ request()->is('funil*') ? 'active' : '' }}">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9v6l4 3v-9L22 3z"/></svg>
@@ -318,7 +318,7 @@
                         </li>
                     @endif
 
-                    @if(!auth()->user()->isRepresentante())
+                    @if(!auth()->user()->usaInterfaceMobile())
                         <li>
                             <a href="{{ url('/consulta-produtos') }}" class="sidebar-link {{ request()->is('consulta-produtos*') ? 'active' : '' }}">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>

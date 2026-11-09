@@ -761,10 +761,12 @@
             <option value="">Todos os Status</option>
         </select>
 
+        @if(!auth()->user()->isRepresentante())
         <select id="rep-filter" class="filter-select" onchange="filterQuotes()">
             <option value="">Vendedor</option>
             <!-- Dynamic options -->
         </select>
+        @endif
 
         <select id="period-filter" class="filter-select" onchange="filterQuotes()">
             <option value="">Período</option>
@@ -774,10 +776,12 @@
             <option value="mes">Este mês</option>
         </select>
 
+        @if(!auth()->user()->isRepresentante())
         <select id="team-filter" class="filter-select" onchange="filterQuotes()">
             <option value="">Equipe</option>
             <!-- Dynamic options -->
         </select>
+        @endif
 
         <button type="button" class="btn-clear-filter" onclick="clearAllFilters()">
             Limpar Filtros
@@ -2082,10 +2086,25 @@
             const container = document.getElementById("admin-partner-search-results");
             const rSelect = document.getElementById("create-representante");
 
-            // If we already have reps, populate the select immediately
-            if (adminRepsList && adminRepsList.length > 0) {
-                if (rSelect && rSelect.options.length <= 1) {
-                    populateAdminRepSelect();
+            // If current user is a representative / televendas, fix rep to themselves
+            if (CURRENT_USER && CURRENT_USER.papel === 'representante') {
+                adminRepsList = [{
+                    id: CURRENT_USER.id,
+                    nome: CURRENT_USER.nome,
+                    email: CURRENT_USER.email,
+                    papel: CURRENT_USER.papel
+                }];
+                populateAdminRepSelect(CURRENT_USER.id);
+                const repContainer = document.getElementById("rep-group-container");
+                if (repContainer) {
+                    repContainer.style.display = "none";
+                }
+            } else {
+                // If we already have reps, populate the select immediately
+                if (adminRepsList && adminRepsList.length > 0) {
+                    if (rSelect && rSelect.options.length <= 1) {
+                        populateAdminRepSelect();
+                    }
                 }
             }
 
@@ -2110,22 +2129,28 @@
                 );
             }
 
-            if (!adminRepsList || adminRepsList.length === 0) {
-                if (rSelect) rSelect.innerHTML = '<option value="">🔄 Carregando vendedores...</option>';
-                promises.push(
-                    fetch(`${API_URL}/usuarios`)
-                        .then(r => r.json())
-                        .then(rData => {
-                            let users = [];
-                            if (rData.success && rData.data) {
-                                users = Array.isArray(rData.data) ? rData.data : (Array.isArray(rData.data.users) ? rData.data.users : []);
-                            } else if (Array.isArray(rData)) {
-                                users = rData;
-                            }
-                            adminRepsList = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
-                            populateAdminRepSelect();
-                        })
-                );
+            if (!CURRENT_USER || CURRENT_USER.papel !== 'representante') {
+                if (!adminRepsList || adminRepsList.length === 0) {
+                    if (rSelect) rSelect.innerHTML = '<option value="">🔄 Carregando vendedores...</option>';
+                    promises.push(
+                        fetch(`${API_URL}/usuarios`)
+                            .then(r => r.json())
+                            .then(rData => {
+                                let users = [];
+                                if (rData.success && rData.data) {
+                                    users = Array.isArray(rData.data) ? rData.data : (Array.isArray(rData.data.users) ? rData.data.users : []);
+                                } else if (Array.isArray(rData)) {
+                                    users = rData;
+                                }
+                                adminRepsList = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
+                                populateAdminRepSelect();
+                            })
+                            .catch(err => {
+                                console.warn("Erro ao buscar usuários para seleção:", err);
+                                if (rSelect) rSelect.innerHTML = '<option value="">Não foi possível listar vendedores</option>';
+                            })
+                    );
+                }
             }
 
             if (promises.length > 0) {

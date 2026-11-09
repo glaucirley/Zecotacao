@@ -15,6 +15,7 @@ class User extends Authenticatable
     protected $fillable = [
         'nome',
         'papel',
+        'tipo_vendedor',
         'equipe_id',
         'email',
         'senha_hash',
@@ -105,6 +106,32 @@ class User extends Authenticatable
     public function isSuporte(): bool
     {
         return $this->papel === 'suporte';
+    }
+
+    /**
+     * Helper check if representative is a Televendas (internal desk seller).
+     */
+    public function isTelevendas(): bool
+    {
+        return $this->papel === 'representante' && ($this->tipo_vendedor === 'interno');
+    }
+
+    /**
+     * Check if user should use the Desktop interface.
+     * Retaguarda and Televendas users use Desktop.
+     */
+    public function usaInterfaceDesktop(): bool
+    {
+        return !$this->isRepresentante() || $this->isTelevendas();
+    }
+
+    /**
+     * Check if user should use the Mobile interface.
+     * Only external field representatives use Mobile.
+     */
+    public function usaInterfaceMobile(): bool
+    {
+        return $this->isRepresentante() && !$this->isTelevendas();
     }
 
     /**

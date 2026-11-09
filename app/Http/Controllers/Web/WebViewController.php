@@ -18,7 +18,7 @@ class WebViewController extends Controller
      */
     public function quotes()
     {
-        if (Auth::user()->isRepresentante()) {
+        if (Auth::user()->usaInterfaceMobile()) {
             return redirect('/painel-representante');
         }
         $condicoesPagamento = CondicaoPagamento::where('ativa', true)
@@ -156,7 +156,7 @@ class WebViewController extends Controller
      */
     public function productQuery()
     {
-        if (Auth::user()->isRepresentante()) {
+        if (Auth::user()->usaInterfaceMobile()) {
             return redirect('/painel-representante');
         }
         return view('admin.product_query');
@@ -167,7 +167,7 @@ class WebViewController extends Controller
      */
     public function representativeDashboard()
     {
-        if (!Auth::user()->isRepresentante()) {
+        if (!Auth::user()->usaInterfaceMobile()) {
             return redirect('/cotacoes');
         }
         $condicoesPagamento = CondicaoPagamento::where('ativa', true)

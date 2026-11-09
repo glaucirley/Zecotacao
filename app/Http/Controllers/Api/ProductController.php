@@ -214,8 +214,8 @@ class ProductController extends Controller
     public function queryCatalog(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->isRepresentante()) {
-            return response()->json(['error' => 'Acesso não autorizado para representantes nesta rota.'], 403);
+        if (!$user || $user->usaInterfaceMobile()) {
+            return response()->json(['error' => 'Acesso não autorizado para representantes móveis nesta rota.'], 403);
         }
 
         $parceiroId = $request->input('parceiro_id');

@@ -103,6 +103,7 @@ class UserController extends Controller
             'email' => 'required|email|unique:usuarios,email',
             'password' => 'required|string|min:6',
             'papel' => 'required|in:diretor,gestor,representante,faturamento,administrador,suporte',
+            'tipo_vendedor' => 'nullable|in:interno,externo',
             'telefone' => 'nullable|string|max:50',
             'limite_desconto_percentual' => 'nullable|numeric|min:0|max:100',
             'codigo_sankhya' => 'nullable|string|max:100|unique:usuarios,codigo_sankhya',
@@ -135,6 +136,7 @@ class UserController extends Controller
                 'email' => $request->input('email'),
                 'senha_hash' => Hash::make($request->input('password')),
                 'papel' => $request->input('papel'),
+                'tipo_vendedor' => $request->input('tipo_vendedor', 'externo') ?: 'externo',
                 'telefone' => $request->input('telefone'),
                 'limite_desconto_percentual' => $request->input('limite_desconto_percentual', 0.00),
                 'codigo_sankhya' => $request->input('codigo_sankhya'),
@@ -203,6 +205,7 @@ class UserController extends Controller
             'email' => ['required', 'email', Rule::unique('usuarios', 'email')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
             'papel' => 'required|in:diretor,gestor,representante,faturamento,administrador,suporte',
+            'tipo_vendedor' => 'nullable|in:interno,externo',
             'telefone' => 'nullable|string|max:50',
             'limite_desconto_percentual' => 'nullable|numeric|min:0|max:100',
             'codigo_sankhya' => ['nullable', 'string', 'max:100', Rule::unique('usuarios', 'codigo_sankhya')->ignore($user->id)],
@@ -230,6 +233,7 @@ class UserController extends Controller
                 'nome' => $request->input('nome'),
                 'email' => $request->input('email'),
                 'papel' => $request->input('papel'),
+                'tipo_vendedor' => $request->input('tipo_vendedor', 'externo') ?: 'externo',
                 'telefone' => $request->input('telefone'),
                 'limite_desconto_percentual' => $request->input('limite_desconto_percentual', 0.00),
                 'codigo_sankhya' => $request->input('codigo_sankhya'),
@@ -348,6 +352,9 @@ class UserController extends Controller
                     $telefone = trim((string)$telefone);
                 }
 
+                $tipVend = strtoupper(trim((string)($row['TIPVEND'] ?? $row['tipvend'] ?? '')));
+                $tipoVendedor = ($tipVend === 'V') ? 'interno' : 'externo';
+
                 $activeCodes[] = $codVend;
 
                 $user = User::where('codigo_sankhya', $codVend)->first();
@@ -357,6 +364,7 @@ class UserController extends Controller
                         'nome' => $apelido,
                         'email' => $email,
                         'telefone' => $telefone ?: $user->telefone,
+                        'tipo_vendedor' => !empty($tipVend) ? $tipoVendedor : ($user->tipo_vendedor ?: 'externo'),
                         'ativo' => true,
                     ]);
                     $updatedCount++;
@@ -369,6 +377,7 @@ class UserController extends Controller
                     User::create([
                         'nome' => $apelido,
                         'papel' => 'representante',
+                        'tipo_vendedor' => $tipoVendedor,
                         'email' => $email,
                         'telefone' => $telefone,
                         'senha_hash' => Hash::make(\Illuminate\Support\Str::random(16)),
