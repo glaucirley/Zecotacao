@@ -127,8 +127,38 @@ class SyncSankhyaCommand extends Command
             if (in_array($type, ['all', 'validades', 'validade', 'estoque'])) {
                 $this->info("Fetching product stock and expiration dates from Oracle (VGF_VALIDADEAPP)...");
                 $validadeRows = $db->fetchValidadesFromView();
-                $count = $db->saveValidadesFromViewRows($validadeRows);
-                $this->info("Synced {$count} product expiration dates and stock records successfully.");
+
+                if (empty($validadeRows)) {
+                    $this->warn("Aviso: Nenhuma linha retornada da view VGF_VALIDADEAPP.");
+                } else {
+                    $cols = array_keys($validadeRows[0]);
+                    $this->info("Colunas encontradas na view: [" . implode(', ', $cols) . "]");
+                    $sample = $validadeRows[0];
+                    $sampleClean = [];
+                    foreach ($sample as $sk => $sv) {
+                        $sampleClean[$sk] = is_string($sv) && strlen($sv) > 40 ? substr($sv, 0, 40) . '...' : $sv;
+                    }
+                    $this->line("Exemplo do 1º registro: " . json_encode($sampleClean));
+                }
+
+                $stats = [];
+                $count = $db->saveValidadesFromViewRows($validadeRows, $stats);
+                $this->info("Validades atualizadas: {$stats['validade']} | Estoques identificados e atualizados: {$stats['estoque']} (Total afetado: {$count}).");
+
+                // Se a view VGF_VALIDADEAPP não possuir coluna de estoque (ou tiver 0 estoques atualizados),
+                // busca o saldo automaticamente da tabela nativa de estoque do Sankhya (TGFEST / VGF_ESTOQUE)
+                if (($stats['estoque'] ?? 0) === 0) {
+                    $this->warn("Aviso: Nenhum valor de estoque foi identificado nas colunas da view VGF_VALIDADEAPP.");
+                    $this->info("Buscando saldos de estoque diretamente nas tabelas de estoque do Sankhya (TGFEST / VGF_ESTOQUE)...");
+                    $estoqueRows = $db->fetchEstoqueFromSankhyaTable();
+                    if (!empty($estoqueRows)) {
+                        $this->info("Encontrados " . count($estoqueRows) . " produtos com saldo de estoque.");
+                        $syncedEst = $db->saveEstoqueRows($estoqueRows);
+                        $this->info("Sucesso! {$syncedEst} saldos de estoque foram sincronizados para os produtos cadastrados.");
+                    } else {
+                        $this->error("Aviso: Não foi possível obter estoque das tabelas do Sankhya (TGFEST/VGF_ESTOQUE). Verifique as permissões do usuário do banco Oracle.");
+                    }
+                }
             }
 
             if (in_array($type, ['all', 'campanhas', 'campanha'])) {

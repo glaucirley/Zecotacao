@@ -732,53 +732,95 @@ class SankhyaDatabaseService
             $where = " WHERE CODPROD IN (" . implode(',', $inPlaceholders) . ")";
         }
 
-        try {
-            $stmt = $conn->prepare("SELECT CODPROD, DTVAL, ESTOQUE FROM SANKHYA.VGF_VALIDADEAPP" . $where);
-            $stmt->execute($params);
-            return $stmt->fetchAll();
-        } catch (\PDOException $e) {
+        // 1. Tenta SELECT * para trazer todas as colunas existentes na view (CODPROD, DTVAL, ESTOQUE, ESTDISP, SALDO, etc.)
+        $queries = [
+            "SELECT * FROM SANKHYA.VGF_VALIDADEAPP" . $where,
+            "SELECT * FROM VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL, ESTOQUE FROM SANKHYA.VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL, ESTOQUE FROM VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL, ESTDISP AS ESTOQUE FROM SANKHYA.VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL, ESTDISP AS ESTOQUE FROM VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL, SALDO AS ESTOQUE FROM SANKHYA.VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL, SALDO AS ESTOQUE FROM VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL FROM SANKHYA.VGF_VALIDADEAPP" . $where,
+            "SELECT CODPROD, DTVAL FROM VGF_VALIDADEAPP" . $where,
+        ];
+
+        foreach ($queries as $sql) {
             try {
-                $stmt = $conn->prepare("SELECT CODPROD, DTVAL, ESTOQUE FROM VGF_VALIDADEAPP" . $where);
+                $stmt = $conn->prepare($sql);
                 $stmt->execute($params);
-                return $stmt->fetchAll();
-            } catch (\PDOException $e2) {
-                // Fallback caso a coluna ESTOQUE tenha nome alternativo ou não exista
-                try {
-                    $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM SANKHYA.VGF_VALIDADEAPP" . $where);
-                    $stmt->execute($params);
-                    return $stmt->fetchAll();
-                } catch (\PDOException $e3) {
-                    $stmt = $conn->prepare("SELECT CODPROD, DTVAL FROM VGF_VALIDADEAPP" . $where);
-                    $stmt->execute($params);
-                    return $stmt->fetchAll();
+                $rows = $stmt->fetchAll();
+                if (!empty($rows)) {
+                    $firstKeys = array_keys($rows[0]);
+                    Log::info("Sankhya Service - fetchValidadesFromView: sucesso com [{$sql}]. Total de linhas: " . count($rows) . ". Colunas: " . implode(', ', $firstKeys));
+                    return $rows;
                 }
+            } catch (\PDOException $e) {
+                Log::warning("Sankhya Service - Tentativa query [{$sql}] falhou: " . $e->getMessage());
             }
         }
+
+        return [];
     }
 
     /**
      * Bulk save/sync product validade_proxima and estoque from VGF_VALIDADEAPP view rows.
      *
      * @param array $rows
+     * @param array|null $stats Optional reference to receive counts: ['total', 'validade', 'estoque']
      * @return int
      */
-    public function saveValidadesFromViewRows(array $rows): int
+    public function saveValidadesFromViewRows(array $rows, ?array &$stats = null): int
     {
         $hasValCol = Produto::hasValidadeProximaColumn();
         $hasEstCol = Produto::hasEstoqueColumn();
+
+        $stats = [
+            'total' => 0,
+            'validade' => 0,
+            'estoque' => 0,
+        ];
 
         if (!$hasValCol && !$hasEstCol) {
             return 0;
         }
 
         $count = 0;
+        $countValidade = 0;
+        $countEstoque = 0;
+
         foreach ($rows as $row) {
             $codProd = (string)($row['CODPROD'] ?? $row['codprod'] ?? $row['CodProd'] ?? '');
-            $dtValRaw = $row['DTVAL'] ?? $row['dtval'] ?? $row['DtVal'] ?? null;
-            $estoqueRaw = $row['ESTOQUE'] ?? $row['estoque'] ?? $row['Estoque'] ?? $row['ESTDISP'] ?? $row['estdisp'] ?? $row['SALDO'] ?? $row['saldo'] ?? null;
-
             if (empty($codProd)) {
                 continue;
+            }
+
+            $dtValRaw = $row['DTVAL'] ?? $row['dtval'] ?? $row['DtVal'] ?? null;
+            
+            // Busca o valor de estoque em todas as variações conhecidas
+            $estoqueRaw = $row['ESTOQUE'] ?? $row['estoque'] ?? $row['Estoque']
+                ?? $row['ESTDISP'] ?? $row['estdisp'] ?? $row['EstDisp']
+                ?? $row['EST_DISP'] ?? $row['est_disp']
+                ?? $row['SALDO'] ?? $row['saldo'] ?? $row['Saldo']
+                ?? $row['SALDODISP'] ?? $row['saldodisp']
+                ?? $row['QTDESTOQUE'] ?? $row['qtdestoque']
+                ?? $row['QTD_ESTOQUE'] ?? $row['qtd_estoque']
+                ?? $row['ESTATUAL'] ?? $row['estatual']
+                ?? $row['ESTOQUE_ATUAL'] ?? $row['estoque_atual']
+                ?? $row['DISPONIVEL'] ?? $row['disponivel']
+                ?? $row['QTD'] ?? $row['qtd']
+                ?? null;
+
+            // Se ainda não encontrou, busca dinamicamente qualquer chave que contenha EST, SALDO ou DISP
+            if ($estoqueRaw === null) {
+                foreach ($row as $k => $v) {
+                    $upperK = strtoupper((string)$k);
+                    if ($upperK !== 'CODPROD' && $upperK !== 'DTVAL' && (str_contains($upperK, 'EST') || str_contains($upperK, 'SALDO') || str_contains($upperK, 'DISP'))) {
+                        $estoqueRaw = $v;
+                        break;
+                    }
+                }
             }
 
             $updateData = [];
@@ -786,6 +828,7 @@ class SankhyaDatabaseService
             if ($hasValCol && !empty($dtValRaw)) {
                 try {
                     $updateData['validade_proxima'] = \Carbon\Carbon::parse($dtValRaw)->format('Y-m-d');
+                    $countValidade++;
                 } catch (\Exception $e) {
                     // skip parse error
                 }
@@ -794,6 +837,7 @@ class SankhyaDatabaseService
             if ($hasEstCol && $estoqueRaw !== null && $estoqueRaw !== '') {
                 $cleanEst = is_numeric($estoqueRaw) ? (float)$estoqueRaw : (float)str_replace(',', '.', (string)$estoqueRaw);
                 $updateData['estoque'] = round($cleanEst, 2);
+                $countEstoque++;
             }
 
             if (!empty($updateData)) {
@@ -804,6 +848,86 @@ class SankhyaDatabaseService
                 }
             }
         }
+
+        $stats['total'] = $count;
+        $stats['validade'] = $countValidade;
+        $stats['estoque'] = $countEstoque;
+
+        return $count;
+    }
+
+    /**
+     * Busca estoque dos produtos direto da tabela nativa TGFEST ou view dedicada do Sankhya.
+     */
+    public function fetchEstoqueFromSankhyaTable(): array
+    {
+        $conn = $this->connect();
+
+        $queries = [
+            // Views customizadas comuns
+            "SELECT CODPROD, ESTOQUE FROM SANKHYA.VGF_ESTOQUEAPP",
+            "SELECT CODPROD, ESTOQUE FROM VGF_ESTOQUEAPP",
+            "SELECT CODPROD, ESTOQUE FROM SANKHYA.VGF_ESTOQUE",
+            "SELECT CODPROD, ESTOQUE FROM VGF_ESTOQUE",
+            // Tabela oficial do Sankhya (TGFEST) agrupada por produto (disponível = estoque - reservado)
+            "SELECT CODPROD, SUM(ESTOQUE - NVL(RESERVADO, 0)) AS ESTOQUE FROM SANKHYA.TGFEST GROUP BY CODPROD",
+            "SELECT CODPROD, SUM(ESTOQUE - NVL(RESERVADO, 0)) AS ESTOQUE FROM TGFEST GROUP BY CODPROD",
+            "SELECT CODPROD, SUM(ESTOQUE) AS ESTOQUE FROM SANKHYA.TGFEST GROUP BY CODPROD",
+            "SELECT CODPROD, SUM(ESTOQUE) AS ESTOQUE FROM TGFEST GROUP BY CODPROD",
+        ];
+
+        foreach ($queries as $sql) {
+            try {
+                $stmt = $conn->query($sql);
+                $rows = $stmt->fetchAll();
+                if (!empty($rows)) {
+                    Log::info("Sankhya Service - fetchEstoqueFromSankhyaTable: sucesso com [{$sql}]. Total de produtos com estoque: " . count($rows));
+                    return $rows;
+                }
+            } catch (\PDOException $e) {
+                Log::warning("Sankhya Service - fetchEstoqueFromSankhyaTable tentativa [{$sql}] falhou: " . $e->getMessage());
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Salva o saldo de estoque dos produtos a partir das linhas retornadas da TGFEST / view de estoque.
+     */
+    public function saveEstoqueRows(array $rows): int
+    {
+        $hasEstCol = Produto::hasEstoqueColumn();
+        if (!$hasEstCol) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($rows as $row) {
+            $codProd = (string)($row['CODPROD'] ?? $row['codprod'] ?? $row['CodProd'] ?? '');
+            if (empty($codProd)) {
+                continue;
+            }
+
+            $estoqueRaw = $row['ESTOQUE'] ?? $row['estoque'] ?? $row['Estoque']
+                ?? $row['ESTDISP'] ?? $row['estdisp']
+                ?? $row['SALDO'] ?? $row['saldo']
+                ?? null;
+
+            if ($estoqueRaw === null) {
+                continue;
+            }
+
+            $cleanEst = is_numeric($estoqueRaw) ? (float)$estoqueRaw : (float)str_replace(',', '.', (string)$estoqueRaw);
+
+            $updated = Produto::where('codigo_sankhya', $codProd)
+                ->update(['estoque' => round($cleanEst, 2)]);
+
+            if ($updated) {
+                $count++;
+            }
+        }
+
         return $count;
     }
 
@@ -816,7 +940,15 @@ class SankhyaDatabaseService
     {
         try {
             $rows = $this->fetchValidadesFromView();
-            return $this->saveValidadesFromViewRows($rows);
+            $stats = [];
+            $count = $this->saveValidadesFromViewRows($rows, $stats);
+            if (($stats['estoque'] ?? 0) === 0) {
+                $estoqueRows = $this->fetchEstoqueFromSankhyaTable();
+                if (!empty($estoqueRows)) {
+                    $count += $this->saveEstoqueRows($estoqueRows);
+                }
+            }
+            return $count;
         } catch (\Exception $e) {
             Log::error("Sankhya Service - Failed product validades sync: " . $e->getMessage());
             throw $e;
