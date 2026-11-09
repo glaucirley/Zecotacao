@@ -19,8 +19,8 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $currentUser = Auth::user();
-        if (!$currentUser->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden. Only administrators can manage users.'], 403);
+        if (!$currentUser->isAdministrador() && !$currentUser->isSuporte()) {
+            return response()->json(['error' => 'Forbidden. Only administrators and support can manage users.'], 403);
         }
 
         // Ensure every gestor has an Equipe linked to them so they appear in Visão por Equipes
@@ -56,8 +56,8 @@ class UserController extends Controller
     public function storeTeam(Request $request)
     {
         $currentUser = Auth::user();
-        if (!$currentUser->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden. Only administrators can create teams.'], 403);
+        if (!$currentUser->isAdministrador() && !$currentUser->isSuporte()) {
+            return response()->json(['error' => 'Forbidden. Only administrators and support can create teams.'], 403);
         }
 
         $validator = Validator::make($request->all(), [
@@ -94,15 +94,15 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $currentUser = Auth::user();
-        if (!$currentUser->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden. Only administrators can manage users.'], 403);
+        if (!$currentUser->isAdministrador() && !$currentUser->isSuporte()) {
+            return response()->json(['error' => 'Forbidden. Only administrators and support can manage users.'], 403);
         }
 
         $validator = Validator::make($request->all(), [
             'nome' => 'required|string|max:255',
             'email' => 'required|email|unique:usuarios,email',
             'password' => 'required|string|min:6',
-            'papel' => 'required|in:diretor,gestor,representante,faturamento,administrador',
+            'papel' => 'required|in:diretor,gestor,representante,faturamento,administrador,suporte',
             'telefone' => 'nullable|string|max:50',
             'limite_desconto_percentual' => 'nullable|numeric|min:0|max:100',
             'codigo_sankhya' => 'nullable|string|max:100|unique:usuarios,codigo_sankhya',
@@ -114,6 +114,10 @@ class UserController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+        }
+
+        if ($currentUser->isSuporte() && in_array($request->input('papel'), ['administrador', 'diretor'])) {
+            return response()->json(['error' => 'Acesso não autorizado. Suporte não pode criar administradores ou diretores.'], 403);
         }
 
         if ($request->input('papel') === 'representante' && filter_var($request->input('ativo', true), FILTER_VALIDATE_BOOLEAN) && empty($request->input('equipe_id'))) {
@@ -162,17 +166,26 @@ class UserController extends Controller
     public function update(Request $request, $id)
     {
         $currentUser = Auth::user();
-        if (!$currentUser->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden.', 'message' => 'Apenas administradores podem gerenciar usuários.'], 403);
+        if (!$currentUser->isAdministrador() && !$currentUser->isSuporte()) {
+            return response()->json(['error' => 'Forbidden.', 'message' => 'Apenas administradores e suporte podem gerenciar usuários.'], 403);
         }
 
         $user = User::findOrFail($id);
+
+        if ($currentUser->isSuporte()) {
+            if (in_array($user->papel, ['administrador', 'diretor'])) {
+                return response()->json(['error' => 'Acesso não autorizado. Suporte não pode alterar contas de administradores ou diretores.'], 403);
+            }
+            if (in_array($request->input('papel'), ['administrador', 'diretor'])) {
+                return response()->json(['error' => 'Acesso não autorizado. Suporte não pode promover usuários a administrador ou diretor.'], 403);
+            }
+        }
 
         $validator = Validator::make($request->all(), [
             'nome' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('usuarios', 'email')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
-            'papel' => 'required|in:diretor,gestor,representante,faturamento,administrador',
+            'papel' => 'required|in:diretor,gestor,representante,faturamento,administrador,suporte',
             'telefone' => 'nullable|string|max:50',
             'limite_desconto_percentual' => 'nullable|numeric|min:0|max:100',
             'codigo_sankhya' => ['nullable', 'string', 'max:100', Rule::unique('usuarios', 'codigo_sankhya')->ignore($user->id)],
@@ -271,7 +284,7 @@ class UserController extends Controller
     public function syncSankhyaRepresentatives(\App\Services\SankhyaDatabaseService $sankhyaDb)
     {
         $currentUser = Auth::user();
-        if (!$currentUser || (!$currentUser->isAdministrador() && !$currentUser->isDiretor() && !$currentUser->isGestor())) {
+        if (!$currentUser || (!$currentUser->isAdministrador() && !$currentUser->isDiretor() && !$currentUser->isGestor() && !$currentUser->isSuporte())) {
             return response()->json(['error' => 'Acesso não autorizado.'], 403);
         }
 

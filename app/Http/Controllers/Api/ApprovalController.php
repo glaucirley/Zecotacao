@@ -48,8 +48,8 @@ class ApprovalController extends Controller
             return response()->json(['success' => true, 'data' => $quotes]);
         }
 
-        if ($user->isAdministrador()) {
-            // Admin sees both manager pending and director pending quotes
+        if ($user->isAdministrador() || $user->isSuporte()) {
+            // Admin and Support see both manager pending and director pending quotes
             $quotes = Cotacao::whereIn('status', ['AGUARDANDO_GESTOR', 'COM_DIRETOR'])
                 ->with(['parceiro', 'representante', 'itens'])
                 ->get();
@@ -57,7 +57,7 @@ class ApprovalController extends Controller
             return response()->json(['success' => true, 'data' => $quotes]);
         }
 
-        return response()->json(['error' => 'Forbidden. Only managers, directors, and administrators can access approvals.'], 403);
+        return response()->json(['error' => 'Forbidden. Only managers, directors, administrators and support can access approvals.'], 403);
     }
 
     /**
@@ -76,12 +76,12 @@ class ApprovalController extends Controller
 
         $user = Auth::user();
 
-        // Authorization check: gestor can only view their team's quotes. Director can view everything.
+        // Authorization check: gestor can only view their team's quotes. Director, Admin and Support can view.
         if ($user->isGestor()) {
             if ($quote->representante->equipe?->gestor_id !== $user->id) {
                 return response()->json(['error' => 'Forbidden. This quotation is not from your team.'], 403);
             }
-        } elseif (!$user->isDiretor() && !$user->isAdministrador()) {
+        } elseif (!$user->isDiretor() && !$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 

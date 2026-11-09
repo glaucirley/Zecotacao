@@ -17,6 +17,7 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
             <h2 style="font-size: 22px;" id="client-title">Cliente: ...</h2>
             <p style="color: var(--color-text-muted); font-size: 13px;" id="rep-subtitle">Vendedor: ...</p>
         </div>
+        @if(!auth()->user()->isSuporte())
         <div style="display: flex; gap: 12px;">
             <button class="btn btn-outline" onclick="openDevolverModal()" style="border-color: var(--status-devolvida); color: var(--status-devolvida);">
                 Devolver para Representante
@@ -25,6 +26,11 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                 Escalar para Diretoria
             </button>
         </div>
+        @else
+        <div style="display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; padding:6px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:12.5px; font-weight:700; color:#475569;">
+            🔒 Perfil Suporte (Modo Consulta)
+        </div>
+        @endif
     </div>
 
     <!-- Action Cockpit Buttons -->
@@ -201,7 +207,13 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
 
     <div class="card" style="display: flex; justify-content: flex-end; gap: 12px; background-color: var(--color-card); box-shadow: var(--shadow-lg);">
         <button class="btn btn-outline" onclick="window.location.href='{{ url('/aprovacoes') }}'">Voltar à Fila</button>
-        <button class="btn btn-primary" onclick="submitDecision()" style="padding: 12px 24px;">Aplicar Decisão e Encerrar</button>
+        @if(auth()->user()->isSuporte())
+            <div style="display:inline-flex; align-items:center; gap:8px; padding:8px 16px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; font-weight:700; color:#475569;">
+                🔒 Modo Consulta (Perfil Suporte não libera cotações)
+            </div>
+        @else
+            <button class="btn btn-primary" onclick="submitDecision()" style="padding: 12px 24px;">Aplicar Decisão e Encerrar</button>
+        @endif
     </div>
 </div>
 

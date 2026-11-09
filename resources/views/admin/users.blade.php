@@ -26,6 +26,7 @@
             <option value="gestor">Gestor de Equipe</option>
             <option value="faturamento">Faturamento / Conf.</option>
             <option value="diretor">Diretor Comercial</option>
+            <option value="suporte">Suporte Técnico</option>
             <option value="administrador">Administrador Geral</option>
         </select>
 
@@ -167,6 +168,7 @@
                         <option value="gestor">Gestor de Equipe</option>
                         <option value="faturamento">Faturamento / Conf.</option>
                         <option value="diretor">Diretor Comercial</option>
+                        <option value="suporte">Suporte Técnico</option>
                         <option value="administrador">Administrador Geral</option>
                     </select>
                 </div>
@@ -434,10 +436,15 @@
             
             // Format Role
             let roleLabel = (u.papel || '').toUpperCase();
+            let roleStyle = "background-color: var(--color-primary-hover);";
             if (u.papel === 'representante') roleLabel = "REPRESENTANTE";
             else if (u.papel === 'gestor') roleLabel = "GESTOR DE EQUIPE";
             else if (u.papel === 'diretor') roleLabel = "DIRETOR";
             else if (u.papel === 'faturamento') roleLabel = "FATURAMENTO";
+            else if (u.papel === 'suporte') {
+                roleLabel = "SUPORTE";
+                roleStyle = "background-color: #7c3aed; color: #ffffff;";
+            }
 
             const limitText = u.papel === 'gestor' ? `${parseFloat(u.limite_desconto_percentual)}%` : '-';
             const teamName = u.equipe ? u.equipe.nome : '-';
@@ -455,7 +462,7 @@
                         <strong>${nameEscaped}</strong><br>
                         <span style="font-size:12px; color:var(--color-text-muted);">${emailEscaped}</span>
                     </td>
-                    <td><span class="user-role-label" style="background-color: var(--color-primary-hover);">${roleLabel}</span></td>
+                    <td><span class="user-role-label" style="${roleStyle}">${roleLabel}</span></td>
                     <td><strong>${codeEscaped}</strong></td>
                     <td>${teamEscaped}</td>
                     <td><strong>${limitText}</strong></td>
@@ -707,6 +714,8 @@
             return { ver_kpis: true, ver_evolucao_temporal: true, ver_status_dist: true, ver_ranking_vendedores: true, ver_top_clientes: true };
         } else if (papel === 'faturamento') {
             return { ver_kpis: true, ver_evolucao_temporal: false, ver_status_dist: true, ver_ranking_vendedores: false, ver_top_clientes: false };
+        } else if (papel === 'suporte') {
+            return { ver_kpis: false, ver_evolucao_temporal: false, ver_status_dist: false, ver_ranking_vendedores: false, ver_top_clientes: false };
         } else {
             // representante
             return { ver_kpis: false, ver_evolucao_temporal: true, ver_status_dist: false, ver_ranking_vendedores: false, ver_top_clientes: false };

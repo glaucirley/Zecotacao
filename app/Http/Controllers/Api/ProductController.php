@@ -17,8 +17,8 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        if (!$user->isAdministrador()) {
-            return response()->json(['error' => 'Forbidden. Only administrators can manage products.'], 403);
+        if (!$user->isAdministrador() && !$user->isSuporte()) {
+            return response()->json(['error' => 'Forbidden. Only administrators and support can manage products.'], 403);
         }
 
         $query = Produto::query();
@@ -104,7 +104,7 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user->isAdministrador()) {
+        if (!$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
@@ -144,7 +144,7 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user->isAdministrador()) {
+        if (!$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 

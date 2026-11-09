@@ -70,7 +70,7 @@ class QuoteController extends Controller
             });
         } elseif ($user->isRepresentante()) {
             $query->where('representante_id', $user->id);
-        } elseif (!$user->isDiretor() && !$user->isAdministrador() && !$user->isFaturamento()) {
+        } elseif (!$user->isDiretor() && !$user->isAdministrador() && !$user->isFaturamento() && !$user->isSuporte()) {
             return response()->json(['error' => 'Acesso não autorizado.'], 403);
         }
 

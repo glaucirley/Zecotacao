@@ -23,6 +23,9 @@ class WebAuthController extends Controller
             if ($user->isRepresentante()) {
                 return redirect('/painel-representante');
             }
+            if ($user->isSuporte()) {
+                return redirect('/cotacoes');
+            }
             return redirect('/dashboard');
         }
         return view('auth.login');
@@ -65,6 +68,9 @@ class WebAuthController extends Controller
 
             if ($user->isRepresentante()) {
                 return redirect('/painel-representante');
+            }
+            if ($user->isSuporte()) {
+                return redirect('/cotacoes');
             }
             return redirect('/dashboard');
         }

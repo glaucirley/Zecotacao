@@ -32,8 +32,8 @@ class WebViewController extends Controller
      */
     public function funnel()
     {
-        if (Auth::user()->isRepresentante()) {
-            return redirect('/painel-representante');
+        if (Auth::user()->isRepresentante() || Auth::user()->isSuporte()) {
+            return redirect('/cotacoes');
         }
         return view('admin.funnel');
     }
@@ -74,8 +74,8 @@ class WebViewController extends Controller
         if (Auth::user()->isRepresentante()) {
             return redirect('/painel-representante');
         }
-        if (!Auth::user()->isFaturamento() && !Auth::user()->isDiretor() && !Auth::user()->isAdministrador()) {
-            return redirect('/aprovacoes');
+        if (!Auth::user()->isFaturamento() && !Auth::user()->isDiretor() && !Auth::user()->isAdministrador() && !Auth::user()->isSuporte()) {
+            return redirect('/cotacoes');
         }
         return view('admin.billing');
     }
@@ -88,8 +88,8 @@ class WebViewController extends Controller
         if (Auth::user()->isRepresentante()) {
             return redirect('/painel-representante');
         }
-        if (!Auth::user()->isFaturamento() && !Auth::user()->isDiretor() && !Auth::user()->isAdministrador()) {
-            return redirect('/aprovacoes');
+        if (!Auth::user()->isFaturamento() && !Auth::user()->isDiretor() && !Auth::user()->isAdministrador() && !Auth::user()->isSuporte()) {
+            return redirect('/cotacoes');
         }
         return view('admin.billing_detail', ['id' => $id]);
     }
@@ -100,7 +100,7 @@ class WebViewController extends Controller
     public function parameters()
     {
         if (!Auth::user()->isAdministrador() && !Auth::user()->isDiretor()) {
-            return redirect('/aprovacoes');
+            return redirect('/cotacoes');
         }
         return view('admin.parameters');
     }
@@ -110,8 +110,8 @@ class WebViewController extends Controller
      */
     public function users()
     {
-        if (!Auth::user()->isAdministrador()) {
-            return redirect('/aprovacoes');
+        if (!Auth::user()->isAdministrador() && !Auth::user()->isSuporte()) {
+            return redirect('/cotacoes');
         }
         return view('admin.users');
     }
@@ -121,8 +121,8 @@ class WebViewController extends Controller
      */
     public function partners()
     {
-        if (!Auth::user()->isAdministrador()) {
-            return redirect('/aprovacoes');
+        if (!Auth::user()->isAdministrador() && !Auth::user()->isSuporte()) {
+            return redirect('/cotacoes');
         }
         return view('admin.partners');
     }
@@ -132,8 +132,8 @@ class WebViewController extends Controller
      */
     public function products()
     {
-        if (!Auth::user()->isAdministrador()) {
-            return redirect('/aprovacoes');
+        if (!Auth::user()->isAdministrador() && !Auth::user()->isSuporte()) {
+            return redirect('/cotacoes');
         }
         return view('admin.products');
     }
@@ -144,7 +144,7 @@ class WebViewController extends Controller
     public function representativeDashboard()
     {
         if (!Auth::user()->isRepresentante()) {
-            return redirect('/aprovacoes');
+            return redirect('/cotacoes');
         }
         $condicoesPagamento = CondicaoPagamento::where('ativa', true)
             ->orderBy('descricao')
@@ -157,8 +157,8 @@ class WebViewController extends Controller
      */
     public function dashboard()
     {
-        if (Auth::user()->isRepresentante()) {
-            return redirect('/painel-representante');
+        if (Auth::user()->isRepresentante() || Auth::user()->isSuporte()) {
+            return redirect('/cotacoes');
         }
         return view('admin.dashboard');
     }
@@ -169,7 +169,7 @@ class WebViewController extends Controller
     public function conversations()
     {
         if (!Auth::user()->hasChatAccess()) {
-            return redirect('/dashboard');
+            return redirect('/cotacoes');
         }
         return view('admin.chat_audit');
     }

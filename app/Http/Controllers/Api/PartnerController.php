@@ -89,7 +89,7 @@ class PartnerController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user->isAdministrador()) {
+        if (!$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
@@ -136,7 +136,7 @@ class PartnerController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user->isAdministrador()) {
+        if (!$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 

@@ -102,13 +102,18 @@ class User extends Authenticatable
         return $this->papel === 'administrador';
     }
 
+    public function isSuporte(): bool
+    {
+        return $this->papel === 'suporte';
+    }
+
     /**
      * Check if user is allowed to view financial costs and profit margins.
      * Representatives and unauthenticated visitors cannot view costs.
      */
     public function canViewCosts(): bool
     {
-        return ($this->isAdministrador() || $this->isGestor() || $this->isDiretor() || $this->isFaturamento());
+        return ($this->isAdministrador() || $this->isGestor() || $this->isDiretor() || $this->isFaturamento() || $this->isSuporte());
     }
 
     public static function canUserViewCosts(?User $user = null): bool
@@ -122,14 +127,14 @@ class User extends Authenticatable
 
     /**
      * Check if user is authorized to view or edit a specific quotation.
-     * - Administrador & Diretor: see all quotations.
+     * - Administrador, Diretor & Suporte: see all quotations.
      * - Faturamento: see quotations.
      * - Gestor: only quotations from representatives in their team(s) or created by themselves.
      * - Representante / others: only quotations where representante_id == user id.
      */
     public function canAccessQuote(\App\Models\Cotacao $quote): bool
     {
-        if ($this->isAdministrador() || $this->isDiretor()) {
+        if ($this->isAdministrador() || $this->isDiretor() || $this->isSuporte()) {
             return true;
         }
 
@@ -173,7 +178,7 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->isAdministrador() || $this->isDiretor() || $this->isGestor();
+        return $this->isAdministrador() || $this->isDiretor() || $this->isGestor() || $this->isSuporte();
     }
 
     /**
@@ -203,6 +208,7 @@ class User extends Authenticatable
             case 'representante':
                 return in_array($perm, ['ver_evolucao_temporal']);
 
+            case 'suporte':
             default:
                 return false;
         }
