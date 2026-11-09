@@ -186,6 +186,10 @@ class User extends Authenticatable
      */
     public function hasDashPermission(string $perm): bool
     {
+        if ($this->papel === 'suporte') {
+            return false;
+        }
+
         $perms = $this->permissoes_dashboard;
 
         // If defined, return the boolean value

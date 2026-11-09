@@ -22,6 +22,10 @@ class DashboardController extends Controller
             return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
+        if ($user->isSuporte()) {
+            return response()->json(['error' => 'Forbidden. Perfil de suporte não possui acesso a métricas de dashboard.'], 403);
+        }
+
         // 1. Date filters
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
@@ -377,6 +381,10 @@ class DashboardController extends Controller
         $user = Auth::user();
         if (!$user) {
             return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        if ($user->isSuporte()) {
+            return response()->json(['error' => 'Forbidden. Perfil de suporte não possui acesso a métricas de dashboard.'], 403);
         }
 
         // 1. Approvals waiting for user
