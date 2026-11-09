@@ -130,7 +130,7 @@ class UserController extends Controller
         }
 
         try {
-            $user = User::create([
+            $createData = [
                 'nome' => $request->input('nome'),
                 'email' => $request->input('email'),
                 'senha_hash' => Hash::make($request->input('password')),
@@ -142,7 +142,24 @@ class UserController extends Controller
                 'ativo' => $request->input('ativo', true),
                 'permissoes_dashboard' => $request->input('permissoes_dashboard'),
                 'acesso_chat' => $request->input('acesso_chat', false),
-            ]);
+            ];
+
+            try {
+                $user = User::create($createData);
+            } catch (\Illuminate\Database\QueryException $qe) {
+                $msg = strtolower($qe->getMessage());
+                if (str_contains($msg, 'papel') || str_contains($msg, 'truncated') || str_contains($msg, 'enum') || in_array($qe->getCode(), ['01000', '22001', 1265])) {
+                    try {
+                        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    } catch (\Throwable $mEx) {}
+                    try {
+                        \Illuminate\Support\Facades\DB::statement("ALTER TABLE usuarios MODIFY COLUMN papel ENUM('representante', 'gestor', 'diretor', 'faturamento', 'administrador', 'suporte') NOT NULL");
+                    } catch (\Throwable $aEx) {}
+                    $user = User::create($createData);
+                } else {
+                    throw $qe;
+                }
+            }
 
             return response()->json([
                 'success' => true,
@@ -155,7 +172,7 @@ class UserController extends Controller
             return response()->json([
                 'error' => 'Erro interno do servidor',
                 'code' => 'USER_CREATE_ERROR',
-                'message' => config('app.debug') ? ('Falha ao criar usuário: ' . $e->getMessage()) : 'Ocorreu um erro ao criar o usuário. Os detalhes foram registrados nos logs do servidor.'
+                'message' => 'Falha ao criar usuário: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -227,7 +244,22 @@ class UserController extends Controller
                 $updateData['senha_hash'] = Hash::make($request->input('password'));
             }
 
-            $user->update($updateData);
+            try {
+                $user->update($updateData);
+            } catch (\Illuminate\Database\QueryException $qe) {
+                $msg = strtolower($qe->getMessage());
+                if (str_contains($msg, 'papel') || str_contains($msg, 'truncated') || str_contains($msg, 'enum') || in_array($qe->getCode(), ['01000', '22001', 1265])) {
+                    try {
+                        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    } catch (\Throwable $mEx) {}
+                    try {
+                        \Illuminate\Support\Facades\DB::statement("ALTER TABLE usuarios MODIFY COLUMN papel ENUM('representante', 'gestor', 'diretor', 'faturamento', 'administrador', 'suporte') NOT NULL");
+                    } catch (\Throwable $aEx) {}
+                    $user->update($updateData);
+                } else {
+                    throw $qe;
+                }
+            }
 
             return response()->json([
                 'success' => true,
@@ -240,7 +272,7 @@ class UserController extends Controller
             return response()->json([
                 'error' => 'Erro interno do servidor',
                 'code' => 'USER_UPDATE_ERROR',
-                'message' => config('app.debug') ? ('Falha ao atualizar usuário: ' . $e->getMessage()) : 'Ocorreu um erro ao atualizar o usuário. Os detalhes foram registrados nos logs do servidor.'
+                'message' => 'Falha ao atualizar usuário: ' . $e->getMessage()
             ], 500);
         }
     }

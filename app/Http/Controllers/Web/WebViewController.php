@@ -113,6 +113,19 @@ class WebViewController extends Controller
         if (!Auth::user()->isAdministrador() && !Auth::user()->isSuporte()) {
             return redirect('/cotacoes');
         }
+
+        // Auto-migrate check for new roles (e.g. suporte)
+        Cache::remember('auto_migrate_suporte_enum', 86400, function () {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            } catch (\Throwable $e) {
+                try {
+                    \Illuminate\Support\Facades\DB::statement("ALTER TABLE usuarios MODIFY COLUMN papel ENUM('representante', 'gestor', 'diretor', 'faturamento', 'administrador', 'suporte') NOT NULL");
+                } catch (\Throwable $ex) {}
+            }
+            return true;
+        });
+
         return view('admin.users');
     }
 
