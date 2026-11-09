@@ -50,6 +50,9 @@ Route::middleware('auth')->group(function () {
     // Product Catalog Management (Administrador only)
     Route::get('/produtos', [WebViewController::class, 'products']);
 
+    // Dedicated Product & Stock Query (Retaguarda only)
+    Route::get('/consulta-produtos', [WebViewController::class, 'productQuery']);
+
     // Representative Mobile Dashboard
     Route::get('/painel-representante', [WebViewController::class, 'representativeDashboard']);
 

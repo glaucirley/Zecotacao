@@ -152,6 +152,17 @@ class WebViewController extends Controller
     }
 
     /**
+     * Product & Stock Query view for Retaguarda.
+     */
+    public function productQuery()
+    {
+        if (Auth::user()->isRepresentante()) {
+            return redirect('/painel-representante');
+        }
+        return view('admin.product_query');
+    }
+
+    /**
      * Representative Mobile Dashboard.
      */
     public function representativeDashboard()

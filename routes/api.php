@@ -103,6 +103,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/clientes/{id}', [PartnerController::class, 'destroy']);
 
             // 9. Product Catalog CRUD Routes (Administrator only)
+            Route::get('/produtos/consulta-retaguarda', [ProductController::class, 'queryCatalog']);
             Route::get('/produtos-admin', [ProductController::class, 'index']);
             Route::post('/produtos-admin', [ProductController::class, 'store']);
             Route::patch('/produtos-admin/{id}', [ProductController::class, 'update']);
