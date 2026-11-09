@@ -957,7 +957,13 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 20px;" id="rep-group-container">
-                    <label for="create-representante" class="form-label" style="font-weight: 600; font-size: 13px;">Representante Comercial Responsável <span style="color:#ef4444;">*</span></label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <label for="create-representante" class="form-label" style="font-weight: 600; font-size: 13px; margin:0;">Representante Comercial Responsável <span style="color:#ef4444;">*</span></label>
+                        <button type="button" id="btn-admin-sync-reps" onclick="refreshAdminRepsFromSankhya()" title="Atualizar lista de vendedores com o Sankhya (ATIVO='S' e AD_ATVCOT='S')" style="background:none; border:none; color:#2563eb; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:2px 6px; border-radius:4px;">
+                            <svg id="icon-admin-sync-reps" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            <span id="text-admin-sync-reps">Atualizar Sankhya</span>
+                        </button>
+                    </div>
                     <input type="text" id="admin-rep-search-input" class="form-control" placeholder="🔍 Filtrar vendedor por nome ou e-mail..." oninput="filterAdminRepSelect()" style="font-size: 12px; margin-bottom: 6px; padding: 7px 10px;">
                     <select id="create-representante" class="form-control" required style="font-size: 13px;">
                         <option value="">Selecione um representante...</option>
@@ -1937,6 +1943,58 @@
     let adminRepsList = [];
     let adminRowCounter = 0;
     let adminProdRowTimers = {};
+
+    async function refreshAdminRepsFromSankhya() {
+        const btn = document.getElementById("btn-admin-sync-reps");
+        const icon = document.getElementById("icon-admin-sync-reps");
+        const text = document.getElementById("text-admin-sync-reps");
+        const rSelect = document.getElementById("create-representante");
+        const currentVal = rSelect ? rSelect.value : null;
+
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = "0.7";
+        }
+        if (icon) icon.style.animation = "spin 1s linear infinite";
+        if (text) text.innerText = "Sincronizando...";
+
+        try {
+            const syncRes = await fetch(`${API_URL}/usuarios/sincronizar-sankhya`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            });
+            const syncData = await syncRes.json();
+
+            if (syncRes.ok && syncData.success) {
+                showToast(syncData.message, "success");
+                // Recarrega lista de usuários para atualizar o select
+                const uRes = await fetch(`${API_URL}/usuarios`);
+                const uData = await uRes.json();
+                let users = [];
+                if (uData.success && uData.data) {
+                    users = Array.isArray(uData.data) ? uData.data : (Array.isArray(uData.data.users) ? uData.data.users : []);
+                }
+                adminRepsList = users.filter(u => u.papel === 'representante' || u.papel === 'gerente');
+                populateAdminRepSelect(currentVal);
+            } else {
+                showToast(syncData.message || syncData.error || "Erro ao sincronizar com Sankhya.", "error");
+            }
+        } catch(e) {
+            console.error("Erro ao sincronizar representantes no modal:", e);
+            showToast("Erro de comunicação com o Sankhya.", "error");
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.style.opacity = "1";
+            }
+            if (icon) icon.style.animation = "";
+            if (text) text.innerText = "Atualizar Sankhya";
+        }
+    }
 
     function populateAdminRepSelect(currentVal = null) {
         const rSelect = document.getElementById("create-representante");

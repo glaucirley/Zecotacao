@@ -85,6 +85,7 @@ Route::prefix('v1')->group(function () {
             // 7. User Management Routes (Administrator only)
             Route::get('/usuarios', [UserController::class, 'index']);
             Route::post('/usuarios', [UserController::class, 'store']);
+            Route::post('/usuarios/sincronizar-sankhya', [UserController::class, 'syncSankhyaRepresentatives']);
             Route::patch('/usuarios/{id}', [UserController::class, 'update']);
             Route::delete('/usuarios/{id}', [UserController::class, 'destroy']);
             Route::post('/equipes', [UserController::class, 'storeTeam']);

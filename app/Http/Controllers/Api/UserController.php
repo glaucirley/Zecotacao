@@ -264,4 +264,112 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Sincroniza representantes ativos do Sankhya (TGFVEN com ATIVO='S' e AD_ATVCOT='S').
+     */
+    public function syncSankhyaRepresentatives(\App\Services\SankhyaDatabaseService $sankhyaDb)
+    {
+        $currentUser = Auth::user();
+        if (!$currentUser || (!$currentUser->isAdministrador() && !$currentUser->isDiretor() && !$currentUser->isGestor())) {
+            return response()->json(['error' => 'Acesso não autorizado.'], 403);
+        }
+
+        try {
+            $rows = $sankhyaDb->fetchRepresentatives();
+
+            $createdCount = 0;
+            $updatedCount = 0;
+            $activeCodes = [];
+
+            foreach ($rows as $row) {
+                $codVend = (string)($row['CODVEND'] ?? $row['codvend'] ?? '');
+                if (empty($codVend)) {
+                    continue;
+                }
+
+                $apelido = trim((string)($row['APELIDO'] ?? $row['apelido'] ?? ''));
+                if (empty($apelido)) {
+                    $apelido = 'Vendedor ' . $codVend;
+                }
+
+                $email = trim((string)($row['EMAIL'] ?? $row['email'] ?? ''));
+                if (empty($email)) {
+                    $email = 'vendedor' . $codVend . '@zecotacao.com.br';
+                }
+
+                $telefone = $row['TELEFONE'] ?? $row['telefone'] ?? $row['AD_TELEFONE'] ?? $row['ad_telefone'] ?? null;
+                if (!empty($telefone)) {
+                    $telefone = trim((string)$telefone);
+                }
+
+                $activeCodes[] = $codVend;
+
+                $user = User::where('codigo_sankhya', $codVend)->first();
+
+                if ($user) {
+                    $user->update([
+                        'nome' => $apelido,
+                        'email' => $email,
+                        'telefone' => $telefone ?: $user->telefone,
+                        'ativo' => true,
+                    ]);
+                    $updatedCount++;
+                } else {
+                    // Se o e-mail já estiver em uso por outro registro sem código sankhya, gera e-mail único
+                    if (User::where('email', $email)->exists()) {
+                        $email = 'vendedor' . $codVend . '_' . time() . '@zecotacao.com.br';
+                    }
+
+                    User::create([
+                        'nome' => $apelido,
+                        'papel' => 'representante',
+                        'email' => $email,
+                        'telefone' => $telefone,
+                        'senha_hash' => Hash::make(\Illuminate\Support\Str::random(16)),
+                        'codigo_sankhya' => $codVend,
+                        'ativo' => true,
+                    ]);
+                    $createdCount++;
+                }
+            }
+
+            // Inativa representantes locais que não estão mais ativos no Sankhya ou foram desmarcados de AD_ATVCOT='S'
+            $inactivatedCount = 0;
+            if (!empty($activeCodes)) {
+                $inactivatedCount = User::where('papel', 'representante')
+                    ->whereNotNull('codigo_sankhya')
+                    ->whereNotIn('codigo_sankhya', $activeCodes)
+                    ->where('ativo', true)
+                    ->update(['ativo' => false]);
+            }
+
+            $totalActive = count($activeCodes);
+            $msgParts = [];
+            if ($createdCount > 0) $msgParts[] = "{$createdCount} novo(s)";
+            if ($updatedCount > 0) $msgParts[] = "{$updatedCount} atualizado(s)";
+            if ($inactivatedCount > 0) $msgParts[] = "{$inactivatedCount} inativado(s)";
+            $details = !empty($msgParts) ? implode(', ', $msgParts) : "Nenhuma alteração cadastral pendente";
+
+            return response()->json([
+                'success' => true,
+                'total' => $totalActive,
+                'novos' => $createdCount,
+                'atualizados' => $updatedCount,
+                'inativados' => $inactivatedCount,
+                'message' => "Sincronização concluída com o Sankhya! {$details} ({$totalActive} representantes ativos no total)."
+            ]);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro na sincronização de representantes do Sankhya: " . $e->getMessage(), [
+                'exception' => $e
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'SANKHYA_SYNC_ERROR',
+                'message' => 'Não foi possível sincronizar com o Sankhya no momento: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

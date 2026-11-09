@@ -49,16 +49,25 @@
     </div>
 </div>
 
-<!-- View Mode Switcher (Point 7) -->
-<div style="display:flex; gap:8px; margin-bottom:16px;">
-    <button type="button" class="btn" id="view-tab-table" onclick="switchUsersView('table')" style="background:#2563eb; color:#ffffff; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; border:none; cursor:pointer; display:flex; align-items:center; gap:6px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-        Lista de Colaboradores
-    </button>
-    <button type="button" class="btn" id="view-tab-teams" onclick="switchUsersView('teams')" style="background:#ffffff; color:#475569; border:1px solid #e2e8f0; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:6px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        Visão por Equipes (Gestores &amp; Representantes)
-    </button>
+<!-- View Mode Switcher & Sync Action -->
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+    <div style="display:flex; gap:8px;">
+        <button type="button" class="btn" id="view-tab-table" onclick="switchUsersView('table')" style="background:#2563eb; color:#ffffff; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; border:none; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            Lista de Colaboradores
+        </button>
+        <button type="button" class="btn" id="view-tab-teams" onclick="switchUsersView('teams')" style="background:#ffffff; color:#475569; border:1px solid #e2e8f0; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Visão por Equipes (Gestores &amp; Representantes)
+        </button>
+    </div>
+
+    <div>
+        <button type="button" class="btn" id="btn-sync-sankhya-reps" onclick="syncRepresentativesFromSankhya()" title="Atualizar lista de vendedores com o Sankhya (ATIVO='S' e AD_ATVCOT='S')" style="background:#ffffff; border:1px solid #cbd5e1; color:#0f172a; font-size:13px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 1px 2px rgba(0,0,0,0.05); transition:all 0.2s ease;">
+            <svg id="icon-sync-reps" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            <span id="text-sync-reps">Atualizar do Sankhya</span>
+        </button>
+    </div>
 </div>
 
 <div class="card" id="users-table-container">
@@ -298,6 +307,66 @@
         } catch (e) {
             console.error(e);
             showToast("Erro de conexão ao buscar usuários.", "error");
+        }
+    }
+
+    let isSyncingReps = false;
+    async function syncRepresentativesFromSankhya() {
+        if (isSyncingReps) return;
+
+        const btn = document.getElementById("btn-sync-sankhya-reps");
+        const icon = document.getElementById("icon-sync-reps");
+        const text = document.getElementById("text-sync-reps");
+
+        isSyncingReps = true;
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = "0.75";
+            btn.style.cursor = "not-allowed";
+        }
+        if (icon) {
+            icon.style.animation = "spin 1s linear infinite";
+        }
+        if (text) {
+            text.innerText = "Sincronizando...";
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/usuarios/sincronizar-sankhya`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                showToast(data.message || "Representantes sincronizados com o Sankhya com sucesso!", "success");
+                // Recarrega listagem e visão de equipes dinamicamente
+                await loadData();
+            } else {
+                const msg = data.message || data.error || "Falha ao sincronizar com o Sankhya.";
+                showToast(msg, "error");
+            }
+        } catch (e) {
+            console.error("Erro ao sincronizar representantes do Sankhya:", e);
+            showToast("Erro de comunicação ao conectar com o Sankhya. Verifique o link e tente novamente.", "error");
+        } finally {
+            isSyncingReps = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                btn.style.cursor = "pointer";
+            }
+            if (icon) {
+                icon.style.animation = "";
+            }
+            if (text) {
+                text.innerText = "Atualizar do Sankhya";
+            }
         }
     }
 
