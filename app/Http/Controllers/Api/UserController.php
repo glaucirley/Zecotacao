@@ -348,8 +348,8 @@ class UserController extends Controller
             $activeCodes = [];
 
             foreach ($rows as $row) {
-                $codVend = (string)($row['CODVEND'] ?? $row['codvend'] ?? '');
-                if (empty($codVend)) {
+                $codVend = trim((string)($row['CODVEND'] ?? $row['codvend'] ?? ''));
+                if ($codVend === '') {
                     continue;
                 }
 
@@ -372,6 +372,9 @@ class UserController extends Controller
                 $tipoVendedor = ($tipVend === 'V') ? 'interno' : 'externo';
 
                 $activeCodes[] = $codVend;
+                if (is_numeric($codVend)) {
+                    $activeCodes[] = (string)((int)$codVend);
+                }
 
                 $user = User::where('codigo_sankhya', $codVend)
                     ->orWhere('codigo_sankhya', (string)((int)$codVend))
@@ -383,10 +386,16 @@ class UserController extends Controller
                     ->first();
 
                 if ($user) {
+                    if (!empty($user->codigo_sankhya)) {
+                        $activeCodes[] = (string)$user->codigo_sankhya;
+                        if (is_numeric($user->codigo_sankhya)) {
+                            $activeCodes[] = (string)((int)$user->codigo_sankhya);
+                        }
+                    }
                     $user->update([
                         'nome' => $apelido,
                         'email' => $email,
-                        'codigo_sankhya' => $user->codigo_sankhya ?: $codVend,
+                        'codigo_sankhya' => $codVend,
                         'telefone' => $telefone ?: $user->telefone,
                         'tipo_vendedor' => !empty($tipVend) ? $tipoVendedor : ($user->tipo_vendedor ?: 'externo'),
                         'ativo' => true,
@@ -415,6 +424,7 @@ class UserController extends Controller
             // Inativa representantes locais que não estão mais ativos no Sankhya ou foram desmarcados de AD_ATVCOT='S'
             $inactivatedCount = 0;
             if (!empty($activeCodes)) {
+                $activeCodes = array_values(array_unique(array_filter($activeCodes)));
                 $inactivatedCount = User::where('papel', 'representante')
                     ->whereNotNull('codigo_sankhya')
                     ->whereNotIn('codigo_sankhya', $activeCodes)

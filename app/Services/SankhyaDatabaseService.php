@@ -318,18 +318,18 @@ class SankhyaDatabaseService
         $conn = $this->connect();
 
         try {
-            return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+            return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND, AD_TELEFONE AS TELEFONE FROM SANKHYA.TGFVEN WHERE TRIM(UPPER(ATIVO)) = 'S' AND TRIM(UPPER(AD_ATVCOT)) = 'S'")->fetchAll();
         } catch (\PDOException $e1) {
             try {
-                return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND, AD_TELEFONE AS TELEFONE FROM TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND, AD_TELEFONE AS TELEFONE FROM TGFVEN WHERE TRIM(UPPER(ATIVO)) = 'S' AND TRIM(UPPER(AD_ATVCOT)) = 'S'")->fetchAll();
             } catch (\PDOException $e2) {
                 try {
-                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                    return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND FROM SANKHYA.TGFVEN WHERE TRIM(UPPER(ATIVO)) = 'S' AND TRIM(UPPER(AD_ATVCOT)) = 'S'")->fetchAll();
                 } catch (\PDOException $e3) {
                     try {
-                        return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND FROM TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                        return $conn->query("SELECT CODVEND, APELIDO, EMAIL, TIPVEND FROM TGFVEN WHERE TRIM(UPPER(ATIVO)) = 'S' AND TRIM(UPPER(AD_ATVCOT)) = 'S'")->fetchAll();
                     } catch (\PDOException $e4) {
-                        return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM SANKHYA.TGFVEN WHERE ATIVO = 'S' AND AD_ATVCOT = 'S'")->fetchAll();
+                        return $conn->query("SELECT CODVEND, APELIDO, EMAIL FROM SANKHYA.TGFVEN WHERE TRIM(UPPER(ATIVO)) = 'S' AND TRIM(UPPER(AD_ATVCOT)) = 'S'")->fetchAll();
                     }
                 }
             }
@@ -685,7 +685,7 @@ class SankhyaDatabaseService
             $user->update([
                 'nome' => $apelido,
                 'email' => $email,
-                'codigo_sankhya' => $user->codigo_sankhya ?: $codVend,
+                'codigo_sankhya' => $codVend,
                 'telefone' => $telefone ?: $user->telefone,
                 'tipo_vendedor' => !empty($tipVend) ? $tipoVendedor : ($user->tipo_vendedor ?: 'externo'),
                 'ativo' => true,
