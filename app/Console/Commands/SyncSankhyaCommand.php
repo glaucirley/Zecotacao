@@ -16,7 +16,7 @@ class SyncSankhyaCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'sankhya:sync {--type=all : The type of sync (all, products, partners, reps, prices, conditions, validades, estoque, campanhas)}';
+    protected $signature = 'sankhya:sync {--type=all : The type of sync (all, products, partners, regions, reps, prices, conditions, validades, estoque, campanhas)}';
 
     /**
      * The console command description.
@@ -71,6 +71,16 @@ class SyncSankhyaCommand extends Command
                 }
                 $this->output->progressFinish();
                 $this->info("Synced {$partnerSuccess}/" . count($partners) . " partners successfully" . ($partnerErrors > 0 ? " ({$partnerErrors} skipped due to row errors)." : "."));
+
+                // Atualiza também os vínculos de CODTAB da TSIREG diretamente
+                $regCount = $db->syncAllPartnerRegionTables();
+                $this->info("Linked {$regCount} partner region price tables from TSIREG.CODTAB.");
+            }
+
+            if (in_array($type, ['regions'])) {
+                $this->info("Fetching region price tables (CODTAB) from TSIREG linked via CODREG...");
+                $regCount = $db->syncAllPartnerRegionTables();
+                $this->info("Linked {$regCount} partner price tables directly from TSIREG.CODTAB successfully.");
             }
 
             if (in_array($type, ['all', 'reps'])) {

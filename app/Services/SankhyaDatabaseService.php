@@ -304,6 +304,19 @@ class SankhyaDatabaseService
             }
         }
 
+        // Intermediary fallback: TGFPAR + TSIREG (sem TSIEND/TSIBAI/TSICID)
+        try {
+            $sql = "SELECT PAR.CODPARC, PAR.CODVEND AS VENDEDOR_1, PAR.NOMEPARC AS NOME_FANTASIA, PAR.RAZAOSOCIAL, PAR.CGC_CPF, PAR.TELEFONE, PAR.EMAIL, PAR.ATIVO, PAR.CODREG AS REGIAO_ID, REG.CODTAB AS CODTAB_REGIAO FROM SANKHYA.TGFPAR PAR LEFT JOIN SANKHYA.TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
+            return $conn->query($sql)->fetchAll();
+        } catch (\PDOException $eDirect) {
+            try {
+                $sql = "SELECT PAR.CODPARC, PAR.CODVEND AS VENDEDOR_1, PAR.NOMEPARC AS NOME_FANTASIA, PAR.RAZAOSOCIAL, PAR.CGC_CPF, PAR.TELEFONE, PAR.EMAIL, PAR.ATIVO, PAR.CODREG AS REGIAO_ID, REG.CODTAB AS CODTAB_REGIAO FROM TGFPAR PAR LEFT JOIN TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
+                return $conn->query($sql)->fetchAll();
+            } catch (\PDOException $eDirect2) {
+                Log::warning("Sankhya Service - fetchPartners intermediary TSIREG fallback failed: " . $eDirect2->getMessage());
+            }
+        }
+
         // Minimal fallback
         try {
             $sql = "SELECT CODPARC, CODVEND AS VENDEDOR_1, NOMEPARC AS NOME_FANTASIA, RAZAOSOCIAL, CGC_CPF, TELEFONE, EMAIL, ATIVO FROM SANKHYA.TGFPAR WHERE CLIENTE = 'S' AND ATIVO = 'S'";
@@ -445,6 +458,82 @@ class SankhyaDatabaseService
     }
 
     /**
+     * Busca diretamente a tabela de preços (CODTAB) da região vinculada ao parceiro na TSIREG.
+     * Consulta estritamente focada em TGFPAR.CODREG = TSIREG.CODREG para máxima confiabilidade.
+     */
+    public function fetchRegionPriceTableForPartner(string $codParc): ?string
+    {
+        try {
+            $conn = $this->connect();
+            
+            $queries = [
+                "SELECT REG.CODTAB FROM SANKHYA.TGFPAR PAR JOIN SANKHYA.TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CODPARC = :code",
+                "SELECT REG.CODTAB FROM TGFPAR PAR JOIN TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CODPARC = :code",
+                "SELECT CODTAB FROM SANKHYA.TSIREG WHERE CODREG = (SELECT CODREG FROM SANKHYA.TGFPAR WHERE CODPARC = :code)",
+                "SELECT CODTAB FROM TSIREG WHERE CODREG = (SELECT CODREG FROM TGFPAR WHERE CODPARC = :code)",
+                // Fallback para REG.AD_CODTAB
+                "SELECT REG.AD_CODTAB FROM SANKHYA.TGFPAR PAR JOIN SANKHYA.TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CODPARC = :code",
+                "SELECT REG.AD_CODTAB FROM TGFPAR PAR JOIN TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CODPARC = :code",
+            ];
+
+            foreach ($queries as $sql) {
+                try {
+                    $stmt = $conn->prepare($sql);
+                    $stmt->execute(['code' => $codParc]);
+                    $val = $stmt->fetchColumn();
+                    if ($val !== false && $val !== null && trim((string)$val) !== '') {
+                        return trim((string)$val);
+                    }
+                } catch (\Throwable $e) {
+                    // Tenta a próxima consulta
+                }
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            Log::error("Sankhya Service - Failed to fetch TSIREG.CODTAB for partner {$codParc}: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Sincroniza em massa a tabela de preços (CODTAB) da região (TSIREG) para todos os parceiros.
+     */
+    public function syncAllPartnerRegionTables(): int
+    {
+        $conn = $this->connect();
+        $queries = [
+            "SELECT PAR.CODPARC, REG.CODTAB, PAR.CODREG FROM SANKHYA.TGFPAR PAR JOIN SANKHYA.TSIREG REG ON PAR.CODREG = REG.CODREG WHERE REG.CODTAB IS NOT NULL",
+            "SELECT PAR.CODPARC, REG.CODTAB, PAR.CODREG FROM TGFPAR PAR JOIN TSIREG REG ON PAR.CODREG = REG.CODREG WHERE REG.CODTAB IS NOT NULL",
+        ];
+
+        $rows = [];
+        foreach ($queries as $sql) {
+            try {
+                $rows = $conn->query($sql)->fetchAll();
+                if (!empty($rows)) break;
+            } catch (\Throwable $e) {
+                Log::warning("syncAllPartnerRegionTables query failed: " . $e->getMessage());
+            }
+        }
+
+        $count = 0;
+        foreach ($rows as $row) {
+            $codParc = (string)($row['CODPARC'] ?? $row['codparc']);
+            $codTab = trim((string)($row['CODTAB'] ?? $row['codtab']));
+            $codReg = isset($row['CODREG']) ? (string)$row['CODREG'] : (isset($row['codreg']) ? (string)$row['codreg'] : null);
+            if ($codParc !== '' && $codTab !== '') {
+                Parceiro::where('codigo_sankhya', $codParc)->update([
+                    'codigo_tabela_preco' => $codTab,
+                    'codigo_regiao' => $codReg,
+                ]);
+                $count++;
+            }
+        }
+        return $count;
+    }
+
+    /**
      * Sync single Partner (Client) on demand.
      */
     public function syncPartnerByCode(string $code): ?Parceiro
@@ -460,6 +549,7 @@ class SankhyaDatabaseService
                 ['prefix' => false, 'col' => 'PAR.CODTAB AS CODTAB_PARC, NULL AS CODTAB_REGIAO'],
             ];
 
+            $partner = null;
             foreach ($strategies as $strat) {
                 try {
                     $sql = $this->getPartnerBaseSql($strat['prefix'], $strat['col']) . " WHERE PAR.CODPARC = :code";
@@ -467,14 +557,26 @@ class SankhyaDatabaseService
                     $stmt->execute(['code' => $code]);
                     $row = $stmt->fetch();
                     if ($row) {
-                        return $this->savePartnerFromRow($row);
+                        $partner = $this->savePartnerFromRow($row);
+                        break;
                     }
                 } catch (\Throwable $e) {
                     // Try next strategy
                 }
             }
 
-            return null;
+            // Garantia direta: consulta TSIREG.CODTAB via SQL dedicado
+            $directTab = $this->fetchRegionPriceTableForPartner($code);
+            if (!empty($directTab)) {
+                $pModel = $partner ?: Parceiro::where('codigo_sankhya', $code)->first();
+                if ($pModel) {
+                    $pModel->update(['codigo_tabela_preco' => $directTab]);
+                    $pModel->refresh();
+                    return $pModel;
+                }
+            }
+
+            return $partner;
         } catch (\Exception $e) {
             Log::error("Sankhya Service - Failed to sync partner {$code}: " . $e->getMessage());
             return null;

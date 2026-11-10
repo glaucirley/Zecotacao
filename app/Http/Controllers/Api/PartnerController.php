@@ -81,14 +81,20 @@ class PartnerController extends Controller
             // Se for busca pontual e algum parceiro estiver sem tabela de preços,
             // tenta obter TSIREG.CODTAB do Sankhya sob demanda
             if ($search !== '' && $results->count() <= 10) {
+                $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
                 foreach ($results as $p) {
                     if (empty($p->codigo_tabela_preco) && !empty($p->codigo_sankhya)) {
                         try {
-                            $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
-                            $refreshed = $sankhyaDb->syncPartnerByCode($p->codigo_sankhya);
-                            if ($refreshed && !empty($refreshed->codigo_tabela_preco)) {
-                                $p->codigo_tabela_preco = $refreshed->codigo_tabela_preco;
-                                $p->codigo_regiao = $refreshed->codigo_regiao;
+                            $codTab = $sankhyaDb->fetchRegionPriceTableForPartner($p->codigo_sankhya);
+                            if (!empty($codTab)) {
+                                $p->codigo_tabela_preco = $codTab;
+                                Parceiro::where('id', $p->id)->update(['codigo_tabela_preco' => $codTab]);
+                            } else {
+                                $refreshed = $sankhyaDb->syncPartnerByCode($p->codigo_sankhya);
+                                if ($refreshed && !empty($refreshed->codigo_tabela_preco)) {
+                                    $p->codigo_tabela_preco = $refreshed->codigo_tabela_preco;
+                                    $p->codigo_regiao = $refreshed->codigo_regiao;
+                                }
                             }
                         } catch (\Throwable $t) {
                             // Silently continue if Sankhya unreachable
@@ -292,19 +298,34 @@ class PartnerController extends Controller
 
         try {
             $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
+
+            // 1. Consulta direta e prioritária na TSIREG.CODTAB
+            $codTab = $sankhyaDb->fetchRegionPriceTableForPartner($partner->codigo_sankhya);
+            if (!empty($codTab)) {
+                $partner->update(['codigo_tabela_preco' => $codTab]);
+                $partner->refresh();
+                return response()->json([
+                    'success' => true,
+                    'message' => "Tabela de preços da região obtida da TSIREG com sucesso (#{$codTab}).",
+                    'data' => $partner
+                ]);
+            }
+
+            // 2. Fallback de sincronização completa do parceiro
             $synced = $sankhyaDb->syncPartnerByCode($partner->codigo_sankhya);
-            if ($synced) {
+            if ($synced && !empty($synced->codigo_tabela_preco)) {
                 return response()->json([
                     'success' => true,
                     'message' => "Dados e tabela de preços da região atualizados com sucesso (#{$synced->codigo_tabela_preco}).",
                     'data' => $synced
                 ]);
             }
+
             return response()->json([
                 'success' => false,
-                'error' => 'Não foi possível encontrar o parceiro no Sankhya.',
+                'error' => "A região do cliente (Código Sankhya: {$partner->codigo_sankhya}) não possui tabela de preços vinculada no campo CODTAB da tabela TSIREG do Sankhya.",
                 'data' => $partner
-            ], 404);
+            ], 422);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,

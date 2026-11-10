@@ -232,14 +232,20 @@ class QuoteController extends Controller
                 $partner = \App\Models\Parceiro::findOrFail($request->input('parceiro_id'));
                 $codTabRegiao = $partner->codigo_tabela_preco;
 
-                // Se estiver vazio no banco local, tenta obter do Sankhya sob demanda antes de abortar
+                // Se estiver vazio no banco local, tenta obter TSIREG.CODTAB do Sankhya sob demanda
                 if (empty($codTabRegiao) && !empty($partner->codigo_sankhya)) {
                     try {
                         $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
-                        $refreshed = $sankhyaDb->syncPartnerByCode($partner->codigo_sankhya);
-                        if ($refreshed && !empty($refreshed->codigo_tabela_preco)) {
-                            $partner->refresh();
-                            $codTabRegiao = $partner->codigo_tabela_preco;
+                        $codTab = $sankhyaDb->fetchRegionPriceTableForPartner($partner->codigo_sankhya);
+                        if (!empty($codTab)) {
+                            $partner->update(['codigo_tabela_preco' => $codTab]);
+                            $codTabRegiao = $codTab;
+                        } else {
+                            $refreshed = $sankhyaDb->syncPartnerByCode($partner->codigo_sankhya);
+                            if ($refreshed && !empty($refreshed->codigo_tabela_preco)) {
+                                $partner->refresh();
+                                $codTabRegiao = $partner->codigo_tabela_preco;
+                            }
                         }
                     } catch (\Throwable $e) {}
                 }
@@ -715,6 +721,17 @@ class QuoteController extends Controller
 
         $produto = \App\Models\Produto::find($request->input('produto_id'));
         $codTabRegiao = $quote->codigo_tabela_preco ?: $quote->parceiro?->codigo_tabela_preco;
+        if (empty($codTabRegiao) && $quote->parceiro && !empty($quote->parceiro->codigo_sankhya)) {
+            try {
+                $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
+                $codTab = $sankhyaDb->fetchRegionPriceTableForPartner($quote->parceiro->codigo_sankhya);
+                if (!empty($codTab)) {
+                    $quote->parceiro->update(['codigo_tabela_preco' => $codTab]);
+                    $codTabRegiao = $codTab;
+                    $quote->updateQuietly(['codigo_tabela_preco' => $codTabRegiao]);
+                }
+            } catch (\Throwable $e) {}
+        }
         if (empty($quote->codigo_tabela_preco) && !empty($codTabRegiao)) {
             $quote->updateQuietly(['codigo_tabela_preco' => $codTabRegiao]);
         }
