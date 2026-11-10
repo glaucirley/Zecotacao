@@ -408,6 +408,10 @@ class RestricaoComercialService
         $quote->restricoes_validadas_em = now();
         $quote->save();
 
+        // Recalcula os totais da cotação para que itens com restrição comercial ('B') sejam imediatamente excluídos do total gravado
+        $quote->recalcularTotais();
+        $quote->refresh();
+
         return [
             'sucesso' => empty($bloqueados),
             'erro_conexao' => false,
