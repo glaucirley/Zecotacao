@@ -906,7 +906,7 @@
 
 <!-- Create Manual Quote Sheet Drawer with 3-Step Wizard -->
 <div id="create-overlay" class="sheet-overlay" onclick="closeCreateModal()"></div>
-<div id="create-modal" class="sheet-drawer" style="width: 720px; max-width: 95vw;">
+<div id="create-modal" class="sheet-drawer" style="width: 1050px; max-width: 96vw;">
     <div class="sheet-header">
         <h3 style="margin: 0; color: var(--color-primary); font-size: 18px; font-weight:700;">Nova Cotação Comercial</h3>
         <button type="button" class="sheet-close-btn" onclick="closeCreateModal()">&times;</button>
@@ -950,7 +950,7 @@
                     
                     <div id="admin-partner-search-box">
                         <input type="text" id="admin-partner-search-input" class="form-control" placeholder="🔍 Digite iniciais, razão social, CNPJ ou código do cliente..." oninput="filterAdminPartnerOptions()" style="font-size: 13px;">
-                        <div id="admin-partner-search-results" style="max-height:220px; overflow-y:auto; margin-top:6px; display:flex; flex-direction:column; gap:6px; border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#fff;">
+                        <div id="admin-partner-search-results" style="max-height:320px; overflow-y:auto; margin-top:6px; display:flex; flex-direction:column; gap:6px; border:1px solid #e2e8f0; border-radius:8px; padding:6px; background:#fff;">
                             <!-- Partner search cards dynamically rendered -->
                         </div>
                     </div>

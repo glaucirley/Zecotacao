@@ -1,4 +1,4 @@
-@extends(auth()->check() ? (auth()->user()->isRepresentante() ? 'layouts.representative' : 'layouts.app') : 'layouts.public')
+@extends(auth()->check() ? (auth()->user()->usaInterfaceMobile() ? 'layouts.representative' : 'layouts.app') : 'layouts.public')
 
 @section('page_title', isset($quote) ? 'Cotação ' . $quote->numero : 'Cotação Comercial')
 @section('hide_tab_bar', 'true')
