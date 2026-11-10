@@ -20,7 +20,7 @@ class QuoteWorkflowService
     public function evaluateAndRoute(Cotacao $quote): array
     {
         $quote->refresh();
-        $quote->load(['itens', 'representante.equipe.gestor', 'anexos', 'justificativas.anexos']);
+        $quote->load(['itens', 'representante.equipe.gestor', 'anexos', 'justificativas.anexos', 'parceiro']);
 
         if ($quote->itens->isEmpty()) {
             return [
@@ -48,12 +48,13 @@ class QuoteWorkflowService
         // Validação definitiva de Restrições Comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
         if (empty($quote->representante?->codigo_sankhya)) {
             // Tenta recuperar representante vinculado ao parceiro se a cotação não tiver
-            if ($quote->parceiro?->codigo_vendedor) {
-                $rep = User::where('codigo_sankhya', $quote->parceiro->codigo_vendedor)->first();
+            $codVendParc = $quote->parceiro?->vendedor_1_codigo ?? $quote->parceiro?->codigo_vendedor;
+            if ($codVendParc) {
+                $rep = User::where('codigo_sankhya', $codVendParc)->first();
                 if (!$rep) {
                     try {
                         $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
-                        $rep = $sankhyaDb->syncRepresentativeByCode($quote->parceiro->codigo_vendedor);
+                        $rep = $sankhyaDb->syncRepresentativeByCode($codVendParc);
                     } catch (\Throwable $th) {}
                 }
                 if ($rep) {
