@@ -111,10 +111,22 @@ class UserController extends Controller
             'ativo' => 'required|boolean',
             'permissoes_dashboard' => 'nullable|array',
             'acesso_chat' => 'nullable|boolean',
+        ], [
+            'codigo_sankhya.unique' => 'Este Código Sankhya já está em uso por outro usuário.',
+            'email.unique' => 'Este e-mail já está em uso por outro usuário.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+            $errors = $validator->errors();
+            if ($errors->has('codigo_sankhya')) {
+                $code = $request->input('codigo_sankhya');
+                $conflict = User::where('codigo_sankhya', $code)->first();
+                if ($conflict) {
+                    $status = $conflict->ativo ? 'Ativo' : 'Inativo';
+                    $errors->add('codigo_sankhya_detalhe', "O Código Sankhya {$code} já está vinculado ao usuário '{$conflict->nome}' ({$conflict->email}) — [{$status}].");
+                }
+            }
+            return response()->json(['error' => 'Validation error', 'messages' => $errors], 422);
         }
 
         if ($currentUser->isSuporte() && in_array($request->input('papel'), ['administrador', 'diretor'])) {
@@ -221,10 +233,22 @@ class UserController extends Controller
             'ativo' => 'required|boolean',
             'permissoes_dashboard' => 'nullable|array',
             'acesso_chat' => 'nullable|boolean',
+        ], [
+            'codigo_sankhya.unique' => 'Este Código Sankhya já está em uso por outro usuário.',
+            'email.unique' => 'Este e-mail já está em uso por outro usuário.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['error' => 'Validation error', 'messages' => $validator->errors()], 422);
+            $errors = $validator->errors();
+            if ($errors->has('codigo_sankhya')) {
+                $code = $request->input('codigo_sankhya');
+                $conflict = User::where('codigo_sankhya', $code)->where('id', '!=', $user->id)->first();
+                if ($conflict) {
+                    $status = $conflict->ativo ? 'Ativo' : 'Inativo';
+                    $errors->add('codigo_sankhya_detalhe', "O Código Sankhya {$code} já está vinculado ao usuário '{$conflict->nome}' ({$conflict->email}) — [{$status}].");
+                }
+            }
+            return response()->json(['error' => 'Validation error', 'messages' => $errors], 422);
         }
 
         if ($request->input('papel') === 'representante' && filter_var($request->input('ativo'), FILTER_VALIDATE_BOOLEAN) && empty($request->input('equipe_id'))) {
