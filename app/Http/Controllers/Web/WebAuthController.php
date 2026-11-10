@@ -20,10 +20,10 @@ class WebAuthController extends Controller
                 return redirect($redirect);
             }
             $user = Auth::user();
-            if ($user->isRepresentante()) {
+            if ($user->usaInterfaceMobile()) {
                 return redirect('/painel-representante');
             }
-            if ($user->isSuporte()) {
+            if ($user->isSuporte() || $user->isTelevendas()) {
                 return redirect('/cotacoes');
             }
             return redirect('/dashboard');
@@ -66,10 +66,10 @@ class WebAuthController extends Controller
                 return redirect()->intended();
             }
 
-            if ($user->isRepresentante()) {
+            if ($user->usaInterfaceMobile()) {
                 return redirect('/painel-representante');
             }
-            if ($user->isSuporte()) {
+            if ($user->isSuporte() || $user->isTelevendas()) {
                 return redirect('/cotacoes');
             }
             return redirect('/dashboard');

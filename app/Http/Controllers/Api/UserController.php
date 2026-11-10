@@ -357,12 +357,20 @@ class UserController extends Controller
 
                 $activeCodes[] = $codVend;
 
-                $user = User::where('codigo_sankhya', $codVend)->first();
+                $user = User::where('codigo_sankhya', $codVend)
+                    ->orWhere('codigo_sankhya', (string)((int)$codVend))
+                    ->orWhere(function ($q) use ($email) {
+                        if (!empty($email) && !str_ends_with($email, '@zecotacao.com.br')) {
+                            $q->where('email', $email);
+                        }
+                    })
+                    ->first();
 
                 if ($user) {
                     $user->update([
                         'nome' => $apelido,
                         'email' => $email,
+                        'codigo_sankhya' => $user->codigo_sankhya ?: $codVend,
                         'telefone' => $telefone ?: $user->telefone,
                         'tipo_vendedor' => !empty($tipVend) ? $tipoVendedor : ($user->tipo_vendedor ?: 'externo'),
                         'ativo' => true,
