@@ -22,12 +22,14 @@ class PartnerController extends Controller
         $status = $request->input('status');
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
 
-        $cacheKey = 'partners_search_' . md5(mb_strtolower($search) . '_' . ($status ?? '') . '_' . $limit);
+        $cacheKey = 'partners_search_v5_' . md5(mb_strtolower($search) . '_' . ($status ?? '') . '_' . $limit);
 
-        $partners = Cache::remember($cacheKey, 300, function () use ($search, $status, $limit) {
+        $partners = Cache::remember($cacheKey, 60, function () use ($search, $status, $limit) {
             $query = Parceiro::query()->select([
                 'id', 'codigo_sankhya', 'razao_social', 'nome_fantasia',
-                'cnpj', 'cidade', 'uf', 'bairro', 'ativo'
+                'cnpj', 'cidade', 'uf', 'bairro', 'ativo',
+                'codigo_regiao', 'codigo_tabela_preco',
+                'vendedor_1_codigo', 'vendedor_2_codigo', 'vendedor_3_codigo', 'vendedor_4_codigo', 'vendedor_5_codigo'
             ]);
 
             if ($search !== '') {
@@ -74,7 +76,28 @@ class PartnerController extends Controller
                 $query->where('ativo', false);
             }
 
-            return $query->take($limit)->get();
+            $results = $query->take($limit)->get();
+
+            // Se for busca pontual e algum parceiro estiver sem tabela de preços,
+            // tenta obter TSIREG.CODTAB do Sankhya sob demanda
+            if ($search !== '' && $results->count() <= 10) {
+                foreach ($results as $p) {
+                    if (empty($p->codigo_tabela_preco) && !empty($p->codigo_sankhya)) {
+                        try {
+                            $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
+                            $refreshed = $sankhyaDb->syncPartnerByCode($p->codigo_sankhya);
+                            if ($refreshed && !empty($refreshed->codigo_tabela_preco)) {
+                                $p->codigo_tabela_preco = $refreshed->codigo_tabela_preco;
+                                $p->codigo_regiao = $refreshed->codigo_regiao;
+                            }
+                        } catch (\Throwable $t) {
+                            // Silently continue if Sankhya unreachable
+                        }
+                    }
+                }
+            }
+
+            return $results;
         });
 
         return response()->json([
@@ -250,6 +273,43 @@ class PartnerController extends Controller
                 'error' => 'Erro interno do servidor',
                 'code' => 'PARTNER_IMPORT_ERROR',
                 'message' => config('app.debug') ? ('Erro ao processar o arquivo: ' . $e->getMessage()) : 'Erro ao processar o arquivo de clientes. Os detalhes foram registrados nos logs do servidor.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Sincroniza um cliente específico com o Sankhya sob demanda.
+     */
+    public function syncFromSankhya($id)
+    {
+        $partner = Parceiro::findOrFail($id);
+        if (empty($partner->codigo_sankhya)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Parceiro sem código Sankhya cadastrado.'
+            ], 422);
+        }
+
+        try {
+            $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
+            $synced = $sankhyaDb->syncPartnerByCode($partner->codigo_sankhya);
+            if ($synced) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Dados e tabela de preços da região atualizados com sucesso (#{$synced->codigo_tabela_preco}).",
+                    'data' => $synced
+                ]);
+            }
+            return response()->json([
+                'success' => false,
+                'error' => 'Não foi possível encontrar o parceiro no Sankhya.',
+                'data' => $partner
+            ], 404);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Falha ao sincronizar com Sankhya: ' . $e->getMessage(),
+                'data' => $partner
             ], 500);
         }
     }

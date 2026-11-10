@@ -232,10 +232,22 @@ class QuoteController extends Controller
                 $partner = \App\Models\Parceiro::findOrFail($request->input('parceiro_id'));
                 $codTabRegiao = $partner->codigo_tabela_preco;
 
+                // Se estiver vazio no banco local, tenta obter do Sankhya sob demanda antes de abortar
+                if (empty($codTabRegiao) && !empty($partner->codigo_sankhya)) {
+                    try {
+                        $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
+                        $refreshed = $sankhyaDb->syncPartnerByCode($partner->codigo_sankhya);
+                        if ($refreshed && !empty($refreshed->codigo_tabela_preco)) {
+                            $partner->refresh();
+                            $codTabRegiao = $partner->codigo_tabela_preco;
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
                 // SE A REGIÃO NÃO TIVER TABELA, NÃO PRECIFICA! ALERTA DE TABELA INEXISTENTE
                 if (empty($codTabRegiao)) {
                     $regDesc = $partner->codigo_regiao ? " (Região: {$partner->codigo_regiao})" : "";
-                    throw new \InvalidArgumentException("Tabela de preços inexistente: A região deste cliente{$regDesc} não possui tabela de preços vinculada no Sankhya. Não é possível gerar cotação.");
+                    throw new \InvalidArgumentException("Tabela de preços inexistente: A região deste cliente{$regDesc} não possui tabela de preços vinculada na tabela TSIREG do Sankhya. Não é possível gerar cotação.");
                 }
 
                 // Generate sequential number: COT-YYYY-XXXXXX

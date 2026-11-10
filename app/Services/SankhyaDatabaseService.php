@@ -451,16 +451,30 @@ class SankhyaDatabaseService
     {
         try {
             $conn = $this->connect();
-            $sql = $this->getPartnerBaseSql() . " WHERE PAR.CODPARC = :code";
-            $stmt = $conn->prepare($sql);
-            $stmt->execute(['code' => $code]);
-            $row = $stmt->fetch();
+            $strategies = [
+                ['prefix' => true,  'col' => 'REG.CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC'],
+                ['prefix' => false, 'col' => 'REG.CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC'],
+                ['prefix' => true,  'col' => 'REG.AD_CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC'],
+                ['prefix' => false, 'col' => 'REG.AD_CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC'],
+                ['prefix' => true,  'col' => 'PAR.CODTAB AS CODTAB_PARC, NULL AS CODTAB_REGIAO'],
+                ['prefix' => false, 'col' => 'PAR.CODTAB AS CODTAB_PARC, NULL AS CODTAB_REGIAO'],
+            ];
 
-            if (!$row) {
-                return null;
+            foreach ($strategies as $strat) {
+                try {
+                    $sql = $this->getPartnerBaseSql($strat['prefix'], $strat['col']) . " WHERE PAR.CODPARC = :code";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->execute(['code' => $code]);
+                    $row = $stmt->fetch();
+                    if ($row) {
+                        return $this->savePartnerFromRow($row);
+                    }
+                } catch (\Throwable $e) {
+                    // Try next strategy
+                }
             }
 
-            return $this->savePartnerFromRow($row);
+            return null;
         } catch (\Exception $e) {
             Log::error("Sankhya Service - Failed to sync partner {$code}: " . $e->getMessage());
             return null;

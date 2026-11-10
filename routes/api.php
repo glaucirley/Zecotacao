@@ -98,6 +98,7 @@ Route::prefix('v1')->group(function () {
             // 8. Client Management Routes (Administrator only)
             Route::get('/clientes', [PartnerController::class, 'index']);
             Route::post('/clientes', [PartnerController::class, 'store']);
+            Route::post('/clientes/{id}/sincronizar-sankhya', [PartnerController::class, 'syncFromSankhya']);
             Route::post('/clientes/importar-arquivo', [PartnerController::class, 'importFile']);
             Route::patch('/clientes/{id}', [PartnerController::class, 'update']);
             Route::delete('/clientes/{id}', [PartnerController::class, 'destroy']);

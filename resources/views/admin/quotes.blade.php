@@ -1117,13 +1117,34 @@
         }
     }
 
-    function validateAdminStep1AndNext() {
+    async function validateAdminStep1AndNext() {
         if (!adminSelectedPartner) {
             showToast("Por favor, selecione um Cliente (Parceiro Comercial) para continuar.", "warning");
             return;
         }
+
+        if (!adminSelectedPartner.codigo_tabela_preco && adminSelectedPartner.codigo_sankhya) {
+            // Tenta obter TSIREG.CODTAB do Sankhya sob demanda antes de bloquear
+            try {
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const res = await fetch(`${API_URL}/clientes/${adminSelectedPartner.id}/sincronizar-sankhya`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfMeta ? csrfMeta.getAttribute('content') : ''
+                    }
+                });
+                const data = await res.json();
+                if (data.success && data.data && data.data.codigo_tabela_preco) {
+                    adminSelectedPartner.codigo_tabela_preco = data.data.codigo_tabela_preco;
+                    adminSelectedPartner.codigo_regiao = data.data.codigo_regiao;
+                    selectAdminPartnerById(adminSelectedPartner.id);
+                }
+            } catch (e) {}
+        }
+
         if (!adminSelectedPartner.codigo_tabela_preco) {
-            showToast("⚠️ Tabela de Preços Inexistente: A região deste cliente não possui tabela de preços vinculada no Sankhya. Não é possível gerar cotação para este cliente.", "error");
+            showToast("⚠️ Tabela de Preços Inexistente: A região deste cliente não possui tabela de preços vinculada na tabela TSIREG do Sankhya. Não é possível gerar cotação para este cliente.", "error");
             return;
         }
         const repVal = document.getElementById("create-representante").value;
@@ -2401,14 +2422,64 @@
         const spUf = (adminSelectedPartner.uf === '2' || (adminSelectedPartner.cidade && adminSelectedPartner.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (adminSelectedPartner.uf || '');
         const cityStr = adminSelectedPartner.cidade ? ` | ${adminSelectedPartner.cidade}${spUf ? '/' + spUf : ''}` : '';
         const tabStr = adminSelectedPartner.codigo_tabela_preco 
-            ? ` | Tabela Região: #${adminSelectedPartner.codigo_tabela_preco}` 
-            : ` | <span style="color:#ef4444; font-weight:700;">⚠️ Região sem tabela de preços no Sankhya</span>`;
+            ? ` | <strong style="color:#059669;">Tabela Região: #${adminSelectedPartner.codigo_tabela_preco}</strong>` 
+            : ` | <span style="color:#ef4444; font-weight:700;">⚠️ Região sem tabela de preços no Sankhya</span> <a href="javascript:void(0)" onclick="refreshAdminSelectedPartnerSankhya(${adminSelectedPartner.id})" style="font-size:11px; margin-left:6px; color:#2563eb; text-decoration:underline;">(🔄 Atualizar do Sankhya)</a>`;
 
         document.getElementById("admin-sp-name").innerText = adminSelectedPartner.razao_social;
         document.getElementById("admin-sp-doc").innerHTML = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}${tabStr}`;
 
         if (card) card.style.display = "block";
         if (searchBox) searchBox.style.display = "none";
+
+        // Se estiver sem tabela, tenta consulta rápida sob demanda no Sankhya
+        if (!adminSelectedPartner.codigo_tabela_preco && adminSelectedPartner.codigo_sankhya) {
+            refreshAdminSelectedPartnerSankhya(adminSelectedPartner.id, true);
+        }
+    }
+
+    async function refreshAdminSelectedPartnerSankhya(partnerId, silent = false) {
+        try {
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const res = await fetch(`${API_URL}/clientes/${partnerId}/sincronizar-sankhya`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfMeta ? csrfMeta.getAttribute('content') : ''
+                }
+            });
+            const data = await res.json();
+            if (data.success && data.data) {
+                if (adminSelectedPartner && adminSelectedPartner.id == partnerId) {
+                    adminSelectedPartner.codigo_tabela_preco = data.data.codigo_tabela_preco;
+                    adminSelectedPartner.codigo_regiao = data.data.codigo_regiao;
+                    
+                    // Atualiza também na lista em memória
+                    const inList = adminPartnersList.find(p => p.id == partnerId);
+                    if (inList) {
+                        inList.codigo_tabela_preco = data.data.codigo_tabela_preco;
+                        inList.codigo_regiao = data.data.codigo_regiao;
+                    }
+
+                    // Re-render card
+                    const docStr = adminSelectedPartner.cnpj || adminSelectedPartner.cnpj_cpf || 'Não informado';
+                    const codeStr = adminSelectedPartner.codigo_sankhya || adminSelectedPartner.codparc || adminSelectedPartner.id || 'N/A';
+                    const spUf = (adminSelectedPartner.uf === '2' || (adminSelectedPartner.cidade && adminSelectedPartner.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (adminSelectedPartner.uf || '');
+                    const cityStr = adminSelectedPartner.cidade ? ` | ${adminSelectedPartner.cidade}${spUf ? '/' + spUf : ''}` : '';
+                    const tabStr = adminSelectedPartner.codigo_tabela_preco 
+                        ? ` | <strong style="color:#059669;">Tabela Região: #${adminSelectedPartner.codigo_tabela_preco}</strong>` 
+                        : ` | <span style="color:#ef4444; font-weight:700;">⚠️ Região sem tabela de preços no Sankhya</span>`;
+                    document.getElementById("admin-sp-doc").innerHTML = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}${tabStr}`;
+                    
+                    if (!silent && adminSelectedPartner.codigo_tabela_preco) {
+                        showToast(`Tabela #${adminSelectedPartner.codigo_tabela_preco} da região obtida do Sankhya com sucesso!`, 'success');
+                    }
+                }
+            } else if (!silent) {
+                showToast(data.error || "Não foi possível sincronizar o cliente com o Sankhya.", "warning");
+            }
+        } catch (e) {
+            if (!silent) showToast("Erro ao conectar ao Sankhya.", "error");
+        }
     }
 
     function clearAdminSelectedPartner() {
