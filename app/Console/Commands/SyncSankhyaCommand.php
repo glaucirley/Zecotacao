@@ -81,13 +81,24 @@ class SyncSankhyaCommand extends Command
                 $activeCodes = [];
                 foreach ($reps as $r) {
                     try {
+                        $codRaw = trim((string)($r['CODVEND'] ?? $r['codvend'] ?? ''));
+                        if ($codRaw !== '') {
+                            $activeCodes[] = $codRaw;
+                            if (is_numeric($codRaw)) {
+                                $activeCodes[] = (string)((int)$codRaw);
+                            }
+                        }
+
                         $u = $db->saveRepresentativeFromRow($r);
                         if (!empty($u->codigo_sankhya)) {
                             $activeCodes[] = (string)$u->codigo_sankhya;
+                            if (is_numeric($u->codigo_sankhya)) {
+                                $activeCodes[] = (string)((int)$u->codigo_sankhya);
+                            }
                         }
                         $repSuccess++;
                     } catch (\Throwable $e) {
-                        // Log row failure and continue
+                        $this->warn("Aviso ao salvar vendedor ({$codRaw}): " . $e->getMessage());
                     }
                     $this->output->progressAdvance();
                 }
@@ -95,6 +106,7 @@ class SyncSankhyaCommand extends Command
                 $this->info("Synced {$repSuccess}/" . count($reps) . " representatives successfully.");
 
                 if (!empty($activeCodes)) {
+                    $activeCodes = array_values(array_unique(array_filter($activeCodes)));
                     $deactivated = User::where('papel', 'representante')
                         ->whereNotNull('codigo_sankhya')
                         ->whereNotIn('codigo_sankhya', $activeCodes)
