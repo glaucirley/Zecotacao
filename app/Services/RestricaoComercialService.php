@@ -34,9 +34,9 @@ class RestricaoComercialService
      * @param string $codVend Código Sankhya do Vendedor
      * @param string $codParc Código Sankhya do Parceiro (Cliente)
      * @param string $canal Canal de consulta (default 'ZC')
-     * @return array Array de itens com [ 'CODPROD' => ..., 'FONTE' => ..., 'MSG_VENDEDOR' => ... ]
+     * @return array|null Array de itens ou NULL caso a consulta falhe
      */
-    public function produtosRestritos(string $codVend, string $codParc, string $canal = 'ZC'): array
+    public function produtosRestritos(string $codVend, string $codParc, string $canal = 'ZC'): ?array
     {
         if (empty($codVend) || empty($codParc)) {
             return [];
@@ -44,39 +44,51 @@ class RestricaoComercialService
 
         $cacheKey = $this->getCacheKey($codVend, $codParc);
 
-        return Cache::remember($cacheKey, 7200, function () use ($codVend, $codParc, $canal) {
-            $t0 = microtime(true);
-            try {
-                $conn = $this->sankhyaDb->connect();
-                $sql = "SELECT CODPROD, FONTE, MSG_VENDEDOR FROM TABLE(AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS(:v, :p, :canal))";
-                try {
-                    $stmt = $conn->prepare($sql);
-                    $stmt->execute([
-                        ':v' => (string)$codVend,
-                        ':p' => (string)$codParc,
-                        ':canal' => (string)$canal,
-                    ]);
-                    $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-                } catch (\PDOException $e1) {
-                    $sqlPrefix = "SELECT CODPROD, FONTE, MSG_VENDEDOR FROM TABLE(SANKHYA.AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS(:v, :p, :canal))";
-                    $stmt = $conn->prepare($sqlPrefix);
-                    $stmt->execute([
-                        ':v' => (string)$codVend,
-                        ':p' => (string)$codParc,
-                        ':canal' => (string)$canal,
-                    ]);
-                    $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-                }
-                $elapsed = round(microtime(true) - $t0, 3);
-                $count = count($rows);
-                Log::info("RestricaoComercialService::produtosRestritos [Oracle AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS] VEND={$codVend}, PARC={$codParc}, CANAL={$canal} finalizado em {$elapsed}s (retornou {$count} restrições).");
-                return $rows;
-            } catch (\Throwable $e) {
-                $elapsed = round(microtime(true) - $t0, 3);
-                Log::warning("RestricaoComercialService::produtosRestritos falhou após {$elapsed}s para VEND={$codVend}, PARC={$codParc}: " . $e->getMessage());
-                return [];
+        if (Cache::has($cacheKey)) {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
             }
-        });
+        }
+
+        $t0 = microtime(true);
+        try {
+            $conn = $this->sankhyaDb->connect();
+            $sql = "SELECT CODPROD, FONTE, MSG_VENDEDOR FROM TABLE(AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS(:v, :p, :canal))";
+            $rows = null;
+            try {
+                $stmt = $conn->prepare($sql);
+                $stmt->execute([
+                    ':v' => (string)$codVend,
+                    ':p' => (string)$codParc,
+                    ':canal' => (string)$canal,
+                ]);
+                $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            } catch (\PDOException $e1) {
+                $sqlPrefix = "SELECT CODPROD, FONTE, MSG_VENDEDOR FROM TABLE(SANKHYA.AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS(:v, :p, :canal))";
+                $stmt = $conn->prepare($sqlPrefix);
+                $stmt->execute([
+                    ':v' => (string)$codVend,
+                    ':p' => (string)$codParc,
+                    ':canal' => (string)$canal,
+                ]);
+                $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            }
+
+            $rows = $rows ?: [];
+            $elapsed = round(microtime(true) - $t0, 3);
+            $count = count($rows);
+            Log::info("RestricaoComercialService::produtosRestritos [Oracle AD_PKG_ZC_REGRAS.PRODUTOS_RESTRITOS] VEND={$codVend}, PARC={$codParc}, CANAL={$canal} finalizado em {$elapsed}s (retornou {$count} restrições).");
+
+            Cache::put($cacheKey, $rows, 7200);
+
+            return $rows;
+        } catch (\Throwable $e) {
+            $elapsed = round(microtime(true) - $t0, 3);
+            Log::warning("RestricaoComercialService::produtosRestritos falhou após {$elapsed}s para VEND={$codVend}, PARC={$codParc}: " . $e->getMessage());
+            Cache::forget($cacheKey);
+            return null; // Retorna null indicando falha na consulta em lote para forçar fallback
+        }
     }
 
     /**
@@ -85,7 +97,7 @@ class RestricaoComercialService
      */
     public function codigosProdutosRestritos(string $codVend, string $codParc): array
     {
-        $list = $this->produtosRestritos($codVend, $codParc);
+        $list = $this->produtosRestritos($codVend, $codParc) ?: [];
         $codes = [];
         foreach ($list as $item) {
             $cod = (string)($item['CODPROD'] ?? $item['codprod'] ?? '');
@@ -119,63 +131,119 @@ class RestricaoComercialService
             return $defaultLiberado;
         }
 
+        $itemCacheKey = "restricao_item:{$codVend}:{$codParc}:{$codProd}:{$canal}";
+        if (Cache::has($itemCacheKey)) {
+            $cached = Cache::get($itemCacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        }
+
         try {
             $conn = $this->sankhyaDb->connect();
 
-            // 1. Tenta procedure com parâmetros de saída
-            $sqlProc = "BEGIN AD_PKG_ZC_REGRAS.VALIDA_ITEM(:v, :p, :prod, :canal, :efeito, :fonte, :msgv, :msgc); END;";
+            // 1. Tenta function AD_PKG_ZC_REGRAS.VALIDA via SELECT ... FROM DUAL (mais estável e compatível)
             try {
-                $stmt = $conn->prepare($sqlProc);
-                $efeito = 'L';
-                $fonte = '';
-                $msgVendedor = '';
-                $msgCliente = '';
+                $sqlFunc = "SELECT AD_PKG_ZC_REGRAS.VALIDA(:v, :p, :prod, :canal) AS RET FROM DUAL";
+                try {
+                    $stmtFunc = $conn->prepare($sqlFunc);
+                    $stmtFunc->execute([
+                        ':v' => (string)$codVend,
+                        ':p' => (string)$codParc,
+                        ':prod' => (string)$codProd,
+                        ':canal' => (string)$canal,
+                    ]);
+                    $row = $stmtFunc->fetch(\PDO::FETCH_ASSOC);
+                } catch (\PDOException $eF1) {
+                    $sqlFuncPrefix = "SELECT SANKHYA.AD_PKG_ZC_REGRAS.VALIDA(:v, :p, :prod, :canal) AS RET FROM DUAL";
+                    $stmtFunc = $conn->prepare($sqlFuncPrefix);
+                    $stmtFunc->execute([
+                        ':v' => (string)$codVend,
+                        ':p' => (string)$codParc,
+                        ':prod' => (string)$codProd,
+                        ':canal' => (string)$canal,
+                    ]);
+                    $row = $stmtFunc->fetch(\PDO::FETCH_ASSOC);
+                }
 
-                $stmt->bindParam(':v', $codVend);
-                $stmt->bindParam(':p', $codParc);
-                $stmt->bindParam(':prod', $codProd);
-                $stmt->bindParam(':canal', $canal);
-                $stmt->bindParam(':efeito', $efeito, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 2);
-                $stmt->bindParam(':fonte', $fonte, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 30);
-                $stmt->bindParam(':msgv', $msgVendedor, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 400);
-                $stmt->bindParam(':msgc', $msgCliente, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 400);
+                if ($row && isset($row['RET'])) {
+                    $parts = explode('|', (string)$row['RET']);
+                    $efeito = trim($parts[0] ?? 'L') ?: 'L';
+                    $fonte = trim($parts[1] ?? '') ?: null;
+                    $msgVendedor = trim($parts[3] ?? '') ?: null;
+                    $msgCliente = trim($parts[4] ?? '') ?: ($efeito === 'B' ? 'Produto indisponível para o seu cadastro.' : null);
 
-                $stmt->execute();
-
-                $efeito = trim((string)$efeito) ?: 'L';
-                return [
-                    'efeito' => $efeito,
-                    'fonte' => trim((string)$fonte) ?: null,
-                    'msg_vendedor' => trim((string)$msgVendedor) ?: null,
-                    'msg_cliente' => trim((string)$msgCliente) ?: ($efeito === 'B' ? 'Produto indisponível para o seu cadastro.' : null),
-                    'sucesso_consulta' => true,
-                ];
-            } catch (\Throwable $eProc) {
-                // 2. Fallback via function SELECT AD_PKG_ZC_REGRAS.VALIDA(...)
-                $sqlFunc = "SELECT AD_PKG_ZC_REGRAS.PARTE(RET, 1) AS EFEITO,
-                                   AD_PKG_ZC_REGRAS.PARTE(RET, 2) AS FONTE,
-                                   AD_PKG_ZC_REGRAS.PARTE(RET, 4) AS MSG_VENDEDOR,
-                                   AD_PKG_ZC_REGRAS.PARTE(RET, 5) AS MSG_CLIENTE
-                            FROM (SELECT AD_PKG_ZC_REGRAS.VALIDA(:v, :p, :prod, :canal) AS RET FROM DUAL)";
-                $stmtFunc = $conn->prepare($sqlFunc);
-                $stmtFunc->execute([
-                    ':v' => (string)$codVend,
-                    ':p' => (string)$codParc,
-                    ':prod' => (string)$codProd,
-                    ':canal' => (string)$canal,
-                ]);
-                $row = $stmtFunc->fetch(\PDO::FETCH_ASSOC);
-                if ($row) {
-                    $efeito = trim((string)($row['EFEITO'] ?? 'L')) ?: 'L';
-                    return [
+                    $retRes = [
                         'efeito' => $efeito,
-                        'fonte' => trim((string)($row['FONTE'] ?? '')) ?: null,
-                        'msg_vendedor' => trim((string)($row['MSG_VENDEDOR'] ?? '')) ?: null,
-                        'msg_cliente' => trim((string)($row['MSG_CLIENTE'] ?? '')) ?: ($efeito === 'B' ? 'Produto indisponível para o seu cadastro.' : null),
+                        'fonte' => $fonte,
+                        'msg_vendedor' => $msgVendedor,
+                        'msg_cliente' => $msgCliente,
                         'sucesso_consulta' => true,
                     ];
+                    Cache::put($itemCacheKey, $retRes, 3600);
+                    return $retRes;
                 }
-                throw $eProc;
+            } catch (\Throwable $eFunc) {
+                // 2. Se a function falhar, tenta procedure com parâmetros de saída
+                $sqlProc = "BEGIN AD_PKG_ZC_REGRAS.VALIDA_ITEM(:v, :p, :prod, :canal, :efeito, :fonte, :msgv, :msgc); END;";
+                try {
+                    $stmt = $conn->prepare($sqlProc);
+                    $efeito = 'L';
+                    $fonte = '';
+                    $msgVendedor = '';
+                    $msgCliente = '';
+
+                    $stmt->bindParam(':v', $codVend);
+                    $stmt->bindParam(':p', $codParc);
+                    $stmt->bindParam(':prod', $codProd);
+                    $stmt->bindParam(':canal', $canal);
+                    $stmt->bindParam(':efeito', $efeito, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 4);
+                    $stmt->bindParam(':fonte', $fonte, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 50);
+                    $stmt->bindParam(':msgv', $msgVendedor, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 500);
+                    $stmt->bindParam(':msgc', $msgCliente, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 500);
+
+                    $stmt->execute();
+
+                    $efeito = trim((string)$efeito) ?: 'L';
+                    $retRes = [
+                        'efeito' => $efeito,
+                        'fonte' => trim((string)$fonte) ?: null,
+                        'msg_vendedor' => trim((string)$msgVendedor) ?: null,
+                        'msg_cliente' => trim((string)$msgCliente) ?: ($efeito === 'B' ? 'Produto indisponível para o seu cadastro.' : null),
+                        'sucesso_consulta' => true,
+                    ];
+                    Cache::put($itemCacheKey, $retRes, 3600);
+                    return $retRes;
+                } catch (\PDOException $eP1) {
+                    $sqlProcPrefix = "BEGIN SANKHYA.AD_PKG_ZC_REGRAS.VALIDA_ITEM(:v, :p, :prod, :canal, :efeito, :fonte, :msgv, :msgc); END;";
+                    $stmt = $conn->prepare($sqlProcPrefix);
+                    $efeito = 'L';
+                    $fonte = '';
+                    $msgVendedor = '';
+                    $msgCliente = '';
+
+                    $stmt->bindParam(':v', $codVend);
+                    $stmt->bindParam(':p', $codParc);
+                    $stmt->bindParam(':prod', $codProd);
+                    $stmt->bindParam(':canal', $canal);
+                    $stmt->bindParam(':efeito', $efeito, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 4);
+                    $stmt->bindParam(':fonte', $fonte, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 50);
+                    $stmt->bindParam(':msgv', $msgVendedor, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 500);
+                    $stmt->bindParam(':msgc', $msgCliente, \PDO::PARAM_STR | \PDO::PARAM_INPUT_OUTPUT, 500);
+
+                    $stmt->execute();
+
+                    $efeito = trim((string)$efeito) ?: 'L';
+                    $retRes = [
+                        'efeito' => $efeito,
+                        'fonte' => trim((string)$fonte) ?: null,
+                        'msg_vendedor' => trim((string)$msgVendedor) ?: null,
+                        'msg_cliente' => trim((string)$msgCliente) ?: ($efeito === 'B' ? 'Produto indisponível para o seu cadastro.' : null),
+                        'sucesso_consulta' => true,
+                    ];
+                    Cache::put($itemCacheKey, $retRes, 3600);
+                    return $retRes;
+                }
             }
         } catch (\Throwable $e) {
             Log::error("RestricaoComercialService::validarItem falhou: " . $e->getMessage());
@@ -187,6 +255,8 @@ class RestricaoComercialService
                 'sucesso_consulta' => false,
             ];
         }
+
+        return $defaultLiberado;
     }
 
     /**
@@ -207,6 +277,10 @@ class RestricaoComercialService
         $quote->loadMissing(['parceiro', 'representante', 'itens.produto']);
 
         $codVend = $quote->representante?->codigo_sankhya;
+        if (empty($codVend)) {
+            $codVend = $quote->parceiro?->vendedor_1_codigo;
+        }
+
         $codParc = $quote->parceiro?->codigo_sankhya;
 
         if (empty($codVend)) {
@@ -232,21 +306,23 @@ class RestricaoComercialService
         $bloqueados = [];
         $houveFalhaConexao = false;
 
-        // Otimização de Performance: Consulta lote de restrições em 1 única query (ou direto do cache de 10 min)
+        // Otimização de Performance: Consulta lote de restrições em 1 única query (ou direto do cache de 2 horas)
         $batchMap = null;
         try {
             $batchList = $this->produtosRestritos($codVend, $codParc, $canal);
-            $batchMap = [];
-            foreach ($batchList as $r) {
-                $cProd = (string)($r['CODPROD'] ?? $r['codprod'] ?? '');
-                if ($cProd !== '') {
-                    $batchMap[$cProd] = [
-                        'efeito' => 'B',
-                        'fonte' => $r['FONTE'] ?? $r['fonte'] ?? 'RESTRICAO_COMERCIAL',
-                        'msg_vendedor' => $r['MSG_VENDEDOR'] ?? $r['msg_vendedor'] ?? 'Produto restrito comercialmente para este cliente.',
-                        'msg_cliente' => $r['MSG_CLIENTE'] ?? $r['msg_cliente'] ?? 'Produto indisponível para o seu cadastro.',
-                        'sucesso_consulta' => true,
-                    ];
+            if ($batchList !== null) {
+                $batchMap = [];
+                foreach ($batchList as $r) {
+                    $cProd = (string)($r['CODPROD'] ?? $r['codprod'] ?? '');
+                    if ($cProd !== '') {
+                        $batchMap[$cProd] = [
+                            'efeito' => 'B',
+                            'fonte' => $r['FONTE'] ?? $r['fonte'] ?? 'RESTRICAO_COMERCIAL',
+                            'msg_vendedor' => $r['MSG_VENDEDOR'] ?? $r['msg_vendedor'] ?? 'Produto restrito comercialmente para este cliente.',
+                            'msg_cliente' => $r['MSG_CLIENTE'] ?? $r['msg_cliente'] ?? 'Produto indisponível para o seu cadastro.',
+                            'sucesso_consulta' => true,
+                        ];
+                    }
                 }
             }
         } catch (\Throwable $eBatch) {
@@ -265,17 +341,11 @@ class RestricaoComercialService
                 continue;
             }
 
-            if ($batchMap !== null) {
-                // Resolução instantânea em memória a partir do lote de restrições
-                $res = $batchMap[$codProd] ?? [
-                    'efeito' => 'L',
-                    'fonte' => null,
-                    'msg_vendedor' => null,
-                    'msg_cliente' => null,
-                    'sucesso_consulta' => true,
-                ];
+            if ($batchMap !== null && isset($batchMap[$codProd])) {
+                // Resolução instantânea: produto consta explicitamente no lote de restrições
+                $res = $batchMap[$codProd];
             } else {
-                // Fallback item a item caso a procedure em lote falhe
+                // Consulta item a item via Oracle VALIDA (garante que regras por marca AD_EXCMARCA e produto AD_EXCPRODUTO sejam checadas)
                 $res = $this->validarItem($codVend, $codParc, $codProd, $canal);
             }
 
