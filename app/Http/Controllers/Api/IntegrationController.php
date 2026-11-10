@@ -351,84 +351,77 @@ class IntegrationController extends Controller
 
                 // 4. Resolve Products: Bulk pre-fetch local products to prevent slow remote queries and 504 Gateway Time-out
                 $itemCodes = array_values(array_unique(array_filter(array_map(function ($i) {
-                    return isset($i['codigo_sankhya']) ? (string)$i['codigo_sankhya'] : null;
+                    $code = isset($i['codigo_sankhya']) ? trim((string)$i['codigo_sankhya']) : '';
+                    if ($code === '' || $code === '0' || strtolower($code) === 'null' || strtolower($code) === 'n/a' || str_starts_with($code, 'SEM_CODIGO') || !empty($i['nao_encontrado'])) {
+                        return null;
+                    }
+                    return $code;
                 }, $data['itens']))));
 
-                $localProducts = Produto::whereIn('codigo_sankhya', $itemCodes)
-                    ->get()
-                    ->keyBy('codigo_sankhya');
+                $localProducts = !empty($itemCodes)
+                    ? Produto::whereIn('codigo_sankhya', $itemCodes)->get()->keyBy('codigo_sankhya')
+                    : collect();
 
                 $productIdsMap = [];
                 $resolvedProductsCache = [];
                 $registeredMissingCodes = [];
                 $unfoundItemCodes = [];
 
-                foreach ($data['itens'] as $item) {
-                    $itemCode = (string)($item['codigo_sankhya'] ?? '');
-                    if (empty($itemCode) || str_starts_with($itemCode, 'SEM_CODIGO')) {
-                        $itemCode = 'SEM_CODIGO_' . substr(md5(($item['descricao_original'] ?? $item['descricao']) ?? Str::random(8)), 0, 8);
-                        $unfoundItemCodes[$itemCode] = true;
-                    }
+                foreach ($data['itens'] as $idx => $item) {
+                    $itemCode = trim((string)($item['codigo_sankhya'] ?? ''));
+                    $isCodeMissing = ($itemCode === '' || $itemCode === '0' || strtolower($itemCode) === 'null' || strtolower($itemCode) === 'n/a' || str_starts_with($itemCode, 'SEM_CODIGO'));
+                    $isUnfound = !empty($item['nao_encontrado']) || $isCodeMissing;
+                    $itemKey = $isCodeMissing ? ('UNFOUND_ITEM_' . $idx) : $itemCode;
 
-                    if (!empty($item['nao_encontrado'])) {
-                        $unfoundItemCodes[$itemCode] = true;
+                    if ($isUnfound) {
+                        $unfoundItemCodes[$itemKey] = true;
+                        $productIdsMap[$itemKey] = null;
+
+                        $rawDesc = trim((string)($item['descricao_original'] ?? ($item['descricao'] ?? '')));
+                        if ($rawDesc !== '' && !isset($registeredMissingCodes[$rawDesc])) {
+                            \App\Models\ProdutoNaoEncontrado::registrar(
+                                $isCodeMissing ? ('SEM_COD_' . substr(md5($rawDesc), 0, 8)) : $itemCode,
+                                $rawDesc,
+                                ($partner ? $partner->razao_social : 'Cliente Desconhecido')
+                            );
+                            $registeredMissingCodes[$rawDesc] = true;
+                        }
+                        continue;
                     }
 
                     if (isset($resolvedProductsCache[$itemCode])) {
                         $product = $resolvedProductsCache[$itemCode];
                     } else {
-                        $product = null;
+                        $product = $localProducts[$itemCode] ?? null;
 
-                        // A. Check local DB first if not explicitly marked as not found
-                        if (empty($unfoundItemCodes[$itemCode])) {
-                            $product = $localProducts[$itemCode] ?? null;
-
-                            // Check if this local product was previously created as a fallback for a missing code
-                            if ($product && !$product->ativo && \App\Models\ProdutoNaoEncontrado::where('codigo_sankhya', $itemCode)->exists()) {
-                                $unfoundItemCodes[$itemCode] = true;
-                            }
-
-                            // B. If not in local DB, attempt Sankhya sync
-                            if (!$product) {
-                                try {
-                                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                                    $product = $sankhyaDb->syncProductByCode($itemCode);
-                                } catch (\Throwable $e) {
-                                    $product = null;
-                                }
+                        // A. If not in local DB, attempt Sankhya sync
+                        if (!$product) {
+                            try {
+                                $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                                $product = $sankhyaDb->syncProductByCode($itemCode);
+                            } catch (\Throwable $e) {
+                                $product = null;
                             }
                         }
 
-                        // C. If product code does NOT exist anywhere (or is marked unfound), register in ProdutoNaoEncontrado and create local fallback
-                        if (!$product || !empty($unfoundItemCodes[$itemCode])) {
-                            $unfoundItemCodes[$itemCode] = true;
-                            if (!isset($registeredMissingCodes[$itemCode])) {
+                        // B. If product does NOT exist anywhere, register in ProdutoNaoEncontrado (NÃO criar produto dummy no cadastro!)
+                        if (!$product) {
+                            $unfoundItemCodes[$itemKey] = true;
+                            $rawDesc = trim((string)($item['descricao_original'] ?? ($item['descricao'] ?? ('Produto ' . $itemCode))));
+                            if (!isset($registeredMissingCodes[$rawDesc])) {
                                 \App\Models\ProdutoNaoEncontrado::registrar(
                                     $itemCode,
-                                    $item['descricao_original'] ?? ($item['descricao'] ?? ('Produto ' . $itemCode)),
+                                    $rawDesc,
                                     ($partner ? $partner->razao_social : 'Cliente Desconhecido')
                                 );
-                                $registeredMissingCodes[$itemCode] = true;
-                            }
-
-                            if (!$product) {
-                                $productData = [
-                                    'codigo_sankhya'  => $itemCode,
-                                    'descricao'       => $item['descricao'] ?? ('Produto ' . $itemCode),
-                                    'unidade'         => $item['unidade'] ?? 'UN',
-                                    'ativo'           => false,
-                                ];
-                                if (\Illuminate\Support\Facades\Schema::hasColumn('produtos', 'custo_variavel')) {
-                                    $productData['custo_variavel'] = (float)($item['custo'] ?? 0);
-                                }
-                                $product = Produto::firstOrCreate(['codigo_sankhya' => $itemCode], $productData);
+                                $registeredMissingCodes[$rawDesc] = true;
                             }
                         }
 
                         $resolvedProductsCache[$itemCode] = $product;
                     }
 
-                    $productIdsMap[$itemCode] = $product->id;
+                    $productIdsMap[$itemKey] = $product?->id;
                 }
 
                 // 5. Create or Update Quotation
@@ -494,15 +487,16 @@ class IntegrationController extends Controller
 
                 // 6. Recreate Quote Items
                 $unfoundCount = 0;
-                foreach ($data['itens'] as $item) {
-                    $itemCode = (string)($item['codigo_sankhya'] ?? '');
-                    if (empty($itemCode) || str_starts_with($itemCode, 'SEM_CODIGO') || !isset($productIdsMap[$itemCode])) {
-                        $itemCode = 'SEM_CODIGO_' . substr(md5(($item['descricao_original'] ?? $item['descricao']) ?? Str::random(8)), 0, 8);
-                    }
+                foreach ($data['itens'] as $idx => $item) {
+                    $itemCode = trim((string)($item['codigo_sankhya'] ?? ''));
+                    $isCodeMissing = ($itemCode === '' || $itemCode === '0' || strtolower($itemCode) === 'null' || strtolower($itemCode) === 'n/a' || str_starts_with($itemCode, 'SEM_CODIGO'));
+                    $itemKey = $isCodeMissing ? ('UNFOUND_ITEM_' . $idx) : $itemCode;
 
-                    $isUnfound = !empty($item['nao_encontrado']) || isset($unfoundItemCodes[$itemCode]) || str_starts_with($itemCode, 'SEM_CODIGO');
+                    $prodId = $productIdsMap[$itemKey] ?? null;
+                    $isUnfound = empty($prodId) || !empty($item['nao_encontrado']) || $isCodeMissing || isset($unfoundItemCodes[$itemKey]);
                     if ($isUnfound) {
                         $unfoundCount++;
+                        $prodId = null; // Garantir explicitamente produto_id NULL para itens não encontrados
                     }
 
                     $qtd = (float)($item['qtd'] ?? 0);
@@ -517,7 +511,7 @@ class IntegrationController extends Controller
 
                     $itemDataToCreate = [
                         'cotacao_id' => $quote->id,
-                        'produto_id' => $productIdsMap[$itemCode],
+                        'produto_id' => $prodId,
                         'qtd' => $qtd,
                         'preco_unit_sugerido' => $precoSugerido,
                         'preco_minimo' => $precoMinimo,
