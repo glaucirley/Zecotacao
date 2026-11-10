@@ -47,10 +47,33 @@ class QuoteWorkflowService
 
         // Validação definitiva de Restrições Comerciais (AD_EXCPRODUTO e AD_EXCMARCA)
         if (empty($quote->representante?->codigo_sankhya)) {
+            // Tenta recuperar representante vinculado ao parceiro se a cotação não tiver
+            if ($quote->parceiro?->codigo_vendedor) {
+                $rep = User::where('codigo_sankhya', $quote->parceiro->codigo_vendedor)->first();
+                if (!$rep) {
+                    try {
+                        $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
+                        $rep = $sankhyaDb->syncRepresentativeByCode($quote->parceiro->codigo_vendedor);
+                    } catch (\Throwable $th) {}
+                }
+                if ($rep) {
+                    $quote->update(['representante_id' => $rep->id]);
+                    $quote->load('representante');
+                }
+            }
+
+            // Se ainda não tem, verifica se o usuário autenticado possui código Sankhya
+            if (empty($quote->representante?->codigo_sankhya) && auth()->check() && auth()->user()->codigo_sankhya) {
+                $quote->update(['representante_id' => auth()->id()]);
+                $quote->load('representante');
+            }
+        }
+
+        if (empty($quote->representante?->codigo_sankhya)) {
             return [
                 'success' => false,
                 'error' => 'VENDEDOR_SEM_CODIGO_SANKHYA',
-                'message' => 'Cadastro do vendedor sem código Sankhya. As regras por vendedor não teriam como ser conferidas.',
+                'message' => 'Esta cotação não possui um representante com código Sankhya vinculado. Vincule um representante válido para prosseguir.',
             ];
         }
 
@@ -167,37 +190,47 @@ class QuoteWorkflowService
             ]);
 
             // Notify Rep
-            \App\Models\Notificacao::create([
-                'usuario_id' => $quote->representante_id,
-                'titulo' => '⚡ Cotacao Prioritaria (Grande Conta)',
-                'mensagem' => "A cotacao no. {$quote->numero} foi classificada como Grande Conta / Prioritaria devido a limites comerciais atingidos.",
-                'link' => "/cotacoes/id/{$quote->id}",
-                'lida' => false
-            ]);
+            if (!empty($quote->representante_id)) {
+                try {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $quote->representante_id,
+                        'titulo' => '⚡ Cotacao Prioritaria (Grande Conta)',
+                        'mensagem' => "A cotacao no. {$quote->numero} foi classificada como Grande Conta / Prioritaria devido a limites comerciais atingidos.",
+                        'link' => "/cotacoes/id/{$quote->id}",
+                        'lida' => false
+                    ]);
+                } catch (\Throwable $th) {}
+            }
 
             // Notify Gestor (if exists)
-            $gestorId = $quote->representante->equipe?->gestor_id;
+            $gestorId = $quote->representante?->equipe?->gestor_id;
             if ($gestorId) {
-                \App\Models\Notificacao::create([
-                    'usuario_id' => $gestorId,
-                    'titulo' => '🔥 ALERTA: Grande Conta na Fila',
-                    'mensagem' => "A cotacao no. {$quote->numero} do vendedor {$quote->representante->nome} exige atencao prioritaria.",
-                    'link' => "/aprovacoes/{$quote->id}",
-                    'lida' => false
-                ]);
+                try {
+                    $repNome = $quote->representante?->nome ?? 'Vendedor';
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $gestorId,
+                        'titulo' => '🔥 ALERTA: Grande Conta na Fila',
+                        'mensagem' => "A cotacao no. {$quote->numero} do vendedor {$repNome} exige atencao prioritaria.",
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false
+                    ]);
+                } catch (\Throwable $th) {}
             }
 
             // Notify Directors
-            $directors = \App\Models\User::where('papel', 'diretor')->get();
-            foreach ($directors as $dir) {
-                \App\Models\Notificacao::create([
-                    'usuario_id' => $dir->id,
-                    'titulo' => '🔥 ALERTA: Grande Conta na Fila',
-                    'mensagem' => "A cotacao no. {$quote->numero} do vendedor {$quote->representante->nome} exige atencao prioritaria.",
-                    'link' => "/aprovacoes/{$quote->id}",
-                    'lida' => false
-                ]);
-            }
+            try {
+                $directors = \App\Models\User::where('papel', 'diretor')->where('ativo', true)->get();
+                $repNome = $quote->representante?->nome ?? 'Vendedor';
+                foreach ($directors as $dir) {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $dir->id,
+                        'titulo' => '🔥 ALERTA: Grande Conta na Fila',
+                        'mensagem' => "A cotacao no. {$quote->numero} do vendedor {$repNome} exige atencao prioritaria.",
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false
+                    ]);
+                }
+            } catch (\Throwable $th) {}
         } elseif (!$isGrandeConta && $quote->prioridade) {
             $quote->update(['prioridade' => false]);
         }
@@ -222,28 +255,34 @@ class QuoteWorkflowService
                 ]);
 
                 // Notificar Gestor
-                $gestorId = $quote->representante->equipe?->gestor_id;
+                $gestorId = $quote->representante?->equipe?->gestor_id;
                 if ($gestorId) {
-                    \App\Models\Notificacao::create([
-                        'usuario_id' => $gestorId,
-                        'titulo' => '⚠️ Alerta: Margem Comercial Baixa',
-                        'mensagem' => sprintf('A cotação nº %s do vendedor %s possui margem estimada de %.2f%% (limite de atenção: %.2f%%).', $quote->numero, $quote->representante->nome, $overallMargin, $grandeContaMargem),
-                        'link' => "/aprovacoes/{$quote->id}",
-                        'lida' => false
-                    ]);
+                    try {
+                        $repNome = $quote->representante?->nome ?? 'Vendedor';
+                        \App\Models\Notificacao::create([
+                            'usuario_id' => $gestorId,
+                            'titulo' => '⚠️ Alerta: Margem Comercial Baixa',
+                            'mensagem' => sprintf('A cotação nº %s do vendedor %s possui margem estimada de %.2f%% (limite de atenção: %.2f%%).', $quote->numero, $repNome, $overallMargin, $grandeContaMargem),
+                            'link' => "/aprovacoes/{$quote->id}",
+                            'lida' => false
+                        ]);
+                    } catch (\Throwable $th) {}
                 }
 
                 // Notificar Diretores
-                $directors = \App\Models\User::where('papel', 'diretor')->get();
-                foreach ($directors as $dir) {
-                    \App\Models\Notificacao::create([
-                        'usuario_id' => $dir->id,
-                        'titulo' => '⚠️ Alerta: Margem Comercial Baixa',
-                        'mensagem' => sprintf('A cotação nº %s do vendedor %s possui margem estimada de %.2f%% (limite de atenção: %.2f%%).', $quote->numero, $quote->representante->nome, $overallMargin, $grandeContaMargem),
-                        'link' => "/aprovacoes/{$quote->id}",
-                        'lida' => false
-                    ]);
-                }
+                try {
+                    $directors = \App\Models\User::where('papel', 'diretor')->where('ativo', true)->get();
+                    $repNome = $quote->representante?->nome ?? 'Vendedor';
+                    foreach ($directors as $dir) {
+                        \App\Models\Notificacao::create([
+                            'usuario_id' => $dir->id,
+                            'titulo' => '⚠️ Alerta: Margem Comercial Baixa',
+                            'mensagem' => sprintf('A cotação nº %s do vendedor %s possui margem estimada de %.2f%% (limite de atenção: %.2f%%).', $quote->numero, $repNome, $overallMargin, $grandeContaMargem),
+                            'link' => "/aprovacoes/{$quote->id}",
+                            'lida' => false
+                        ]);
+                    }
+                } catch (\Throwable $th) {}
             }
         }
 
@@ -484,7 +523,7 @@ class QuoteWorkflowService
                     'Desconto aplicado (%s: %.2f%%) excede o limite do gestor (%s: %.2f%%). Encaminhada para aprovação da diretoria.',
                     $modoAvaliacao,
                     $calculatedDiscount,
-                    $gestor->nome,
+                    $gestor?->nome ?? 'Gestor',
                     $gestorLimit
                 );
             }
@@ -501,16 +540,19 @@ class QuoteWorkflowService
             ]);
 
             // Notificar diretores e administradores
-            $diretores = User::whereIn('papel', ['diretor', 'administrador'])->where('ativo', true)->get();
-            foreach ($diretores as $dir) {
-                \App\Models\Notificacao::create([
-                    'usuario_id' => $dir->id,
-                    'titulo' => $hasNegativeMargin ? '🚨 Cotação c/ Margem Negativa na Diretoria' : '📋 Cotação aguardando Diretoria',
-                    'mensagem' => "A cotação {$quote->numero} de " . ($quote->representante?->nome ?? 'Representante') . ($hasNegativeMargin ? sprintf(" possui MARGEM NEGATIVA (%.1f%%) e ", $overallMargin) : " ") . "requer aprovação da diretoria.",
-                    'link' => "/aprovacoes/{$quote->id}",
-                    'lida' => false,
-                ]);
-            }
+            try {
+                $diretores = User::whereIn('papel', ['diretor', 'administrador'])->where('ativo', true)->get();
+                $repNome = $quote->representante?->nome ?? 'Representante';
+                foreach ($diretores as $dir) {
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $dir->id,
+                        'titulo' => $hasNegativeMargin ? '🚨 Cotação c/ Margem Negativa na Diretoria' : '📋 Cotação aguardando Diretoria',
+                        'mensagem' => "A cotação {$quote->numero} de {$repNome}" . ($hasNegativeMargin ? sprintf(" possui MARGEM NEGATIVA (%.1f%%) e ", $overallMargin) : " ") . "requer aprovação da diretoria.",
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false,
+                    ]);
+                }
+            } catch (\Throwable $th) {}
 
             return [
                 'success' => true,
@@ -529,7 +571,7 @@ class QuoteWorkflowService
                 $calculatedDiscount,
                 $representante?->nome ?? 'Representante',
                 $repLimit,
-                $gestor->nome,
+                $gestor?->nome ?? 'Gestor',
                 $gestorLimit
             );
             if ($hasNegativeMargin) {
@@ -545,13 +587,16 @@ class QuoteWorkflowService
             ]);
 
             if ($gestor && $gestor->ativo) {
-                \App\Models\Notificacao::create([
-                    'usuario_id' => $gestor->id,
-                    'titulo' => $hasNegativeMargin ? '🚨 Cotação c/ Margem Negativa para Aprovação' : '📋 Cotação aguardando sua Aprovação',
-                    'mensagem' => "A cotação {$quote->numero} de {$quote->representante?->nome}" . ($hasNegativeMargin ? sprintf(" possui MARGEM NEGATIVA (%.1f%%) e", $overallMargin) : "") . " foi enviada para sua aprovação.",
-                    'link' => "/aprovacoes/{$quote->id}",
-                    'lida' => false,
-                ]);
+                try {
+                    $repNome = $quote->representante?->nome ?? 'Representante';
+                    \App\Models\Notificacao::create([
+                        'usuario_id' => $gestor->id,
+                        'titulo' => $hasNegativeMargin ? '🚨 Cotação c/ Margem Negativa para Aprovação' : '📋 Cotação aguardando sua Aprovação',
+                        'mensagem' => "A cotação {$quote->numero} de {$repNome}" . ($hasNegativeMargin ? sprintf(" possui MARGEM NEGATIVA (%.1f%%) e", $overallMargin) : "") . " foi enviada para sua aprovação.",
+                        'link' => "/aprovacoes/{$quote->id}",
+                        'lida' => false,
+                    ]);
+                } catch (\Throwable $th) {}
             }
 
             return [
@@ -782,43 +827,49 @@ class QuoteWorkflowService
      */
     public static function notifyAdminsAboutInconsistentItems(Cotacao $quote, array $items): void
     {
-        $admins = \App\Models\User::where('papel', 'administrador')->where('ativo', true)->get();
-        if ($admins->isEmpty()) {
-            return;
-        }
+        try {
+            $admins = \App\Models\User::where('papel', 'administrador')->where('ativo', true)->get();
+            if ($admins->isEmpty()) {
+                return;
+            }
 
-        foreach ($items as $item) {
-            $prodDesc = $item->produto->descricao ?? ('Produto #' . $item->produto_id);
-            $prodCode = $item->produto->codigo_sankhya ?? ('ID:' . $item->produto_id);
-            $minVal = number_format((float)$item->preco_minimo, 2, ',', '.');
-            $sugVal = number_format((float)$item->preco_unit_sugerido, 2, ',', '.');
+            foreach ($items as $item) {
+                $prodDesc = $item->produto?->descricao ?? $item->descricao_original ?? ('Produto #' . $item->produto_id);
+                $prodCode = $item->produto?->codigo_sankhya ?? ('ID:' . $item->produto_id);
+                $minVal = number_format((float)$item->preco_minimo, 2, ',', '.');
+                $sugVal = number_format((float)$item->preco_unit_sugerido, 2, ',', '.');
 
-            // Evitar duplicações de histórico e notificação para o mesmo item
-            $alreadyLogged = CotacaoHistorico::where('cotacao_id', $quote->id)
-                ->where('evento', 'ALERTA_ITEM_INCONSISTENTE')
-                ->where('cotacao_item_id', $item->id)
-                ->exists();
+                // Evitar duplicações de histórico e notificação para o mesmo item
+                $alreadyLogged = CotacaoHistorico::where('cotacao_id', $quote->id)
+                    ->where('evento', 'ALERTA_ITEM_INCONSISTENTE')
+                    ->where('cotacao_item_id', $item->id)
+                    ->exists();
 
-            if (!$alreadyLogged) {
-                CotacaoHistorico::create([
-                    'cotacao_id' => $quote->id,
-                    'cotacao_item_id' => $item->id,
-                    'evento' => 'ALERTA_ITEM_INCONSISTENTE',
-                    'usuario_id' => null,
-                    'papel' => 'sistema',
-                    'condicao' => "Inconsistência cadastral: Preço Mínimo (R$ {$minVal}) é maior que o Sugerido (R$ {$sugVal}) para '{$prodDesc}' ({$prodCode}). Administradores notificados para conferência no cadastro/Sankhya.",
-                ]);
-
-                foreach ($admins as $admin) {
-                    \App\Models\Notificacao::create([
-                        'usuario_id' => $admin->id,
-                        'titulo' => '⚠️ Preço Mínimo Maior que Sugerido',
-                        'mensagem' => "O produto '{$prodDesc}' ({$prodCode}) na cotação nº {$quote->numero} possui Preço Mínimo (R$ {$minVal}) maior que o Sugerido (R$ {$sugVal}). Favor conferir no cadastro.",
-                        'link' => "/cotacoes/id/{$quote->id}",
-                        'lida' => false,
+                if (!$alreadyLogged) {
+                    CotacaoHistorico::create([
+                        'cotacao_id' => $quote->id,
+                        'cotacao_item_id' => $item->id,
+                        'evento' => 'ALERTA_ITEM_INCONSISTENTE',
+                        'usuario_id' => null,
+                        'papel' => 'sistema',
+                        'condicao' => "Inconsistência cadastral: Preço Mínimo (R$ {$minVal}) é maior que o Sugerido (R$ {$sugVal}) para '{$prodDesc}' ({$prodCode}). Administradores notificados para conferência no cadastro/Sankhya.",
                     ]);
+
+                    foreach ($admins as $admin) {
+                        try {
+                            \App\Models\Notificacao::create([
+                                'usuario_id' => $admin->id,
+                                'titulo' => '⚠️ Preço Mínimo Maior que Sugerido',
+                                'mensagem' => "O produto '{$prodDesc}' ({$prodCode}) na cotação nº {$quote->numero} possui Preço Mínimo (R$ {$minVal}) maior que o Sugerido (R$ {$sugVal}). Favor conferir no cadastro.",
+                                'link' => "/cotacoes/id/{$quote->id}",
+                                'lida' => false,
+                            ]);
+                        } catch (\Throwable $th) {}
+                    }
                 }
             }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Falha ao notificar admins sobre itens inconsistentes: " . $e->getMessage());
         }
     }
 }

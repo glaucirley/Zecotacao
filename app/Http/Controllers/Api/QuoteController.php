@@ -1246,30 +1246,50 @@ class QuoteController extends Controller
      */
     public function submit(Request $request, \App\Services\QuoteWorkflowService $workflowService)
     {
-        $quote = $request->cotacao;
+        try {
+            $quote = $request->cotacao;
 
-        // Verify that the quote is in a state that allows submission
-        if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
+            if (!$quote) {
+                return response()->json([
+                    'error' => 'Cotação não encontrada',
+                    'message' => 'Cotação não encontrada no contexto da requisição.'
+                ], 404);
+            }
+
+            // Verify that the quote is in a state that allows submission
+            if (!in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
+                return response()->json([
+                    'error' => 'Status inválido',
+                    'message' => "Não é permitido enviar uma cotação com status {$quote->status}."
+                ], 422);
+            }
+
+            $result = $workflowService->evaluateAndRoute($quote);
+
+            if (!$result['success']) {
+                return response()->json([
+                    'error' => $result['error'],
+                    'message' => $result['message'],
+                    'itens_restritos' => $result['itens_restritos'] ?? null,
+                ], 422);
+            }
+
             return response()->json([
-                'error' => 'Status inválido',
-                'message' => "Não é permitido enviar uma cotação com status {$quote->status}."
-            ], 422);
-        }
+                'success' => true,
+                'message' => $result['message'],
+                'status' => $result['status']
+            ]);
+        } catch (\Throwable $e) {
+            $quoteId = $request->cotacao?->id ?? $request->route('id') ?? $request->route('token') ?? 'N/A';
+            \Illuminate\Support\Facades\Log::error("Erro ao enviar cotação ID {$quoteId} para workflow: " . $e->getMessage(), [
+                'exception' => $e
+            ]);
 
-        $result = $workflowService->evaluateAndRoute($quote);
-
-        if (!$result['success']) {
             return response()->json([
-                'error' => $result['error'],
-                'message' => $result['message']
-            ], 422);
+                'error' => 'ERRO_ENVIO_WORKFLOW',
+                'message' => 'Erro ao processar envio da cotação: ' . $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => $result['message'],
-            'status' => $result['status']
-        ]);
     }
 
     /**

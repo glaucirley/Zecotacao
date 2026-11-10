@@ -4266,6 +4266,10 @@
 
                 const justRes = await fetch(`${QUOTE_BASE_URL}/justificativa`, {
                     method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ""
+                    },
                     body: formData
                 });
                 const justData = await justRes.json().catch(() => ({}));
@@ -4287,7 +4291,12 @@
         // 3. Trigger submit to workflow routing
         try {
             const res = await fetch(`${QUOTE_BASE_URL}/enviar`, {
-                method: "POST"
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ""
+                }
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
@@ -4311,7 +4320,10 @@
                     setTimeout(() => window.location.reload(), 1200);
                 }
             } else {
-                const errMsg = data.message || data.error || ("Falha no envio HTTP " + res.status);
+                let errMsg = data.message || data.error;
+                if (!errMsg) {
+                    errMsg = "Falha no envio HTTP " + res.status;
+                }
                 showToast("Erro ao enviar cotação: " + errMsg, 'error');
                 if (String(errMsg).toLowerCase().includes('justificativa') || String(errMsg).toLowerCase().includes('anexo') || String(errMsg).toLowerCase().includes('comprovante')) {
                     highlightAndScrollToJustification('just-texto');
@@ -4338,7 +4350,14 @@
                 if (pricing && !pricing.requiresApproval) {
                     try {
                         showToast("Validando cotação para gerar o PDF...", "info");
-                        const res = await fetch(`${QUOTE_BASE_URL}/enviar`, { method: "POST" });
+                        const res = await fetch(`${QUOTE_BASE_URL}/enviar`, { 
+                            method: "POST",
+                            headers: {
+                                "Accept": "application/json",
+                                "Content-Type": "application/json",
+                                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ""
+                            }
+                        });
                         const data = await res.json().catch(() => ({}));
                         if (res.ok && data.success && data.status === 'APROVADA') {
                             quote.status = 'APROVADA';
