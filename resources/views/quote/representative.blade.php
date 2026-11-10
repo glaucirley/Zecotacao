@@ -2170,6 +2170,28 @@
         container.innerHTML = "";
         let hasAlert = false;
 
+        // 0. Alerta de Tabela de Preços Inexistente na Região do Cliente
+        const codTabRegiao = quote.codigo_tabela_preco || (quote.parceiro && quote.parceiro.codigo_tabela_preco);
+        if (!codTabRegiao) {
+            const bannerTabela = document.createElement("div");
+            bannerTabela.style.cssText = "background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 12px; padding: 14px 18px; color: #991b1b; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 12px;";
+            bannerTabela.innerHTML = `
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 24px; line-height: 1; flex-shrink: 0;">🚫</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 800; font-size: 14px; margin-bottom: 4px; color: #991b1b;">
+                            Tabela de Preços Inexistente na Região do Cliente
+                        </div>
+                        <div style="font-size: 13px; color: #7f1d1d; line-height: 1.45;">
+                            A região deste cliente não possui tabela de preços vinculada no Sankhya (ou a sincronização de parceiros ainda não foi executada). De acordo com as diretrizes comerciais, produtos <strong>não podem ser precificados nem cotados</strong> sem tabela de preços na região.
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(bannerTabela);
+            hasAlert = true;
+        }
+
         // 1. Devolução com instruções do gestor
         if (quote.status === 'DEVOLVIDA') {
             const rawHist = Array.isArray(quote.historico) ? quote.historico : [];
@@ -3811,9 +3833,11 @@
             const isQuotable = (p.cotavel !== false) && parseFloat(p.preco_sugerido || 0) > 0;
             const sugVal = parseFloat(p.preco_sugerido || 0);
             const minVal = p.preco_minimo ? parseFloat(p.preco_minimo) : roundNumber(sugVal * 0.90, 2);
+            const blockReason = p.motivo_bloqueio || '';
+            const isMissingTable = blockReason.toLowerCase().includes('tabela inexistente') || blockReason.toLowerCase().includes('sem tabela');
             const priceHtml = isQuotable 
                 ? `<div style="text-align: right;"><span style="color: #059669; font-weight: 700; font-size: 12.5px;">Mín: R$ ${formatCurrency(minVal)}</span><br><span style="font-size: 10.5px; color: #64748b;">Tab: R$ ${formatCurrency(sugVal)}</span></div>` 
-                : '<span style="color: #ef4444; font-size: 11px; font-weight: 700;">Sem preço</span>';
+                : `<span style="color: #ef4444; font-size: 11px; font-weight: 700;">${isMissingTable ? 'Tabela Inexistente' : 'Sem preço'}</span>`;
 
             if (!isQuotable) {
                 div.style.opacity = '0.55';
@@ -3821,7 +3845,8 @@
             }
             div.onclick = () => {
                 if (!isQuotable) {
-                    showToast(`O produto "${p.descricao}" não possui preço na tabela de preços e não pode ser cotado.`, 'warning');
+                    const msg = p.motivo_bloqueio || `O produto "${p.descricao}" não possui preço na tabela de preços e não pode ser cotado.`;
+                    showToast(msg, 'warning');
                     return;
                 }
                 selectProductForAdd(p.id);

@@ -274,7 +274,15 @@ class QuoteController extends Controller
                     $qtd = (int)$itemData['qtd'];
                     $precoProposto = (float)$itemData['preco_unit_proposto'];
 
-                    $priceItem = \App\Models\TabelaPrecoItem::where('codigo_sankhya_tabela', $codTabRegiao)
+                    $tabVariations = array_values(array_unique(array_filter([
+                        (string)$codTabRegiao,
+                        is_numeric($codTabRegiao) ? (string)((int)$codTabRegiao) : null,
+                        is_numeric($codTabRegiao) ? str_pad((string)((int)$codTabRegiao), 2, '0', STR_PAD_LEFT) : null,
+                        is_numeric($codTabRegiao) ? str_pad((string)((int)$codTabRegiao), 3, '0', STR_PAD_LEFT) : null,
+                        is_numeric($codTabRegiao) ? str_pad((string)((int)$codTabRegiao), 4, '0', STR_PAD_LEFT) : null,
+                    ])));
+
+                    $priceItem = \App\Models\TabelaPrecoItem::whereIn('codigo_sankhya_tabela', $tabVariations)
                         ->where(function($q) use ($prod) {
                             $q->where('produto_id', $prod->id)
                               ->orWhere('codigo_sankhya_produto', $prod->codigo_sankhya);
@@ -695,6 +703,9 @@ class QuoteController extends Controller
 
         $produto = \App\Models\Produto::find($request->input('produto_id'));
         $codTabRegiao = $quote->codigo_tabela_preco ?: $quote->parceiro?->codigo_tabela_preco;
+        if (empty($quote->codigo_tabela_preco) && !empty($codTabRegiao)) {
+            $quote->updateQuietly(['codigo_tabela_preco' => $codTabRegiao]);
+        }
 
         // Se a região não tiver tabela, não precifica! Alerta de tabela inexistente
         if (empty($codTabRegiao)) {
@@ -704,7 +715,15 @@ class QuoteController extends Controller
             ], 422);
         }
 
-        $priceItem = \App\Models\TabelaPrecoItem::where('codigo_sankhya_tabela', $codTabRegiao)
+        $tabVariations = array_values(array_unique(array_filter([
+            (string)$codTabRegiao,
+            is_numeric($codTabRegiao) ? (string)((int)$codTabRegiao) : null,
+            is_numeric($codTabRegiao) ? str_pad((string)((int)$codTabRegiao), 2, '0', STR_PAD_LEFT) : null,
+            is_numeric($codTabRegiao) ? str_pad((string)((int)$codTabRegiao), 3, '0', STR_PAD_LEFT) : null,
+            is_numeric($codTabRegiao) ? str_pad((string)((int)$codTabRegiao), 4, '0', STR_PAD_LEFT) : null,
+        ])));
+
+        $priceItem = \App\Models\TabelaPrecoItem::whereIn('codigo_sankhya_tabela', $tabVariations)
             ->where(function($q) use ($produto) {
                 $q->where('produto_id', $produto->id)
                   ->orWhere('codigo_sankhya_produto', $produto->codigo_sankhya);
@@ -1602,6 +1621,9 @@ class QuoteController extends Controller
         if ($request->has('cotacao') && $request->cotacao) {
             $quote = $request->cotacao;
             $targetCodTab = $quote->codigo_tabela_preco ?: $quote->parceiro?->codigo_tabela_preco;
+            if (empty($quote->codigo_tabela_preco) && !empty($targetCodTab)) {
+                $quote->updateQuietly(['codigo_tabela_preco' => $targetCodTab]);
+            }
             $hasClientContext = true;
         } elseif ($request->filled('parceiro_id')) {
             $partner = \App\Models\Parceiro::find($request->input('parceiro_id'));
@@ -1619,7 +1641,14 @@ class QuoteController extends Controller
         });
 
         if (!empty($targetCodTab)) {
-            $priceItemsQuery->where('codigo_sankhya_tabela', $targetCodTab);
+            $tabVariations = array_values(array_unique(array_filter([
+                (string)$targetCodTab,
+                is_numeric($targetCodTab) ? (string)((int)$targetCodTab) : null,
+                is_numeric($targetCodTab) ? str_pad((string)((int)$targetCodTab), 2, '0', STR_PAD_LEFT) : null,
+                is_numeric($targetCodTab) ? str_pad((string)((int)$targetCodTab), 3, '0', STR_PAD_LEFT) : null,
+                is_numeric($targetCodTab) ? str_pad((string)((int)$targetCodTab), 4, '0', STR_PAD_LEFT) : null,
+            ])));
+            $priceItemsQuery->whereIn('codigo_sankhya_tabela', $tabVariations);
         }
 
         $priceItems = $priceItemsQuery->get();
@@ -1654,7 +1683,7 @@ class QuoteController extends Controller
                 $p->preco_minimo = 0.00;
                 $p->custo = 0.00;
                 $p->cotavel = false;
-                $p->motivo_bloqueio = "Região do cliente sem tabela de preços vinculada no Sankhya.";
+                $p->motivo_bloqueio = "Tabela inexistente: A região deste cliente não possui tabela de preços vinculada no Sankhya.";
             } elseif ($priceItem && (float)$priceItem->preco_venda > 0) {
                 $p->preco_sugerido = round((float)$priceItem->preco_venda, 2);
                 $p->preco_minimo = (float)$priceItem->preco_minimo > 0 ? round((float)$priceItem->preco_minimo, 2) : round((float)$priceItem->preco_venda * 0.90, 2);

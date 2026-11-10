@@ -242,7 +242,10 @@ class SankhyaDatabaseService
     /**
      * SQL string for fetching Partners joined with TSIEND, TSIBAI, TSICID and multi-sellers.
      */
-    protected function getPartnerBaseSql(bool $withPrefix = true): string
+    /**
+     * SQL string for fetching Partners joined with TSIEND, TSIBAI, TSICID and multi-sellers.
+     */
+    protected function getPartnerBaseSql(bool $withPrefix = true, string $codTabSelect = 'REG.CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC'): string
     {
         $prefix = $withPrefix ? 'SANKHYA.' : '';
         return "SELECT 
@@ -258,7 +261,7 @@ class SankhyaDatabaseService
             PAR.IDENTINSCESTAD        AS INSCRICAO_ESTADUAL,
             PAR.TIPPESSOA,
             PAR.CODREG                AS REGIAO_ID,
-            REG.CODTAB                AS CODTAB_REGIAO,
+            {$codTabSelect},
             PAR.NUMEND                AS NUMERO,
             PAR.CEP,
             PAR.TELEFONE,
@@ -283,31 +286,32 @@ class SankhyaDatabaseService
     {
         $conn = $this->connect();
 
-        // 1. Full query with SANKHYA. prefix
-        try {
-            $sql = $this->getPartnerBaseSql(true) . " WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
-            return $conn->query($sql)->fetchAll();
-        } catch (\PDOException $e1) {
-            Log::warning("Sankhya Service - fetchPartners Attempt 1 failed: " . $e1->getMessage());
+        $strategies = [
+            ['prefix' => true,  'col' => 'REG.CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC', 'desc' => 'TSIREG.CODTAB + TGFPAR.CODTAB (prefix)'],
+            ['prefix' => false, 'col' => 'REG.CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC', 'desc' => 'TSIREG.CODTAB + TGFPAR.CODTAB (no prefix)'],
+            ['prefix' => true,  'col' => 'REG.AD_CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC', 'desc' => 'TSIREG.AD_CODTAB + TGFPAR.CODTAB (prefix)'],
+            ['prefix' => false, 'col' => 'REG.AD_CODTAB AS CODTAB_REGIAO, PAR.CODTAB AS CODTAB_PARC', 'desc' => 'TSIREG.AD_CODTAB + TGFPAR.CODTAB (no prefix)'],
+            ['prefix' => true,  'col' => 'PAR.CODTAB AS CODTAB_PARC, NULL AS CODTAB_REGIAO', 'desc' => 'TGFPAR.CODTAB only (prefix)'],
+            ['prefix' => false, 'col' => 'PAR.CODTAB AS CODTAB_PARC, NULL AS CODTAB_REGIAO', 'desc' => 'TGFPAR.CODTAB only (no prefix)'],
+        ];
+
+        foreach ($strategies as $strat) {
+            try {
+                $sql = $this->getPartnerBaseSql($strat['prefix'], $strat['col']) . " WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
+                return $conn->query($sql)->fetchAll();
+            } catch (\PDOException $e) {
+                Log::warning("Sankhya Service - fetchPartners [{$strat['desc']}] failed: " . $e->getMessage());
+            }
         }
 
-        // 2. Full query without prefix
-        try {
-            $sql = $this->getPartnerBaseSql(false) . " WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
-            return $conn->query($sql)->fetchAll();
-        } catch (\PDOException $e2) {
-            Log::warning("Sankhya Service - fetchPartners Attempt 2 failed: " . $e2->getMessage());
-        }
-
-        // 3. Basic query with prefix
+        // Minimal fallback
         try {
             $sql = "SELECT CODPARC, CODVEND AS VENDEDOR_1, NOMEPARC AS NOME_FANTASIA, RAZAOSOCIAL, CGC_CPF, TELEFONE, EMAIL, ATIVO FROM SANKHYA.TGFPAR WHERE CLIENTE = 'S' AND ATIVO = 'S'";
             return $conn->query($sql)->fetchAll();
         } catch (\PDOException $e3) {
-            Log::warning("Sankhya Service - fetchPartners Attempt 3 failed: " . $e3->getMessage());
+            Log::warning("Sankhya Service - fetchPartners Attempt basic with prefix failed: " . $e3->getMessage());
         }
 
-        // 4. Basic query without prefix
         $sql = "SELECT CODPARC, CODVEND AS VENDEDOR_1, NOMEPARC AS NOME_FANTASIA, RAZAOSOCIAL, CGC_CPF, TELEFONE, EMAIL, ATIVO FROM TGFPAR WHERE CLIENTE = 'S' AND ATIVO = 'S'";
         return $conn->query($sql)->fetchAll();
     }
@@ -369,6 +373,12 @@ class SankhyaDatabaseService
             trim(($cidade ?: '') . ($uf ? '/' . $uf : '')),
         ]));
 
+        $rawCodTabRegiao = $row['CODTAB_REGIAO'] ?? $row['codtab_regiao'] ?? null;
+        $rawCodTabParc = $row['CODTAB_PARC'] ?? $row['codtab_parc'] ?? $row['CODTAB'] ?? $row['codtab'] ?? null;
+        $resolvedCodTab = ($rawCodTabRegiao !== null && trim((string)$rawCodTabRegiao) !== '')
+            ? trim((string)$rawCodTabRegiao)
+            : (($rawCodTabParc !== null && trim((string)$rawCodTabParc) !== '') ? trim((string)$rawCodTabParc) : null);
+
         return Parceiro::updateOrCreate(
             ['codigo_sankhya' => (string)($row['CODPARC'] ?? $row['codparc'])],
             [
@@ -378,7 +388,7 @@ class SankhyaDatabaseService
                 'inscricao_estadual'  => $this->cleanStr($row['INSCRICAO_ESTADUAL'] ?? $row['inscricao_estadual'] ?? null),
                 'tipo_pessoa'         => $this->cleanStr($row['TIPPESSOA'] ?? $row['tippessoa'] ?? null),
                 'codigo_regiao'       => isset($row['REGIAO_ID']) ? (string)$row['REGIAO_ID'] : (isset($row['regiao_id']) ? (string)$row['regiao_id'] : null),
-                'codigo_tabela_preco' => (!empty($row['CODTAB_REGIAO']) && trim((string)$row['CODTAB_REGIAO']) !== '0') ? trim((string)$row['CODTAB_REGIAO']) : ((!empty($row['codtab_regiao']) && trim((string)$row['codtab_regiao']) !== '0') ? trim((string)$row['codtab_regiao']) : null),
+                'codigo_tabela_preco' => $resolvedCodTab,
                 'vendedor_1_codigo'   => isset($row['VENDEDOR_1']) ? (string)$row['VENDEDOR_1'] : (isset($row['vendedor_1']) ? (string)$row['vendedor_1'] : null),
                 'vendedor_2_codigo'   => isset($row['VENDEDOR_2']) ? (string)$row['VENDEDOR_2'] : (isset($row['vendedor_2']) ? (string)$row['vendedor_2'] : null),
                 'vendedor_3_codigo'   => isset($row['VENDEDOR_3']) ? (string)$row['VENDEDOR_3'] : (isset($row['vendedor_3']) ? (string)$row['vendedor_3'] : null),
