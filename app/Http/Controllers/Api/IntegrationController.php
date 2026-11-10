@@ -268,9 +268,72 @@ class IntegrationController extends Controller
 
         $data = $rawInput;
 
+        // Deduplicação defensiva de itens recebidos no payload:
+        // Evita que arrays com itens repetidos idênticos sejam gravados em duplicidade
+        $seenSignatures = [];
+        $deduplicatedItens = [];
+        foreach ($data['itens'] as $idx => $it) {
+            $code = trim((string)($it['codigo_sankhya'] ?? ''));
+            $desc = trim((string)($it['descricao_original'] ?? ($it['descricao'] ?? '')));
+            $qtd = (float)($it['qtd'] ?? 1);
+            $prop = (float)($it['preco_unit_proposto'] ?? 0);
+            $sug = (float)($it['preco_unit_sugerido'] ?? 0);
+
+            $sig = ($code !== '' && !str_starts_with($code, 'SEM_CODIGO'))
+                ? "COD:{$code}|Q:{$qtd}|P:{$prop}|S:{$sug}"
+                : "DESC:" . mb_strtolower($desc) . "|Q:{$qtd}|P:{$prop}|S:{$sug}";
+
+            if (isset($seenSignatures[$sig])) {
+                \Illuminate\Support\Facades\Log::warning("IntegrationController::store - Item idêntico duplicado descartado no payload da cotação {$data['numero']}: {$sig}");
+                continue;
+            }
+
+            $seenSignatures[$sig] = true;
+            $deduplicatedItens[] = $it;
+        }
+        $data['itens'] = $deduplicatedItens;
+
+        // Trava atômica (Lock) por número da cotação para prevenir concorrência em webhooks simultâneos do N8N
+        $lockKey = 'n8n_quote_lock_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', (string)$data['numero']);
+        $lock = \Illuminate\Support\Facades\Cache::lock($lockKey, 30);
+
+        try {
+            // Aguarda até 15s para obter a trava caso outra requisição desta mesma cotação esteja em execução
+            $lock->block(15);
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $eLock) {
+            \Illuminate\Support\Facades\Log::warning("IntegrationController::store - Timeout aguardando lock concorrente para {$data['numero']}");
+            return response()->json([
+                'error' => 'Conflict',
+                'message' => 'Esta cotação já está sendo processada por outra requisição simultânea.'
+            ], 409);
+        }
+
+        // Idempotência: Se a exata mesma requisição acabou de ser gravada com sucesso nos últimos 60 segundos
+        $payloadHash = md5(json_encode($data));
+        $idempotencyKey = "n8n_processed_hash_{$data['numero']}";
+        if (\Illuminate\Support\Facades\Cache::get($idempotencyKey) === $payloadHash) {
+            $existing = Cotacao::where('numero', $data['numero'])->first();
+            if ($existing) {
+                \Illuminate\Support\Facades\Log::info("IntegrationController::store - Requisição simultânea idêntica ignorada (idempotente) para {$data['numero']}");
+                $lock->release();
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Cotação já importada anteriormente com sucesso (idempotente).',
+                    'data' => [
+                        'id' => $existing->id,
+                        'numero' => $existing->numero,
+                        'status' => $existing->status,
+                        'total' => $existing->total,
+                        'url_acesso' => url("/painel-representante"),
+                    ]
+                ], 200);
+            }
+        }
+
         // Check if quote exists and lock status checks
         $existingQuote = Cotacao::where('numero', $data['numero'])->first();
         if ($existingQuote && in_array($existingQuote->status, ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'])) {
+            $lock->release();
             return response()->json([
                 'error' => 'Locked quote',
                 'message' => "The quote {$data['numero']} is in status {$existingQuote->status} and cannot be modified."
@@ -281,7 +344,9 @@ class IntegrationController extends Controller
             $plainToken = bin2hex(random_bytes(32));
             $resolvedRep = null;
 
-            $quote = DB::transaction(function () use ($data, $existingQuote, $plainToken, &$resolvedRep) {
+            $quote = DB::transaction(function () use ($data, $plainToken, &$resolvedRep) {
+                // Re-consulta com lockForUpdate para segurança máxima de concorrência
+                $existingQuote = Cotacao::where('numero', $data['numero'])->lockForUpdate()->first();
                 
                 // 2. Resolve Representative (Vendedor) with payload auto-provisioning fallback
                 $repData = $data['representante'];
@@ -597,6 +662,8 @@ class IntegrationController extends Controller
                 return $quote;
             });
 
+            \Illuminate\Support\Facades\Cache::put($idempotencyKey, $payloadHash, 60);
+
             $repUser = $resolvedRep ?: $quote->representante;
 
             return response()->json([
@@ -638,6 +705,8 @@ class IntegrationController extends Controller
                 'message' => $message,
                 'detail' => $e->getMessage(),
             ], $code);
+        } finally {
+            $lock?->release();
         }
     }
 
