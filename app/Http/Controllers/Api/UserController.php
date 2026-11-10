@@ -150,7 +150,15 @@ class UserController extends Controller
                 $user = User::create($createData);
             } catch (\Illuminate\Database\QueryException $qe) {
                 $msg = strtolower($qe->getMessage());
-                if (str_contains($msg, 'papel') || str_contains($msg, 'truncated') || str_contains($msg, 'enum') || in_array($qe->getCode(), ['01000', '22001', 1265])) {
+                if (str_contains($msg, 'tipo_vendedor') || (str_contains($msg, '1054') && str_contains($msg, 'column'))) {
+                    try {
+                        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    } catch (\Throwable $mEx) {}
+                    try {
+                        \Illuminate\Support\Facades\DB::statement("ALTER TABLE usuarios ADD COLUMN tipo_vendedor ENUM('interno', 'externo') NOT NULL DEFAULT 'externo' AFTER papel");
+                    } catch (\Throwable $aEx) {}
+                    $user = User::create($createData);
+                } elseif (str_contains($msg, 'papel') || str_contains($msg, 'truncated') || str_contains($msg, 'enum') || in_array($qe->getCode(), ['01000', '22001', 1265])) {
                     try {
                         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                     } catch (\Throwable $mEx) {}
@@ -252,7 +260,15 @@ class UserController extends Controller
                 $user->update($updateData);
             } catch (\Illuminate\Database\QueryException $qe) {
                 $msg = strtolower($qe->getMessage());
-                if (str_contains($msg, 'papel') || str_contains($msg, 'truncated') || str_contains($msg, 'enum') || in_array($qe->getCode(), ['01000', '22001', 1265])) {
+                if (str_contains($msg, 'tipo_vendedor') || (str_contains($msg, '1054') && str_contains($msg, 'column'))) {
+                    try {
+                        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    } catch (\Throwable $mEx) {}
+                    try {
+                        \Illuminate\Support\Facades\DB::statement("ALTER TABLE usuarios ADD COLUMN tipo_vendedor ENUM('interno', 'externo') NOT NULL DEFAULT 'externo' AFTER papel");
+                    } catch (\Throwable $aEx) {}
+                    $user->update($updateData);
+                } elseif (str_contains($msg, 'papel') || str_contains($msg, 'truncated') || str_contains($msg, 'enum') || in_array($qe->getCode(), ['01000', '22001', 1265])) {
                     try {
                         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                     } catch (\Throwable $mEx) {}
