@@ -16,6 +16,7 @@ class Parceiro extends Model
         'inscricao_estadual',
         'tipo_pessoa',
         'codigo_regiao',
+        'codigo_tabela_preco',
         'vendedor_1_codigo',
         'vendedor_2_codigo',
         'vendedor_3_codigo',

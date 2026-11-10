@@ -2665,6 +2665,10 @@
                 showToast("Por favor, selecione um cliente primeiro.", 'warning');
                 return;
             }
+            if (stepNum > 1 && selectedPartner && !selectedPartner.codigo_tabela_preco) {
+                showToast("⚠️ Tabela de Preços Inexistente: A região deste cliente não possui tabela de preços vinculada no Sankhya. Não é possível gerar cotação.", 'error');
+                return;
+            }
             if (stepNum > 2 && quoteCartItems.length === 0) {
                 showToast("Por favor, adicione pelo menos 1 produto à cotação.", 'warning');
                 return;
@@ -2882,9 +2886,12 @@
             const codeStr = selectedPartner.codigo_sankhya || 'N/A';
             const spUf = (selectedPartner.uf === '2' || (selectedPartner.cidade && selectedPartner.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (selectedPartner.uf || '');
             const cityStr = selectedPartner.cidade ? ` | ${selectedPartner.cidade}${spUf ? '/' + spUf : ''}` : '';
+            const tabStr = selectedPartner.codigo_tabela_preco 
+                ? ` | Tabela Região: #${selectedPartner.codigo_tabela_preco}` 
+                : ` | <span style="color:#ef4444; font-weight:700;">⚠️ Região sem tabela de preços no Sankhya</span>`;
 
             document.getElementById("sp-name").innerText = displayName;
-            document.getElementById("sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;
+            document.getElementById("sp-doc").innerHTML = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}${tabStr}`;
             
             if (card) card.style.display = "block";
             if (container) container.style.display = "none";
@@ -3044,7 +3051,8 @@
             }
 
             try {
-                const res = await fetch(`${API_URL}/produtos?limit=40`);
+                const partnerParam = (selectedPartner && selectedPartner.id) ? `&parceiro_id=${selectedPartner.id}` : '';
+                const res = await fetch(`${API_URL}/produtos?limit=40${partnerParam}`);
                 const data = await res.json();
                 isProductsLoading = false;
 

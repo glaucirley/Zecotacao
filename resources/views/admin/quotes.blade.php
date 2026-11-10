@@ -1122,6 +1122,10 @@
             showToast("Por favor, selecione um Cliente (Parceiro Comercial) para continuar.", "warning");
             return;
         }
+        if (!adminSelectedPartner.codigo_tabela_preco) {
+            showToast("⚠️ Tabela de Preços Inexistente: A região deste cliente não possui tabela de preços vinculada no Sankhya. Não é possível gerar cotação para este cliente.", "error");
+            return;
+        }
         const repVal = document.getElementById("create-representante").value;
         if (!repVal) {
             showToast("Por favor, selecione o Representante Comercial responsável.", "warning");
@@ -2396,9 +2400,12 @@
         const codeStr = adminSelectedPartner.codigo_sankhya || adminSelectedPartner.codparc || adminSelectedPartner.id || 'N/A';
         const spUf = (adminSelectedPartner.uf === '2' || (adminSelectedPartner.cidade && adminSelectedPartner.cidade.trim().toUpperCase() === 'UBERLANDIA')) ? 'MG' : (adminSelectedPartner.uf || '');
         const cityStr = adminSelectedPartner.cidade ? ` | ${adminSelectedPartner.cidade}${spUf ? '/' + spUf : ''}` : '';
+        const tabStr = adminSelectedPartner.codigo_tabela_preco 
+            ? ` | Tabela Região: #${adminSelectedPartner.codigo_tabela_preco}` 
+            : ` | <span style="color:#ef4444; font-weight:700;">⚠️ Região sem tabela de preços no Sankhya</span>`;
 
         document.getElementById("admin-sp-name").innerText = adminSelectedPartner.razao_social;
-        document.getElementById("admin-sp-doc").innerText = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}`;
+        document.getElementById("admin-sp-doc").innerHTML = `CNPJ/CPF: ${docStr} | Código: ${codeStr}${cityStr}${tabStr}`;
 
         if (card) card.style.display = "block";
         if (searchBox) searchBox.style.display = "none";

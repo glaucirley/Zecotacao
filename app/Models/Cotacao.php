@@ -23,6 +23,7 @@ class Cotacao extends Model
         'total',
         'forma_pagamento',
         'condicao_pagamento_id',
+        'codigo_tabela_preco',
         'prazo_entrega',
         'frete_tipo',
         'transportadora',

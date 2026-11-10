@@ -989,6 +989,8 @@
                 <span id="client-cnpj" style="color: var(--color-text-muted);">CNPJ: ...</span>
                 <span style="color: #94a3b8;">·</span>
                 <span id="client-location" style="color: var(--color-text-muted); font-weight: 500;">Cidade: ...</span>
+                <span style="color: #94a3b8;">·</span>
+                <span id="client-codtab" style="font-weight: 600; color: #2563eb; background: #eff6ff; padding: 2px 7px; border-radius: 6px; font-size: 11.5px; border: 1px solid #bfdbfe;">Tabela: ...</span>
             </div>
             <button type="button" class="btn btn-outline" onclick="toggleClientDetails()" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; border-color: #cbd5e1; color: #475569; display: inline-flex; align-items: center; gap: 4px;">
                 <span id="btn-client-details-text">Detalhes</span>
@@ -2732,6 +2734,25 @@
             : (quote.parceiro ? (quote.parceiro.nome_fantasia || quote.parceiro.razao_social) : 'Cliente');
         document.getElementById("client-cnpj").innerText = "CNPJ/CPF: " + (quote.parceiro.cnpj || 'Não cadastrado');
         document.getElementById("client-location").innerText = locationText;
+
+        const codTab = quote.codigo_tabela_preco || (quote.parceiro && quote.parceiro.codigo_tabela_preco);
+        const tabEl = document.getElementById("client-codtab");
+        if (tabEl) {
+            if (codTab) {
+                tabEl.innerHTML = `Tabela Região: #${codTab}`;
+                tabEl.style.backgroundColor = "#eff6ff";
+                tabEl.style.color = "#2563eb";
+                tabEl.style.borderColor = "#bfdbfe";
+                tabEl.style.display = "inline-block";
+            } else {
+                tabEl.innerHTML = `⚠️ Sem tabela de preços na região`;
+                tabEl.style.backgroundColor = "#fee2e2";
+                tabEl.style.color = "#dc2626";
+                tabEl.style.borderColor = "#fca5a5";
+                tabEl.style.display = "inline-block";
+            }
+        }
+
         document.getElementById("client-contact").innerText = (quote.parceiro.telefone || quote.parceiro.email || 'Não informado');
         document.getElementById("rep-name").innerText = quote.representante.nome + (quote.representante.equipe ? ` (${quote.representante.equipe.nome})` : '');
 

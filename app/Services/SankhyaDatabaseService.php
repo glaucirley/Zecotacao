@@ -258,6 +258,7 @@ class SankhyaDatabaseService
             PAR.IDENTINSCESTAD        AS INSCRICAO_ESTADUAL,
             PAR.TIPPESSOA,
             PAR.CODREG                AS REGIAO_ID,
+            REG.CODTAB                AS CODTAB_REGIAO,
             PAR.NUMEND                AS NUMERO,
             PAR.CEP,
             PAR.TELEFONE,
@@ -268,6 +269,7 @@ class SankhyaDatabaseService
             CID.NOMECID               AS CIDADE,
             COALESCE(UFS.UF, TO_CHAR(CID.UF)) AS UF
         FROM {$prefix}TGFPAR PAR
+        LEFT JOIN {$prefix}TSIREG REG ON PAR.CODREG = REG.CODREG
         LEFT JOIN {$prefix}TSIEND END ON PAR.CODEND = END.CODEND
         LEFT JOIN {$prefix}TSIBAI BAI ON PAR.CODBAI = BAI.CODBAI
         LEFT JOIN {$prefix}TSICID CID ON PAR.CODCID = CID.CODCID
@@ -376,6 +378,7 @@ class SankhyaDatabaseService
                 'inscricao_estadual'  => $this->cleanStr($row['INSCRICAO_ESTADUAL'] ?? $row['inscricao_estadual'] ?? null),
                 'tipo_pessoa'         => $this->cleanStr($row['TIPPESSOA'] ?? $row['tippessoa'] ?? null),
                 'codigo_regiao'       => isset($row['REGIAO_ID']) ? (string)$row['REGIAO_ID'] : (isset($row['regiao_id']) ? (string)$row['regiao_id'] : null),
+                'codigo_tabela_preco' => (!empty($row['CODTAB_REGIAO']) && trim((string)$row['CODTAB_REGIAO']) !== '0') ? trim((string)$row['CODTAB_REGIAO']) : ((!empty($row['codtab_regiao']) && trim((string)$row['codtab_regiao']) !== '0') ? trim((string)$row['codtab_regiao']) : null),
                 'vendedor_1_codigo'   => isset($row['VENDEDOR_1']) ? (string)$row['VENDEDOR_1'] : (isset($row['vendedor_1']) ? (string)$row['vendedor_1'] : null),
                 'vendedor_2_codigo'   => isset($row['VENDEDOR_2']) ? (string)$row['VENDEDOR_2'] : (isset($row['vendedor_2']) ? (string)$row['vendedor_2'] : null),
                 'vendedor_3_codigo'   => isset($row['VENDEDOR_3']) ? (string)$row['VENDEDOR_3'] : (isset($row['vendedor_3']) ? (string)$row['vendedor_3'] : null),
