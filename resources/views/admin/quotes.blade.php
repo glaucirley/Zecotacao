@@ -761,12 +761,10 @@
             <option value="">Todos os Status</option>
         </select>
 
-        @if(!auth()->user()->isRepresentante())
-        <select id="rep-filter" class="filter-select" onchange="filterQuotes()">
+        <select id="rep-filter" class="filter-select" onchange="filterQuotes()" style="{{ auth()->user()->isRepresentante() ? 'display:none;' : '' }}">
             <option value="">Vendedor</option>
             <!-- Dynamic options -->
         </select>
-        @endif
 
         <select id="period-filter" class="filter-select" onchange="filterQuotes()">
             <option value="">Período</option>
@@ -776,12 +774,10 @@
             <option value="mes">Este mês</option>
         </select>
 
-        @if(!auth()->user()->isRepresentante())
-        <select id="team-filter" class="filter-select" onchange="filterQuotes()">
+        <select id="team-filter" class="filter-select" onchange="filterQuotes()" style="{{ auth()->user()->isRepresentante() ? 'display:none;' : '' }}">
             <option value="">Equipe</option>
             <!-- Dynamic options -->
         </select>
-        @endif
 
         <button type="button" class="btn-clear-filter" onclick="clearAllFilters()">
             Limpar Filtros
@@ -1346,9 +1342,9 @@
                 showToast("Erro ao buscar cotações: " + data.error, "error");
             }
         } catch (e) {
-            console.error(e);
+            console.error("Erro em loadQuotes:", e);
             document.getElementById("loading-spinner").style.display = "none";
-            showToast("Erro ao conectar no servidor.", "error");
+            showToast("Erro ao carregar cotações: " + (e.message || "Falha na comunicação"), "error");
         }
     }
 
@@ -1393,6 +1389,7 @@
     function populateDynamicFilterSelects(list) {
         const repSelect = document.getElementById("rep-filter");
         const teamSelect = document.getElementById("team-filter");
+        if (!repSelect && !teamSelect) return;
 
         const repsMap = new Map();
         const teamsMap = new Map();
@@ -1407,16 +1404,20 @@
         });
 
         // Reps options
-        repSelect.innerHTML = '<option value="">Vendedor</option>';
-        repsMap.forEach((name, id) => {
-            repSelect.innerHTML += `<option value="${id}">${escapeHtml(name)}</option>`;
-        });
+        if (repSelect) {
+            repSelect.innerHTML = '<option value="">Vendedor</option>';
+            repsMap.forEach((name, id) => {
+                repSelect.innerHTML += `<option value="${id}">${escapeHtml(name)}</option>`;
+            });
+        }
 
         // Teams options
-        teamSelect.innerHTML = '<option value="">Equipe</option>';
-        teamsMap.forEach((name, id) => {
-            teamSelect.innerHTML += `<option value="${id}">${escapeHtml(name)}</option>`;
-        });
+        if (teamSelect) {
+            teamSelect.innerHTML = '<option value="">Equipe</option>';
+            teamsMap.forEach((name, id) => {
+                teamSelect.innerHTML += `<option value="${id}">${escapeHtml(name)}</option>`;
+            });
+        }
     }
 
     function renderQuotes(list) {
@@ -1664,10 +1665,10 @@
     });
 
     function filterQuotes() {
-        const search = document.getElementById("search-input").value.toLowerCase();
-        const repId = document.getElementById("rep-filter").value;
-        const period = document.getElementById("period-filter").value;
-        const teamId = document.getElementById("team-filter").value;
+        const search = (document.getElementById("search-input")?.value || "").toLowerCase();
+        const repId = document.getElementById("rep-filter")?.value || "";
+        const period = document.getElementById("period-filter")?.value || "";
+        const teamId = document.getElementById("team-filter")?.value || "";
 
         const now = new Date();
 
@@ -1721,11 +1722,16 @@
     }
 
     function clearAllFilters() {
-        document.getElementById("search-input").value = "";
-        document.getElementById("status-filter").value = "";
-        document.getElementById("rep-filter").value = "";
-        document.getElementById("period-filter").value = "";
-        document.getElementById("team-filter").value = "";
+        const searchEl = document.getElementById("search-input");
+        if (searchEl) searchEl.value = "";
+        const statusEl = document.getElementById("status-filter");
+        if (statusEl) statusEl.value = "";
+        const repEl = document.getElementById("rep-filter");
+        if (repEl) repEl.value = "";
+        const periodEl = document.getElementById("period-filter");
+        if (periodEl) periodEl.value = "";
+        const teamEl = document.getElementById("team-filter");
+        if (teamEl) teamEl.value = "";
         setQuoteTab('todas');
     }
 
