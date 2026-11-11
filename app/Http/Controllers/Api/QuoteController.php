@@ -1670,6 +1670,16 @@ class QuoteController extends Controller
         if ($request->has('cotacao') && $request->cotacao) {
             $quote = $request->cotacao;
             $targetCodTab = $quote->codigo_tabela_preco ?: $quote->parceiro?->codigo_tabela_preco;
+            if (empty($targetCodTab) && $quote->parceiro && !empty($quote->parceiro->codigo_sankhya)) {
+                try {
+                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                    $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$quote->parceiro->codigo_sankhya);
+                    if (!empty($directTab)) {
+                        $quote->parceiro->update(['codigo_tabela_preco' => $directTab]);
+                        $targetCodTab = $directTab;
+                    }
+                } catch (\Throwable $e) {}
+            }
             if (empty($quote->codigo_tabela_preco) && !empty($targetCodTab)) {
                 $quote->updateQuietly(['codigo_tabela_preco' => $targetCodTab]);
             }
@@ -1677,6 +1687,16 @@ class QuoteController extends Controller
         } elseif ($request->filled('parceiro_id')) {
             $partner = \App\Models\Parceiro::find($request->input('parceiro_id'));
             $targetCodTab = $partner?->codigo_tabela_preco;
+            if (empty($targetCodTab) && $partner && !empty($partner->codigo_sankhya)) {
+                try {
+                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                    $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$partner->codigo_sankhya);
+                    if (!empty($directTab)) {
+                        $partner->update(['codigo_tabela_preco' => $directTab]);
+                        $targetCodTab = $directTab;
+                    }
+                } catch (\Throwable $e) {}
+            }
             $hasClientContext = true;
         }
 
@@ -1698,9 +1718,13 @@ class QuoteController extends Controller
                 is_numeric($targetCodTab) ? str_pad((string)((int)$targetCodTab), 4, '0', STR_PAD_LEFT) : null,
             ])));
             $priceItemsQuery->whereIn('codigo_sankhya_tabela', $tabVariations);
+            $priceItems = $priceItemsQuery->get();
+        } elseif ($hasClientContext) {
+            // Cliente sem tabela na região: não busca preços
+            $priceItems = collect();
+        } else {
+            $priceItems = $priceItemsQuery->get();
         }
-
-        $priceItems = $priceItemsQuery->get();
 
         $priceByProdId = [];
         $priceByCode = [];

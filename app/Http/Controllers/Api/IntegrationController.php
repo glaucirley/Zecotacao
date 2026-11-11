@@ -501,6 +501,7 @@ class IntegrationController extends Controller
                     $existingQuote->update([
                         'parceiro_id' => $partner->id,
                         'representante_id' => $representative->id,
+                        'codigo_tabela_preco' => $partner->codigo_tabela_preco,
                         'status' => 'EM_CRIACAO', // goes back to EM_CRIACAO upon update via webhook
                         'data_emissao' => $emissionDate,
                         'validade_horas' => $validityHours,
@@ -531,6 +532,7 @@ class IntegrationController extends Controller
                         'numero' => $quoteNum,
                         'parceiro_id' => $partner->id,
                         'representante_id' => $representative->id,
+                        'codigo_tabela_preco' => $partner->codigo_tabela_preco,
                         'status' => 'EM_CRIACAO',
                         'origem' => $data['origem'] ?? 'whatsapp_ia',
                         'data_emissao' => $emissionDate,

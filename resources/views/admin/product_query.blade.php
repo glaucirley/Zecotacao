@@ -66,6 +66,17 @@
     </div>
 </div>
 
+<!-- Alert: Região Sem Tabela de Preços -->
+<div id="partner-no-table-alert" style="display: none; margin-bottom: 16px; background: #fef2f2; border: 1px solid #fecaca; border-left: 5px solid #ef4444; border-radius: 10px; padding: 14px 18px; color: #991b1b; font-size: 13px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">⚠️</span>
+        <div>
+            <strong>Região sem Tabela de Preços no Sankhya:</strong>
+            <span id="partner-no-table-alert-text">A região deste cliente não possui tabela de preços vinculada na coluna CODTAB da tabela TSIREG do Sankhya. Conforme regra de precificação, nenhum produto é precificado até que a tabela seja cadastrada no ERP.</span>
+        </div>
+    </div>
+</div>
+
 <!-- Main Table Card -->
 <div class="card" style="border-radius: 14px; border: 1px solid var(--color-border); box-shadow: var(--shadow-sm); background: #ffffff; overflow: hidden;">
     
@@ -201,6 +212,33 @@
             const json = await res.json();
             loading.style.display = "none";
 
+            // Alerta e badge de Tabela de Preço por Região (TSIREG.CODTAB)
+            const alertEl = document.getElementById("partner-no-table-alert");
+            const tableBadge = document.getElementById("selected-partner-table");
+            if (json.partner) {
+                if (json.partner.tabela_regiao_inexistente) {
+                    if (alertEl) {
+                        alertEl.style.display = "block";
+                        const alertText = document.getElementById("partner-no-table-alert-text");
+                        if (alertText) {
+                            alertText.innerHTML = `A região deste cliente (Região <strong>${json.partner.codigo_regiao || 'N/D'}</strong>) não possui tabela de preços vinculada na coluna <code>CODTAB</code> da tabela <code>TSIREG</code> do Sankhya. Conforme regra comercial, nenhum produto é precificado até que a tabela seja cadastrada no ERP.`;
+                        }
+                    }
+                    if (tableBadge) {
+                        tableBadge.innerText = "⚠️ Região sem tabela no Sankhya";
+                        tableBadge.style.background = "#ef4444";
+                    }
+                } else {
+                    if (alertEl) alertEl.style.display = "none";
+                    if (tableBadge) {
+                        tableBadge.innerText = `Tabela Região: #${json.partner.tabela_codigo}`;
+                        tableBadge.style.background = "#10b981";
+                    }
+                }
+            } else {
+                if (alertEl) alertEl.style.display = "none";
+            }
+
             if (!json.success || !json.data || json.data.length === 0) {
                 empty.style.display = "block";
                 countInfo.innerText = "0 produtos encontrados";
@@ -280,7 +318,12 @@
             }
 
             // Pricing formatting
-            const sugFormat = p.preco_sugerido > 0 ? `R$ ${formatMoney(p.preco_sugerido)}` : '<span style="color:#ef4444; font-size:11.5px; font-weight:600;">Sem tabela</span>';
+            let sugFormat = '<span style="color:#ef4444; font-size:11.5px; font-weight:600;">Sem tabela</span>';
+            if (p.preco_sugerido > 0) {
+                sugFormat = `R$ ${formatMoney(p.preco_sugerido)}`;
+            } else if (p.motivo_bloqueio_preco) {
+                sugFormat = `<span style="color:#dc2626; font-size:11px; font-weight:600;" title="${escapeHtml(p.motivo_bloqueio_preco)}">❌ Sem preço (TSIREG)</span>`;
+            }
             const minFormat = p.preco_minimo > 0 ? `R$ ${formatMoney(p.preco_minimo)}` : '<span style="color:#94a3b8; font-size:11px;">-</span>';
 
             // Cost & Margin subtext if authorized
@@ -422,6 +465,8 @@
         document.getElementById("selected-partner-badge").style.display = "none";
         document.getElementById("no-partner-hint").style.display = "inline";
         document.getElementById("partner-search-input").value = "";
+        const alertEl = document.getElementById("partner-no-table-alert");
+        if (alertEl) alertEl.style.display = "none";
 
         showToast("Cliente desmarcado. Tabela padrão restaurada.", "info");
         loadCatalog();

@@ -227,17 +227,35 @@ class ProductController extends Controller
         $partner = null;
         $codigosRestritos = [];
         $restricoesMap = [];
+        $codTab = null;
 
         if ($parceiroId) {
             $partner = \App\Models\Parceiro::find($parceiroId);
             if ($partner) {
+                // Tabela de Preços vinculada à REGIÃO do cliente (TSIREG.CODTAB)
+                $codTab = $partner->codigo_tabela_preco;
+
+                // Se não estiver preenchido localmente, tenta buscar diretamente da TSIREG no Sankhya
+                if (empty($codTab) && !empty($partner->codigo_sankhya)) {
+                    try {
+                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                        $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$partner->codigo_sankhya);
+                        if (!empty($directTab)) {
+                            $partner->update(['codigo_tabela_preco' => $directTab]);
+                            $codTab = $directTab;
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning("Erro ao sincronizar tabela da região na consulta de produtos: " . $e->getMessage());
+                    }
+                }
+
                 // Checa restrições comerciais
                 try {
                     $codVend = $partner->vendedor_1_codigo ?? ($user->codigo_sankhya ?? '0');
                     $codParc = $partner->codigo_sankhya;
                     if (!empty($codParc)) {
                         $restricaoService = resolve(\App\Services\RestricaoComercialService::class);
-                        $restrList = $restricaoService->produtosRestritos((string)$codVend, (string)$codParc);
+                        $restrList = $restricaoService->produtosRestritos((string)$codVend, (string)$codParc) ?: [];
                         foreach ($restrList as $r) {
                             $cp = (string)($r['CODPROD'] ?? '');
                             if ($cp !== '') {
@@ -304,9 +322,7 @@ class ProductController extends Controller
         $prodIds = $rawProducts->pluck('id')->filter()->all();
         $prodCodes = $rawProducts->pluck('codigo_sankhya')->filter()->all();
 
-        // Tabela de Preço do parceiro ou geral
-        $codTab = $partner?->metadados_sankhya['CODTAB'] ?? $partner?->metadados_sankhya['codtab'] ?? null;
-
+        // Tabela de Preço da região do parceiro (TSIREG.CODTAB) ou geral
         $priceItemsQuery = \App\Models\TabelaPrecoItem::where(function($q) use ($prodIds, $prodCodes) {
             if (!empty($prodIds)) {
                 $q->whereIn('produto_id', $prodIds);
@@ -316,11 +332,24 @@ class ProductController extends Controller
             }
         });
 
-        if (!empty($codTab)) {
-            $priceItemsAll = (clone $priceItemsQuery)->get();
-            $priceItemsPartner = $priceItemsAll->where('codigo_sankhya_tabela', (string)$codTab);
-            $priceItems = $priceItemsPartner->isNotEmpty() ? $priceItemsPartner : $priceItemsAll;
+        if ($partner !== null) {
+            // SE A REGIÃO NÃO TIVER TABELA, NÃO PRECIFICA! ALERTA DE TABELA INEXISTENTE
+            if (!empty($codTab)) {
+                $tabVariations = array_values(array_unique(array_filter([
+                    (string)$codTab,
+                    is_numeric($codTab) ? (string)((int)$codTab) : null,
+                    is_numeric($codTab) ? str_pad((string)((int)$codTab), 2, '0', STR_PAD_LEFT) : null,
+                    is_numeric($codTab) ? str_pad((string)((int)$codTab), 3, '0', STR_PAD_LEFT) : null,
+                    is_numeric($codTab) ? str_pad((string)((int)$codTab), 4, '0', STR_PAD_LEFT) : null,
+                ])));
+                $priceItemsQuery->whereIn('codigo_sankhya_tabela', $tabVariations);
+                $priceItems = $priceItemsQuery->get();
+            } else {
+                // Cliente selecionado mas SEM tabela de preços na região: NÃO busca preços
+                $priceItems = collect();
+            }
         } else {
+            // Sem cliente selecionado (consulta de catálogo geral): busca preços gerais disponíveis
             $priceItems = $priceItemsQuery->get();
         }
 
@@ -351,8 +380,14 @@ class ProductController extends Controller
             $precoMinimo = 0.00;
             $custo = null;
             $margem = null;
+            $motivoBloqueioPreco = null;
 
-            if ($priceItem && (float)$priceItem->preco_venda > 0) {
+            if ($partner !== null && empty($codTab)) {
+                // SE NA REGIÃO NÃO TIVER NÃO PRECIFICA! ENVIAR UM ALERTA DE TABELA INEXISTENTE
+                $precoSugerido = 0.00;
+                $precoMinimo = 0.00;
+                $motivoBloqueioPreco = "Tabela inexistente: A região deste cliente não possui tabela de preços vinculada na TSIREG do Sankhya.";
+            } elseif ($priceItem && (float)$priceItem->preco_venda > 0) {
                 $precoSugerido = round((float)$priceItem->preco_venda, 2);
                 $precoMinimo = (float)$priceItem->preco_minimo > 0 ? round((float)$priceItem->preco_minimo, 2) : round((float)$priceItem->preco_venda * 0.90, 2);
                 if ($canViewCosts) {
@@ -361,17 +396,19 @@ class ProductController extends Controller
                         $margem = round((($precoSugerido - $custo) / $precoSugerido) * 100, 2);
                     }
                 }
-            } elseif ($p->codigo_sankhya === 'PROD001') {
+            } elseif ($partner !== null && !empty($codTab)) {
+                $motivoBloqueioPreco = "Sem preço na Tabela #{$codTab} da região do cliente.";
+            } elseif ($p->codigo_sankhya === 'PROD001' && app()->environment('testing')) {
                 $precoSugerido = 85.00;
                 $precoMinimo = 75.00;
                 $custo = $canViewCosts ? 45.00 : null;
                 $margem = $canViewCosts ? 47.06 : null;
-            } elseif ($p->codigo_sankhya === 'PROD002') {
+            } elseif ($p->codigo_sankhya === 'PROD002' && app()->environment('testing')) {
                 $precoSugerido = 280.00;
                 $precoMinimo = 250.00;
                 $custo = $canViewCosts ? 160.00 : null;
                 $margem = $canViewCosts ? 42.86 : null;
-            } elseif ($p->codigo_sankhya === 'PROD003') {
+            } elseif ($p->codigo_sankhya === 'PROD003' && app()->environment('testing')) {
                 $precoSugerido = 45.00;
                 $precoMinimo = 40.00;
                 $custo = $canViewCosts ? 22.00 : null;
@@ -400,6 +437,8 @@ class ProductController extends Controller
                 'margem' => $margem,
                 'is_restrito' => $isRestrito,
                 'motivo_restricao' => $motivoRestricao,
+                'motivo_bloqueio_preco' => $motivoBloqueioPreco,
+                'tabela_regiao' => $codTab,
             ];
         }
 
@@ -415,7 +454,9 @@ class ProductController extends Controller
                 'cnpj' => $partner->cnpj,
                 'cidade' => $partner->cidade,
                 'uf' => $partner->uf,
+                'codigo_regiao' => $partner->codigo_regiao,
                 'tabela_codigo' => $codTab,
+                'tabela_regiao_inexistente' => empty($codTab),
             ] : null,
             'can_view_costs' => $canViewCosts
         ]);
