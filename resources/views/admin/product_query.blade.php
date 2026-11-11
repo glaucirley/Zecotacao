@@ -322,7 +322,8 @@
             if (p.preco_sugerido > 0) {
                 sugFormat = `R$ ${formatMoney(p.preco_sugerido)}`;
             } else if (p.motivo_bloqueio_preco) {
-                sugFormat = `<span style="color:#dc2626; font-size:11px; font-weight:600;" title="${escapeHtml(p.motivo_bloqueio_preco)}">❌ Sem preço (TSIREG)</span>`;
+                const label = p.tabela_regiao ? `❌ Sem preço na Tab. #${p.tabela_regiao}` : '❌ Região sem tabela';
+                sugFormat = `<span style="color:#dc2626; font-size:11px; font-weight:600; cursor:help;" title="${escapeHtml(p.motivo_bloqueio_preco)}">${label}</span>`;
             }
             const minFormat = p.preco_minimo > 0 ? `R$ ${formatMoney(p.preco_minimo)}` : '<span style="color:#94a3b8; font-size:11px;">-</span>';
 
