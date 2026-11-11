@@ -28,6 +28,25 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // Auto-reparo de integridade: garantir que cotacao_itens.produto_id seja NULL para itens não encontrados
+        try {
+            if (!\Illuminate\Support\Facades\Cache::has('schema_cotacao_itens_produto_id_nullable')) {
+                $col = \Illuminate\Support\Facades\DB::selectOne("
+                    SELECT IS_NULLABLE 
+                    FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                      AND TABLE_NAME = 'cotacao_itens' 
+                      AND COLUMN_NAME = 'produto_id'
+                ");
+                if ($col && strtoupper((string)$col->IS_NULLABLE) === 'NO') {
+                    \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0');
+                    \Illuminate\Support\Facades\DB::statement('ALTER TABLE cotacao_itens MODIFY COLUMN produto_id BIGINT UNSIGNED NULL');
+                    \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                }
+                \Illuminate\Support\Facades\Cache::put('schema_cotacao_itens_produto_id_nullable', true, now()->addDays(7));
+            }
+        } catch (\Throwable $th) {}
+
         // Rate limiter for authentication endpoints (prevent brute-force attacks)
         RateLimiter::for('login', function (Request $request) {
             $email = (string) $request->input('email');

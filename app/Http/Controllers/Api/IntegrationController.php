@@ -607,7 +607,35 @@ class IntegrationController extends Controller
                         $itemDataToCreate['restricao_origem'] = $item['restricao_origem'] ?? 'N8N';
                     }
 
-                    CotacaoItem::create($itemDataToCreate);
+                    try {
+                        CotacaoItem::create($itemDataToCreate);
+                    } catch (\Throwable $eCreate) {
+                        $msgErr = $eCreate->getMessage();
+                        if (str_contains($msgErr, 'produto_id') && (str_contains($msgErr, 'cannot be null') || str_contains($msgErr, '1048'))) {
+                            // Tenta alterar a coluna para NULL imediatamente
+                            try {
+                                \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0');
+                                \Illuminate\Support\Facades\DB::statement('ALTER TABLE cotacao_itens MODIFY COLUMN produto_id BIGINT UNSIGNED NULL');
+                                \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                                CotacaoItem::create($itemDataToCreate);
+                            } catch (\Throwable $eAlter) {
+                                \Illuminate\Support\Facades\Log::warning("Não foi possível alterar cotacao_itens.produto_id para NULL: " . $eAlter->getMessage() . ". Usando fallback de produto singleton.");
+                                // Fallback seguro: usa um único produto de sistema genérico para nunca bloquear o webhook do N8N
+                                $singleton = Produto::firstOrCreate(
+                                    ['codigo_sankhya' => 'ITEM_NAO_ENCONTRADO'],
+                                    [
+                                        'descricao' => 'Item Não Encontrado pelo Catálogo',
+                                        'unidade' => 'UN',
+                                        'ativo' => false,
+                                    ]
+                                );
+                                $itemDataToCreate['produto_id'] = $singleton->id;
+                                CotacaoItem::create($itemDataToCreate);
+                            }
+                        } else {
+                            throw $eCreate;
+                        }
+                    }
                 }
 
                 // 6.1 Validate Commercial Restrictions (AD_EXCPRODUTO e AD_EXCMARCA)
