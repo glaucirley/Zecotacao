@@ -81,6 +81,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/parametros/sankhya/conexao', [ParameterController::class, 'saveSankhyaSettings']);
             Route::post('/parametros/sankhya/testar', [ParameterController::class, 'testSankhyaConnection']);
             Route::post('/parametros/sankhya/sincronizar', [ParameterController::class, 'syncSankhyaCatalog']);
+            Route::post('/parametros/sankhya/sincronizar-precos', [ParameterController::class, 'syncSankhyaPricesOnly']);
 
             // 7. User Management Routes (Administrator only)
             Route::get('/usuarios', [UserController::class, 'index']);

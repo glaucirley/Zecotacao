@@ -649,31 +649,66 @@ class SankhyaDatabaseService
 
     /**
      * Bulk save/sync price tables and items from Oracle VGF_PRECOAPP view rows.
+     * Utilizes chunked upsert for maximum performance (500 items per query instead of individual queries).
      */
     public function savePriceTablesFromViewRows(array $rows): int
     {
-        $productsMap = Produto::pluck('id', 'codigo_sankhya')->toArray();
+        if (empty($rows)) {
+            return 0;
+        }
+
+        // Pré-carrega produtos em memória indexando por variações de código
+        $productsMap = [];
+        foreach (Produto::select(['id', 'codigo_sankhya'])->get() as $p) {
+            $c = trim((string)$p->codigo_sankhya);
+            if ($c !== '') {
+                $productsMap[$c] = $p->id;
+                if (is_numeric($c)) {
+                    $productsMap[(string)((int)$c)] = $p->id;
+                }
+            }
+        }
+
+        // Pré-carrega ou cria cabeçalhos de tabelas de preço
         $tablesMap = [];
+        foreach (TabelaPreco::all() as $t) {
+            $cod = trim((string)$t->codigo_sankhya);
+            $tablesMap[$cod] = $t->id;
+            if (is_numeric($cod)) {
+                $tablesMap[(string)((int)$cod)] = $t->id;
+            }
+        }
+
+        $now = now()->toDateTimeString();
+        $batch = [];
         $count = 0;
 
         foreach ($rows as $row) {
-            $codTab = (string)($row['CODTAB'] ?? $row['codtab']);
-            $nomeTab = $row['NOMETAB'] ?? $row['nometab'] ?? ('Tabela ' . $codTab);
-            $codProd = (string)($row['CODPROD'] ?? $row['codprod']);
+            $codTabRaw = trim((string)($row['CODTAB'] ?? $row['codtab'] ?? ''));
+            $codProdRaw = trim((string)($row['CODPROD'] ?? $row['codprod'] ?? ''));
 
-            if (!isset($tablesMap[$codTab])) {
+            if ($codTabRaw === '' || $codProdRaw === '') {
+                continue;
+            }
+
+            // Garante que o cabeçalho da tabela de preço exista
+            if (!isset($tablesMap[$codTabRaw])) {
+                $nomeTab = trim((string)($row['NOMETAB'] ?? $row['nometab'] ?? ('Tabela ' . $codTabRaw)));
                 $tabela = TabelaPreco::updateOrCreate(
-                    ['codigo_sankhya' => $codTab],
+                    ['codigo_sankhya' => $codTabRaw],
                     [
-                        'nome_tabela' => $nomeTab,
+                        'nome_tabela' => $nomeTab ?: ('Tabela ' . $codTabRaw),
                         'ativa'       => true,
                     ]
                 );
-                $tablesMap[$codTab] = $tabela->id;
+                $tablesMap[$codTabRaw] = $tabela->id;
+                if (is_numeric($codTabRaw)) {
+                    $tablesMap[(string)((int)$codTabRaw)] = $tabela->id;
+                }
             }
 
-            $tabelaId = $tablesMap[$codTab];
-            $produtoId = $productsMap[$codProd] ?? null;
+            $tabelaId = $tablesMap[$codTabRaw];
+            $produtoId = $productsMap[$codProdRaw] ?? (is_numeric($codProdRaw) ? ($productsMap[(string)((int)$codProdRaw)] ?? null) : null);
 
             $precoVenda = round((float)($row['VLRVENDA_TAB'] ?? $row['vlrvenda_tab'] ?? 0), 2);
             $precoPadrao = round((float)($row['VLRPAD'] ?? $row['vlrpad'] ?? $precoVenda), 2);
@@ -682,29 +717,39 @@ class SankhyaDatabaseService
             $margemMinima = round((float)($row['MARGMIN'] ?? $row['margmin'] ?? 0), 2);
             $custoVariavel = round((float)($row['CUSVAR'] ?? $row['cusvar'] ?? 0), 2);
 
-            TabelaPrecoItem::updateOrCreate(
-                [
-                    'tabela_preco_id'        => $tabelaId,
-                    'codigo_sankhya_produto' => $codProd,
-                ],
-                [
-                    'codigo_sankhya_tabela' => $codTab,
-                    'produto_id'            => $produtoId,
-                    'preco_venda'           => $precoVenda,
-                    'preco_padrao'          => $precoPadrao,
-                    'preco_minimo'          => $precoMinimo,
-                    'margem_lucro'          => $margemLucro,
-                    'margem_minima'         => $margemMinima,
-                    'custo_variavel'        => $custoVariavel,
-                ]
-            );
+            $batch[] = [
+                'tabela_preco_id'        => $tabelaId,
+                'codigo_sankhya_tabela'  => $codTabRaw,
+                'produto_id'             => $produtoId,
+                'codigo_sankhya_produto' => $codProdRaw,
+                'preco_venda'            => $precoVenda,
+                'preco_padrao'           => $precoPadrao,
+                'preco_minimo'           => $precoMinimo,
+                'margem_lucro'           => $margemLucro,
+                'margem_minima'          => $margemMinima,
+                'custo_variavel'         => $custoVariavel,
+                'created_at'             => $now,
+                'updated_at'             => $now,
+            ];
 
-            // Optionally update product's custo_variavel if present
-            if ($produtoId && $custoVariavel > 0 && \Illuminate\Support\Facades\Schema::hasColumn('produtos', 'custo_variavel')) {
-                Produto::where('id', $produtoId)->update(['custo_variavel' => $custoVariavel]);
+            if (count($batch) >= 500) {
+                TabelaPrecoItem::upsert(
+                    $batch,
+                    ['tabela_preco_id', 'codigo_sankhya_produto'],
+                    ['codigo_sankhya_tabela', 'produto_id', 'preco_venda', 'preco_padrao', 'preco_minimo', 'margem_lucro', 'margem_minima', 'custo_variavel', 'updated_at']
+                );
+                $count += count($batch);
+                $batch = [];
             }
+        }
 
-            $count++;
+        if (!empty($batch)) {
+            TabelaPrecoItem::upsert(
+                $batch,
+                ['tabela_preco_id', 'codigo_sankhya_produto'],
+                ['codigo_sankhya_tabela', 'produto_id', 'preco_venda', 'preco_padrao', 'preco_minimo', 'margem_lucro', 'margem_minima', 'custo_variavel', 'updated_at']
+            );
+            $count += count($batch);
         }
 
         return $count;

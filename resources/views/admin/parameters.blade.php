@@ -492,9 +492,13 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                 Testar Conexão
             </button>
+            <button type="button" class="btn" onclick="syncPricesOnly()" id="btn-sync-prices" style="background: #0284c7; color: #ffffff; border: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; cursor: pointer;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Sincronizar Apenas Preços
+            </button>
             <button type="button" class="btn btn-primary" onclick="syncCatalog()" id="btn-sync-catalog" style="font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                Sincronizar Catálogo Agora
+                Sincronizar Catálogo Completo
             </button>
         </div>
     </div>
@@ -965,6 +969,37 @@
                     btn.disabled = false;
                 }
             }
+        });
+    }
+
+    function syncPricesOnly() {
+        const btn = document.getElementById("btn-sync-prices");
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = "<span>Sincronizando Preços...</span>";
+        btn.disabled = true;
+
+        fetch("{{ url('/api/v1/parametros/sankhya/sincronizar-precos') }}", {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, "success");
+            } else {
+                showToast(data.error || data.message || "Falha ao sincronizar preços.", "error");
+            }
+        })
+        .catch(err => {
+            showToast("Erro ao sincronizar preços: " + err.message, "error");
+        })
+        .finally(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
         });
     }
 </script>

@@ -387,4 +387,36 @@ class ParameterController extends Controller
             'message' => $msg
         ]);
     }
+
+    /**
+     * Sincronizar especificamente as Tabelas de Preço do Sankhya (VGF_PRECOAPP) de forma rápida.
+     */
+    public function syncSankhyaPricesOnly()
+    {
+        $user = Auth::user();
+        if (!$user->isAdministrador()) {
+            return response()->json(['error' => 'Forbidden.'], 403);
+        }
+
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
+
+        try {
+            $db = resolve(\App\Services\SankhyaDatabaseService::class);
+            $rows = $db->fetchPriceTablesFromView();
+            $count = $db->savePriceTablesFromViewRows($rows);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Tabelas de Preço sincronizadas com sucesso! {$count} itens de preço foram atualizados a partir da view VGF_PRECOAPP.",
+                'count' => $count
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Erro na sincronização de tabelas de preço: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Falha na sincronização de preços: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
