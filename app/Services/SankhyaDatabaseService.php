@@ -67,7 +67,17 @@ class SankhyaDatabaseService
             ]);
         } catch (\PDOException $e) {
             Log::error("Sankhya Service - Connection failed: " . $e->getMessage());
-            throw new \Exception("Falha na conexão com o banco Oracle do Sankhya: " . $e->getMessage());
+            $rawMsg = $e->getMessage();
+            if (str_contains($rawMsg, 'ORA-01017')) {
+                throw new \Exception("Falha de autenticação no Oracle (ORA-01017: Usuário ou senha inválidos). O servidor Oracle foi alcançado com sucesso, mas rejeitou o login. Verifique o campo 'Usuário do Banco' e digite a senha correta no campo 'Senha do Banco' nesta tela antes de testar ou sincronizar.");
+            }
+            if (str_contains($rawMsg, 'ORA-12170') || str_contains($rawMsg, 'ORA-12541') || str_contains($rawMsg, 'ORA-12543')) {
+                throw new \Exception("Não foi possível alcançar o servidor Oracle ({$host}:{$port}). Verifique se o Host/IP e a Porta estão corretos e se a máquina permite conexões.");
+            }
+            if (str_contains($rawMsg, 'ORA-12514') || str_contains($rawMsg, 'ORA-12505')) {
+                throw new \Exception("Serviço ou SID Oracle '{$serviceName}' não foi encontrado no servidor ({$host}). Verifique o 'Nome do Serviço / SID Oracle'.");
+            }
+            throw new \Exception("Falha na conexão com o banco Oracle do Sankhya: " . $rawMsg);
         }
 
         return $this->pdo;

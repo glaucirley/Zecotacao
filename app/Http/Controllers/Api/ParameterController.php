@@ -49,9 +49,19 @@ class ParameterController extends Controller
 
         $params = ParametroSistema::where('chave', '!=', 'SANKHYA_DB_PASS')->get();
 
+        $encPass = ParametroSistema::getVal('SANKHYA_DB_PASS');
+        $hasCustomPass = false;
+        if (!empty($encPass)) {
+            try {
+                $dec = \Illuminate\Support\Facades\Crypt::decryptString($encPass);
+                $hasCustomPass = (!empty($dec) && $dec !== 'sankhya_senha_padrao');
+            } catch (\Throwable $th) {}
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $params
+            'data' => $params,
+            'sankhya_pass_configured' => $hasCustomPass,
         ]);
     }
 

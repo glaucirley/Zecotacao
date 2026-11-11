@@ -544,6 +544,7 @@
                                 <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
+                        <div id="sankhya-pass-status" style="font-size: 11.5px; margin-top: 5px;"></div>
                     </div>
                 </div>
 
@@ -641,6 +642,16 @@
 
             if (data.success) {
                 const list = data.data;
+
+                // Status da senha do banco Oracle
+                const passStatusEl = document.getElementById("sankhya-pass-status");
+                if (passStatusEl) {
+                    if (data.sankhya_pass_configured) {
+                        passStatusEl.innerHTML = '<span style="color: #16a34a; font-weight: 600;">🔒 Senha configurada no sistema. Preencha apenas se desejar alterá-la.</span>';
+                    } else {
+                        passStatusEl.innerHTML = '<span style="color: #dc2626; font-weight: 600;">⚠️ Nenhuma senha do Oracle informada (ou está com senha padrão). Digite a senha do banco Sankhya acima e clique em Salvar.</span>';
+                    }
+                }
 
                 // Technical Sankhya keys
                 const connectionKeys = [
