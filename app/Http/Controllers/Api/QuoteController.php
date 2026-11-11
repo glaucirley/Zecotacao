@@ -230,6 +230,22 @@ class QuoteController extends Controller
         try {
             return DB::transaction(function () use ($request, $repId, $user) {
                 $partner = \App\Models\Parceiro::findOrFail($request->input('parceiro_id'));
+
+                // Validação de Proteção de Carteira (AD_CARTLIVRE)
+                $restringir = filter_var(\App\Models\ParametroSistema::getVal('RESTRINGIR_CLIENTES_POR_REPRESENTANTE', true), FILTER_VALIDATE_BOOLEAN);
+                $isSuperRole = $user->isAdministrador() || $user->isDiretor() || $user->isFaturamento() || $user->isSuporte() || ($user->papel === 'suporte');
+
+                if ($restringir && !$isSuperRole) {
+                    if ($user->isRepresentante() || in_array($user->papel, ['representante', 'vendedor'])) {
+                        if (!$partner->pertenceAoVendedor($user->codigo_sankhya)) {
+                            return response()->json([
+                                'error' => 'Acesso não autorizado',
+                                'message' => "Acesso não autorizado: o cliente '{$partner->razao_social}' pertence à carteira exclusiva de outro vendedor e não está classificado como Carteira Livre no Sankhya."
+                            ], 403);
+                        }
+                    }
+                }
+
                 $codTabRegiao = $partner->codigo_tabela_preco;
 
                 // Se estiver vazio no banco local, tenta obter TSIREG.CODTAB do Sankhya sob demanda

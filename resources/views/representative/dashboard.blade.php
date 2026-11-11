@@ -2779,7 +2779,7 @@
             if (!list || list.length === 0) {
                 container.innerHTML = `
                     <div style="text-align:center; padding:16px; background:#f8fafc; border-radius:10px; border:1px dashed var(--color-border); font-size:12px; color:var(--color-text-muted);">
-                        ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${escapeHtml(query)}</strong>"...` : `Nenhum cliente encontrado para "<strong>${escapeHtml(query)}</strong>".`) : 'Sem clientes para exibir.'}
+                        ${query ? (isSearching ? `🔍 Buscando clientes para "<strong>${escapeHtml(query)}</strong>"...` : `Nenhum cliente encontrado na sua carteira ou em Carteira Livre para "<strong>${escapeHtml(query)}</strong>".`) : 'Sem clientes para exibir.'}
                     </div>
                 `;
                 return;
@@ -2803,6 +2803,7 @@
                 const isExact = qNorm && (normalizeStr(pFantasia) === qNorm || normalizeStr(pRazao) === qNorm);
                 const cardBorder = isExact ? 'border: 2px solid #22c55e; background: #f0fdf4;' : 'border: 1px solid var(--color-border); background: #ffffff;';
                 const exactBadge = isExact ? `<span style="display:inline-flex; align-items:center; gap:3px; background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px;">✓ Correspondência Exata</span>` : '';
+                const livreBadge = p.carteira_livre ? `<span style="display:inline-flex; align-items:center; gap:3px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px;" title="Cliente liberado para qualquer vendedor">🌐 Carteira Livre</span>` : '';
 
                 container.innerHTML += `
                     <div class="partner-item-card" onclick="selectPartnerById(${p.id})" style="${cardBorder} border-radius:10px; padding:12px; margin-bottom:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;">
@@ -2810,6 +2811,7 @@
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                 <span style="font-weight:700; font-size:14px; color:var(--color-text); line-height:1.3;">${escapeHtml(mainTitle)}</span>
                                 ${exactBadge}
+                                ${livreBadge}
                             </div>
                             ${subTitle ? `<div style="font-size:12px; color:#475569; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Razão: ${escapeHtml(subTitle)}</div>` : ''}
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px;">

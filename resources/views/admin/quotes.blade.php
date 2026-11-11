@@ -2275,6 +2275,7 @@
             const isExact = qNorm && (normalizeStr(pFantasia) === qNorm || normalizeStr(pRazao) === qNorm);
             const cardBorder = isExact ? 'border: 2px solid #22c55e; background: #f0fdf4;' : 'border: 1px solid #e2e8f0; background: #ffffff;';
             const exactBadge = isExact ? `<span style="display:inline-flex; align-items:center; gap:3px; background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px;">✓ Correspondência Exata</span>` : '';
+            const livreBadge = p.carteira_livre ? `<span style="display:inline-flex; align-items:center; gap:3px; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px;" title="Cliente liberado para qualquer vendedor">🌐 Carteira Livre</span>` : '';
 
             html += `
                 <div class="partner-item-card" onclick="selectAdminPartnerById(${p.id})" style="${cardBorder} border-radius:8px; padding:10px 12px; margin-bottom:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;">
@@ -2282,6 +2283,7 @@
                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                             <span style="font-weight:700; font-size:13.5px; color:var(--color-text); line-height:1.3;">${escapeHtml(mainTitle)}</span>
                             ${exactBadge}
+                            ${livreBadge}
                         </div>
                         ${subTitle ? `<div style="font-size:11.5px; color:#475569; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Razão: ${escapeHtml(subTitle)}</div>` : ''}
                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:5px;">

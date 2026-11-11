@@ -18,19 +18,70 @@ class PartnerController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
         $search = trim((string)$request->input('search', ''));
         $status = $request->input('status');
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 20;
 
-        $cacheKey = 'partners_search_v5_' . md5(mb_strtolower($search) . '_' . ($status ?? '') . '_' . $limit);
+        $restringir = filter_var(\App\Models\ParametroSistema::getVal('RESTRINGIR_CLIENTES_POR_REPRESENTANTE', true), FILTER_VALIDATE_BOOLEAN);
+        $userScope = $user ? ($user->papel . '_' . ($user->codigo_sankhya ?: $user->id) . '_' . ($restringir ? '1' : '0')) : 'all';
 
-        $partners = Cache::remember($cacheKey, 60, function () use ($search, $status, $limit) {
+        $cacheKey = 'partners_search_v6_' . md5($userScope . '_' . mb_strtolower($search) . '_' . ($status ?? '') . '_' . $limit);
+
+        $partners = Cache::remember($cacheKey, 60, function () use ($search, $status, $limit, $user, $restringir) {
             $query = Parceiro::query()->select([
                 'id', 'codigo_sankhya', 'razao_social', 'nome_fantasia',
                 'cnpj', 'cidade', 'uf', 'bairro', 'ativo',
-                'codigo_regiao', 'codigo_tabela_preco',
+                'codigo_regiao', 'codigo_tabela_preco', 'carteira_livre',
                 'vendedor_1_codigo', 'vendedor_2_codigo', 'vendedor_3_codigo', 'vendedor_4_codigo', 'vendedor_5_codigo'
             ]);
+
+            // Regra de Proteção de Carteira com AD_CARTLIVRE
+            if ($restringir && $user) {
+                $isSuperRole = $user->isAdministrador() || $user->isDiretor() || $user->isFaturamento() || $user->isSuporte() || ($user->papel === 'suporte');
+
+                if (!$isSuperRole) {
+                    if ($user->isGestor()) {
+                        // Gestor: vê Carteira Livre + clientes da sua equipe
+                        $memberCodes = $user->equipe ? $user->equipe->membros()->pluck('codigo_sankhya')->filter()->all() : [];
+                        $teamCodes = array_values(array_unique(array_filter(array_merge([$user->codigo_sankhya], $memberCodes))));
+
+                        $query->where(function ($q) use ($teamCodes) {
+                            $q->where('carteira_livre', true);
+                            if (!empty($teamCodes)) {
+                                $q->orWhereIn('vendedor_1_codigo', $teamCodes)
+                                  ->orWhereIn('vendedor_2_codigo', $teamCodes)
+                                  ->orWhereIn('vendedor_3_codigo', $teamCodes)
+                                  ->orWhereIn('vendedor_4_codigo', $teamCodes)
+                                  ->orWhereIn('vendedor_5_codigo', $teamCodes);
+                            }
+                        });
+                    } elseif ($user->isRepresentante() || in_array($user->papel, ['representante', 'vendedor'])) {
+                        // Vendedor (Externo ou Televendas/Interno): vê apenas sua carteira + Carteira Livre
+                        $codVend = trim((string)($user->codigo_sankhya ?? ''));
+
+                        $query->where(function ($q) use ($codVend) {
+                            $q->where('carteira_livre', true);
+                            if ($codVend !== '') {
+                                $q->orWhere('vendedor_1_codigo', $codVend)
+                                  ->orWhere('vendedor_2_codigo', $codVend)
+                                  ->orWhere('vendedor_3_codigo', $codVend)
+                                  ->orWhere('vendedor_4_codigo', $codVend)
+                                  ->orWhere('vendedor_5_codigo', $codVend);
+
+                                if (is_numeric($codVend)) {
+                                    $intCod = (string)((int)$codVend);
+                                    $q->orWhere('vendedor_1_codigo', $intCod)
+                                      ->orWhere('vendedor_2_codigo', $intCod)
+                                      ->orWhere('vendedor_3_codigo', $intCod)
+                                      ->orWhere('vendedor_4_codigo', $intCod)
+                                      ->orWhere('vendedor_5_codigo', $intCod);
+                                }
+                            }
+                        });
+                    }
+                }
+            }
 
             if ($search !== '') {
                 $cleanDigits = preg_replace('/[^0-9]/', '', $search);

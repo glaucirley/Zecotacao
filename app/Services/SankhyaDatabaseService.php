@@ -271,6 +271,7 @@ class SankhyaDatabaseService
             PAR.IDENTINSCESTAD        AS INSCRICAO_ESTADUAL,
             PAR.TIPPESSOA,
             PAR.CODREG                AS REGIAO_ID,
+            PAR.AD_CARTLIVRE          AS CARTEIRA_LIVRE,
             {$codTabSelect},
             PAR.NUMEND                AS NUMERO,
             PAR.CEP,
@@ -412,6 +413,8 @@ class SankhyaDatabaseService
                 'tipo_pessoa'         => $this->cleanStr($row['TIPPESSOA'] ?? $row['tippessoa'] ?? null),
                 'codigo_regiao'       => isset($row['REGIAO_ID']) ? (string)$row['REGIAO_ID'] : (isset($row['regiao_id']) ? (string)$row['regiao_id'] : null),
                 'codigo_tabela_preco' => $resolvedCodTab,
+                'carteira_livre'      => (isset($row['CARTEIRA_LIVRE']) && strtoupper(trim((string)$row['CARTEIRA_LIVRE'])) === 'S')
+                    || (isset($row['carteira_livre']) && (strtoupper(trim((string)$row['carteira_livre'])) === 'S' || $row['carteira_livre'] === true || $row['carteira_livre'] === 1 || $row['carteira_livre'] === '1')),
                 'vendedor_1_codigo'   => isset($row['VENDEDOR_1']) ? (string)$row['VENDEDOR_1'] : (isset($row['vendedor_1']) ? (string)$row['vendedor_1'] : null),
                 'vendedor_2_codigo'   => isset($row['VENDEDOR_2']) ? (string)$row['VENDEDOR_2'] : (isset($row['vendedor_2']) ? (string)$row['vendedor_2'] : null),
                 'vendedor_3_codigo'   => isset($row['VENDEDOR_3']) ? (string)$row['VENDEDOR_3'] : (isset($row['vendedor_3']) ? (string)$row['vendedor_3'] : null),
@@ -540,6 +543,76 @@ class SankhyaDatabaseService
                 $count++;
             }
         }
+        return $count;
+    }
+
+    /**
+     * Sincroniza em massa o status de Carteira Livre (AD_CARTLIVRE) para todos os parceiros.
+     */
+    public function syncAllPartnerCarteiraLivre(): int
+    {
+        $conn = $this->connect();
+        $queries = [
+            "SELECT CODPARC, AD_CARTLIVRE FROM SANKHYA.TGFPAR WHERE CLIENTE = 'S'",
+            "SELECT CODPARC, AD_CARTLIVRE FROM TGFPAR WHERE CLIENTE = 'S'",
+            "SELECT CODPARC, AD_CARTLIVRE FROM SANKHYA.TGFPAR",
+            "SELECT CODPARC, AD_CARTLIVRE FROM TGFPAR",
+        ];
+
+        $rows = [];
+        foreach ($queries as $sql) {
+            try {
+                $rows = $conn->query($sql)->fetchAll();
+                if (!empty($rows)) break;
+            } catch (\Throwable $e) {
+                // Tenta próxima query
+            }
+        }
+
+        if (empty($rows)) {
+            return 0;
+        }
+
+        $livres = [];
+        $naoLivres = [];
+
+        foreach ($rows as $r) {
+            $cod = trim((string)($r['CODPARC'] ?? $r['codparc'] ?? ''));
+            if ($cod === '') continue;
+
+            $val = strtoupper(trim((string)($r['AD_CARTLIVRE'] ?? $r['ad_cartlivre'] ?? '')));
+            if ($val === 'S') {
+                $livres[] = $cod;
+                if (is_numeric($cod)) {
+                    $livres[] = (string)((int)$cod);
+                }
+            } else {
+                $naoLivres[] = $cod;
+                if (is_numeric($cod)) {
+                    $naoLivres[] = (string)((int)$cod);
+                }
+            }
+        }
+
+        $count = 0;
+        if (!empty($livres)) {
+            $chunks = array_chunk(array_values(array_unique($livres)), 500);
+            foreach ($chunks as $chunk) {
+                $count += Parceiro::whereIn('codigo_sankhya', $chunk)
+                    ->where('carteira_livre', false)
+                    ->update(['carteira_livre' => true]);
+            }
+        }
+
+        if (!empty($naoLivres)) {
+            $chunksN = array_chunk(array_values(array_unique($naoLivres)), 500);
+            foreach ($chunksN as $chunk) {
+                Parceiro::whereIn('codigo_sankhya', $chunk)
+                    ->where('carteira_livre', true)
+                    ->update(['carteira_livre' => false]);
+            }
+        }
+
         return $count;
     }
 

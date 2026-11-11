@@ -17,6 +17,7 @@ class Parceiro extends Model
         'tipo_pessoa',
         'codigo_regiao',
         'codigo_tabela_preco',
+        'carteira_livre',
         'vendedor_1_codigo',
         'vendedor_2_codigo',
         'vendedor_3_codigo',
@@ -38,6 +39,7 @@ class Parceiro extends Model
 
     protected $casts = [
         'ativo' => 'boolean',
+        'carteira_livre' => 'boolean',
         'metadados_sankhya' => 'array',
     ];
 
@@ -196,6 +198,38 @@ class Parceiro extends Model
             $this->vendedor_4_codigo,
             $this->vendedor_5_codigo,
         ]));
+    }
+
+    /**
+     * Verifica se o parceiro pertence à carteira do vendedor ou se é Carteira Livre.
+     */
+    public function pertenceAoVendedor(?string $codVend): bool
+    {
+        if ($this->carteira_livre) {
+            return true;
+        }
+
+        if (empty($codVend)) {
+            return false;
+        }
+
+        $cleanCod = trim((string)$codVend);
+        $vendedores = array_map('trim', array_map('strval', $this->vendedores_codigos));
+
+        if (in_array($cleanCod, $vendedores, true)) {
+            return true;
+        }
+
+        if (is_numeric($cleanCod)) {
+            $intCod = (string)((int)$cleanCod);
+            foreach ($vendedores as $v) {
+                if (is_numeric($v) && (string)((int)$v) === $intCod) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function cotacoes()
