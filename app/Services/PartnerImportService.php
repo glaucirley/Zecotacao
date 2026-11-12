@@ -68,6 +68,24 @@ class PartnerImportService
         'vendedor_1'      => 'vendedor_1_codigo',
         'vendedor_1_codigo' => 'vendedor_1_codigo',
         'vendedor_codigo' => 'vendedor_1_codigo',
+        'ad_aglutina'     => 'vendedor_2_codigo',
+        'vendedor_2'      => 'vendedor_2_codigo',
+        'vendedor_2_codigo' => 'vendedor_2_codigo',
+        'ad_aglutina2'    => 'vendedor_3_codigo',
+        'vendedor_3'      => 'vendedor_3_codigo',
+        'vendedor_3_codigo' => 'vendedor_3_codigo',
+        'ad_aglutina3'    => 'vendedor_4_codigo',
+        'vendedor_4'      => 'vendedor_4_codigo',
+        'vendedor_4_codigo' => 'vendedor_4_codigo',
+        'ad_aglutina4'    => 'vendedor_5_codigo',
+        'vendedor_5'      => 'vendedor_5_codigo',
+        'vendedor_5_codigo' => 'vendedor_5_codigo',
+
+        // Carteira Livre (AD_CARTLIVRE)
+        'ad_cartlivre'    => 'carteira_livre',
+        'ad_cart_livre'   => 'carteira_livre',
+        'carteira_livre'  => 'carteira_livre',
+        'cartlivre'       => 'carteira_livre',
 
         // Status
         'ativo'           => 'ativo',
@@ -306,6 +324,12 @@ class PartnerImportService
         // Clean UF (normalized 2-letter uppercase acronym)
         if (isset($normalized['uf'])) {
             $normalized['uf'] = Parceiro::normalizeUf($normalized['uf'], $normalized['cidade'] ?? null);
+        }
+
+        // Normalize carteira_livre
+        if (isset($normalized['carteira_livre'])) {
+            $val = strtolower((string)$normalized['carteira_livre']);
+            $normalized['carteira_livre'] = in_array($val, ['1', 's', 'sim', 'true', 't']);
         }
 
         // Normalize ativo status
