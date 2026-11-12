@@ -144,3 +144,22 @@ Quando o n8n faz o disparo para `POST /api/v1/cotacoes`:
 4. O n8n pode capturar o valor `url_acesso` e enviar via WhatsApp para o vendedor caso desejado!
 
 ================================================================================
+PASSO 5: TRATAMENTO DE ERROS E PROTEÇÃO DE CARTEIRA (HTTP 403)
+================================================================================
+Se o vendedor tentar cotar via WhatsApp para um cliente que pertence à carteira
+exclusiva de outro vendedor e NÃO estiver marcado como Carteira Livre (AD_CARTLIVRE = S),
+a API rejeitará a solicitação com status HTTP 403 e a seguinte resposta JSON:
+
+{
+  "success": false,
+  "error": "Acesso não autorizado",
+  "code": "CLIENTE_FORA_DA_CARTEIRA",
+  "message": "Não foi possível iniciar a cotação: o cliente '...' pertence à carteira exclusiva de outro vendedor e não está classificado como Carteira Livre no Sankhya."
+}
+
+Sugestão de nó no n8n:
+- No nó HTTP Request de envio da cotação, você pode habilitar a opção "Never Error" (ou conectar a saída de erro)
+- Se o HTTP Code for 403 ou o campo "code" for "CLIENTE_FORA_DA_CARTEIRA", envie a mensagem de volta para o vendedor no WhatsApp:
+  "⚠️ *Atenção:* " + $json.message
+
+================================================================================

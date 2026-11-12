@@ -414,6 +414,83 @@ class IntegrationController extends Controller
                     }
                 }
 
+                // 3.1 Validação de Carteira de Clientes (AD_CARTLIVRE) para o Webhook do N8N / WhatsApp
+                $restringir = filter_var(\App\Models\ParametroSistema::getVal('RESTRINGIR_CLIENTES_POR_REPRESENTANTE', true), FILTER_VALIDATE_BOOLEAN);
+                $isSuperRole = $representative->isAdministrador() || $representative->isDiretor() || $representative->isFaturamento() || $representative->isSuporte() || ($representative->papel === 'suporte');
+
+                if ($restringir && !$isSuperRole) {
+                    $pertence = false;
+
+                    if ($representative->isGestor()) {
+                        $memberCodes = $representative->equipe ? $representative->equipe->membros()->pluck('codigo_sankhya')->filter()->all() : [];
+                        $teamCodes = array_values(array_unique(array_filter(array_merge([$representative->codigo_sankhya], $memberCodes))));
+                        if ($partner->carteira_livre) {
+                            $pertence = true;
+                        } else {
+                            foreach ($teamCodes as $tCode) {
+                                if ($partner->pertenceAoVendedor($tCode)) {
+                                    $pertence = true;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        $pertence = $partner->pertenceAoVendedor($representative->codigo_sankhya);
+                    }
+
+                    // Se não pertenceu no banco local, tenta uma sincronização sob demanda do Sankhya
+                    // para garantir que não bloqueamos caso o cliente tenha acabado de ser liberado no ERP
+                    if (!$pertence) {
+                        try {
+                            $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                            $refreshedPartner = $sankhyaDb->syncPartnerByCode($partner->codigo_sankhya);
+                            if ($refreshedPartner) {
+                                $partner = $refreshedPartner;
+                                if ($representative->isGestor()) {
+                                    if ($partner->carteira_livre) {
+                                        $pertence = true;
+                                    } else {
+                                        foreach ($teamCodes as $tCode) {
+                                            if ($partner->pertenceAoVendedor($tCode)) {
+                                                $pertence = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    $pertence = $partner->pertenceAoVendedor($representative->codigo_sankhya);
+                                }
+                            }
+                        } catch (\Throwable $eSync) {
+                            // Mantém o estado atual se não conseguir consultar o ERP
+                        }
+                    }
+
+                    if (!$pertence) {
+                        $repNome = $representative->nome ?: ('Vendedor ' . $representative->codigo_sankhya);
+                        $clientNome = $partner->nome_fantasia ?: $partner->razao_social;
+
+                        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+                            response()->json([
+                                'success' => false,
+                                'error' => 'Acesso não autorizado',
+                                'code' => 'CLIENTE_FORA_DA_CARTEIRA',
+                                'message' => "Não foi possível iniciar a cotação: o cliente '{$clientNome}' (Cód: {$partner->codigo_sankhya}) pertence à carteira exclusiva de outro vendedor e não está classificado como Carteira Livre no Sankhya.",
+                                'parceiro' => [
+                                    'codigo_sankhya' => $partner->codigo_sankhya,
+                                    'razao_social' => $partner->razao_social,
+                                    'nome_fantasia' => $partner->nome_fantasia,
+                                    'carteira_livre' => (bool)$partner->carteira_livre,
+                                ],
+                                'representante' => [
+                                    'codigo_sankhya' => $representative->codigo_sankhya,
+                                    'nome' => $repNome,
+                                ],
+                            ], 403)
+                        );
+                    }
+                }
+
                 // 4. Resolve Products: Bulk pre-fetch local products to prevent slow remote queries and 504 Gateway Time-out
                 $itemCodes = array_values(array_unique(array_filter(array_map(function ($i) {
                     $code = isset($i['codigo_sankhya']) ? trim((string)$i['codigo_sankhya']) : '';
@@ -715,6 +792,8 @@ class IntegrationController extends Controller
                 ]
             ], 201);
 
+        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+            return $e->getResponse();
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error("Falha ao importar cotação via API/Webhook: " . $e->getMessage(), [
                 'exception' => $e,
