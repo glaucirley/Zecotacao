@@ -385,6 +385,17 @@ class IntegrationController extends Controller
                 // 3. Resolve Partner (Cliente) with payload auto-provisioning fallback
                 $partnerData = $data['parceiro'];
                 $partner = Parceiro::where('codigo_sankhya', $partnerData['codigo_sankhya'])->first();
+
+                // Identifica se o payload do n8n já informou carteira livre (AD_CARTLIVRE)
+                $payloadCartLivre = $partnerData['carteira_livre'] 
+                    ?? $partnerData['ad_cartlivre'] 
+                    ?? $partnerData['ad_cart_livre'] 
+                    ?? null;
+                $hasPayloadCartLivre = ($payloadCartLivre !== null);
+                $isPayloadCartLivre = $hasPayloadCartLivre 
+                    ? in_array(strtolower((string)$payloadCartLivre), ['s', '1', 'true', 'sim'], true) 
+                    : false;
+
                 if (!$partner) {
                     try {
                         $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
@@ -408,9 +419,15 @@ class IntegrationController extends Controller
                             'cidade'            => $partnerData['cidade'] ?? null,
                             'uf'                => $partnerData['uf'] ?? null,
                             'cep'               => $cleanCep ?: null,
+                            'carteira_livre'    => $isPayloadCartLivre,
                             'vendedor_1_codigo' => (string)$repData['codigo_sankhya'],
                             'ativo'             => true,
                         ]);
+                    }
+                } else {
+                    // Atualiza flag carteira_livre no parceiro caso informada no payload do n8n
+                    if ($hasPayloadCartLivre && (bool)$partner->carteira_livre !== $isPayloadCartLivre) {
+                        $partner->update(['carteira_livre' => $isPayloadCartLivre]);
                     }
                 }
 
@@ -470,6 +487,8 @@ class IntegrationController extends Controller
                         $repNome = $representative->nome ?: ('Vendedor ' . $representative->codigo_sankhya);
                         $clientNome = $partner->nome_fantasia ?: $partner->razao_social;
 
+                        $httpStatus = ($request->header('X-Allow-Errors-200') || $request->input('allow_200')) ? 200 : 403;
+
                         throw new \Illuminate\Http\Exceptions\HttpResponseException(
                             response()->json([
                                 'success' => false,
@@ -486,7 +505,7 @@ class IntegrationController extends Controller
                                     'codigo_sankhya' => $representative->codigo_sankhya,
                                     'nome' => $repNome,
                                 ],
-                            ], 403)
+                            ], $httpStatus)
                         );
                     }
                 }

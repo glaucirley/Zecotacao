@@ -616,7 +616,9 @@ class SankhyaDatabaseService
             $chunks = array_chunk(array_values(array_unique($livres)), 500);
             foreach ($chunks as $chunk) {
                 $count += Parceiro::whereIn('codigo_sankhya', $chunk)
-                    ->where('carteira_livre', false)
+                    ->where(function($q) {
+                        $q->where('carteira_livre', false)->orWhereNull('carteira_livre');
+                    })
                     ->update(['carteira_livre' => true]);
             }
         }
