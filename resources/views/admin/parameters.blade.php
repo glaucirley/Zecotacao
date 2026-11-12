@@ -211,6 +211,33 @@
         </div>
     </div>
 
+    <!-- RESTRINGIR_CLIENTES_POR_REPRESENTANTE -->
+    <div class="param-card">
+        <div class="param-header">
+            <div>
+                <h4 class="param-title">
+                    Restrição de Carteira de Clientes por Vendedor
+                    <span class="param-key-badge">RESTRINGIR_CLIENTES_POR_REPRESENTANTE</span>
+                </h4>
+            </div>
+            <span class="user-role-label" style="background:#0284c7;">Diretoria</span>
+        </div>
+        <div class="param-description">
+            Define se os vendedores e televendas visualizam e cotam apenas os clientes vinculados à sua própria carteira (Vendedor 1 a 5) ou clientes marcados como <strong>Carteira Livre</strong> (AD_CARTLIVRE = 'S') no Sankhya.
+        </div>
+        <div class="param-example-box">
+            <strong>Exemplo prático:</strong> Quando <em>Ativo</em>, o vendedor só pode selecionar e cotar clientes da sua carteira ou liberados como Carteira Livre no Sankhya. Diretores, Administradores, Faturamento e Suporte continuam com acesso total. Se <em>Inativo</em>, qualquer vendedor pode cotar para qualquer cliente do catálogo.
+        </div>
+        <div class="param-action-row">
+            <div class="param-input-group" style="max-width: 100%;">
+                <select id="val-RESTRINGIR_CLIENTES_POR_REPRESENTANTE" class="form-control" style="font-size: 13.5px; padding: 8px 12px;">
+                    <option value="true">Ativo (Restringir à Carteira do Vendedor + Carteira Livre - Recomendado)</option>
+                    <option value="false">Inativo (Permitir que qualquer vendedor cote qualquer cliente)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
     <!-- DESCONTO_AVALIACAO_MODO -->
     <div class="param-card">
         <div class="param-header">
