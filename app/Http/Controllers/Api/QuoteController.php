@@ -30,15 +30,6 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Não autenticado.'], 401);
         }
 
-        // Trigger automatic expiration check for overdue quotes (throttled to at most once every 300s / 5min)
-        if (\Illuminate\Support\Facades\Cache::add('quote_expiration_check_lock', true, 300)) {
-            try {
-                \App\Services\QuoteWorkflowService::checkAndExpireQuotes();
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Erro ao verificar expiração de cotações: ' . $e->getMessage());
-            }
-        }
-
         // Lightweight eager loading for listing performance (cached for 24h)
         $hasNaoEncontradoCol = \Illuminate\Support\Facades\Cache::remember('col_cotacao_itens_nao_encontrado', 86400, function () {
             return \Illuminate\Support\Facades\Schema::hasColumn('cotacao_itens', 'nao_encontrado');
@@ -129,7 +120,9 @@ class QuoteController extends Controller
             ]);
         }
 
-        $quotes = $query->get();
+        // Limite seguro padrão para listagem sem paginação explícita
+        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 1000) : 500;
+        $quotes = $query->take($limit)->get();
 
         return response()->json([
             'success' => true,
@@ -1687,14 +1680,18 @@ class QuoteController extends Controller
             $quote = $request->cotacao;
             $targetCodTab = $quote->codigo_tabela_preco ?: $quote->parceiro?->codigo_tabela_preco;
             if (empty($targetCodTab) && $quote->parceiro && !empty($quote->parceiro->codigo_sankhya)) {
-                try {
-                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                    $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$quote->parceiro->codigo_sankhya);
-                    if (!empty($directTab)) {
-                        $quote->parceiro->update(['codigo_tabela_preco' => $directTab]);
-                        $targetCodTab = $directTab;
-                    }
-                } catch (\Throwable $e) {}
+                $attemptKey = 'region_tab_attempt_' . $quote->parceiro->codigo_sankhya;
+                if (!\Illuminate\Support\Facades\Cache::has($attemptKey)) {
+                    \Illuminate\Support\Facades\Cache::put($attemptKey, true, 300);
+                    try {
+                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                        $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$quote->parceiro->codigo_sankhya);
+                        if (!empty($directTab)) {
+                            $quote->parceiro->update(['codigo_tabela_preco' => $directTab]);
+                            $targetCodTab = $directTab;
+                        }
+                    } catch (\Throwable $e) {}
+                }
             }
             if (empty($quote->codigo_tabela_preco) && !empty($targetCodTab)) {
                 $quote->updateQuietly(['codigo_tabela_preco' => $targetCodTab]);
@@ -1704,14 +1701,18 @@ class QuoteController extends Controller
             $partner = \App\Models\Parceiro::find($request->input('parceiro_id'));
             $targetCodTab = $partner?->codigo_tabela_preco;
             if (empty($targetCodTab) && $partner && !empty($partner->codigo_sankhya)) {
-                try {
-                    $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                    $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$partner->codigo_sankhya);
-                    if (!empty($directTab)) {
-                        $partner->update(['codigo_tabela_preco' => $directTab]);
-                        $targetCodTab = $directTab;
-                    }
-                } catch (\Throwable $e) {}
+                $attemptKey = 'region_tab_attempt_' . $partner->codigo_sankhya;
+                if (!\Illuminate\Support\Facades\Cache::has($attemptKey)) {
+                    \Illuminate\Support\Facades\Cache::put($attemptKey, true, 300);
+                    try {
+                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                        $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$partner->codigo_sankhya);
+                        if (!empty($directTab)) {
+                            $partner->update(['codigo_tabela_preco' => $directTab]);
+                            $targetCodTab = $directTab;
+                        }
+                    } catch (\Throwable $e) {}
+                }
             }
             $hasClientContext = true;
         }

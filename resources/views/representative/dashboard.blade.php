@@ -2985,7 +2985,7 @@
                 // Live debounced server query across ALL partners in MySQL
                 partnerSearchTimer = setTimeout(() => {
                     executeServerPartnerSearch(rawQuery.trim());
-                }, 280);
+                }, 350);
             } catch (err) {
                 console.error("Erro ao filtrar parceiros:", err);
             }
@@ -3124,7 +3124,7 @@
             // Debounced live server query across ALL products in MySQL
             prodSearchTimer = setTimeout(() => {
                 executeServerProductSearch(query);
-            }, 250);
+            }, 350);
         }
 
         async function executeServerProductSearch(query) {
@@ -3141,13 +3141,16 @@
                     results = data;
                 }
 
-                // Cache all search results into allProductsList so addToCart can find them by ID
+                // Cache search results into allProductsList capped at 200 items max
                 if (Array.isArray(results)) {
                     results.forEach(prod => {
                         if (!allProductsList.some(p => p.id == prod.id)) {
                             allProductsList.push(prod);
                         }
                     });
+                    if (allProductsList.length > 200) {
+                        allProductsList = allProductsList.slice(-200);
+                    }
                 }
 
                 const currentQuery = document.getElementById("prod-search-input").value.trim();

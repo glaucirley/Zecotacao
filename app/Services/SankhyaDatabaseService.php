@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\TabelaPreco;
 use App\Models\TabelaPrecoItem;
 use App\Models\CondicaoPagamento;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 
@@ -18,14 +19,21 @@ class SankhyaDatabaseService
 
     /**
      * Establish direct PDO connection to Sankhya's Oracle database.
+     * Includes a Circuit Breaker (60s) to prevent blocking user requests when Oracle is offline or failing.
      *
+     * @param bool $force Bypass circuit breaker (e.g. manual connection test)
      * @return \PDO
      * @throws \Exception
      */
-    public function connect(): \PDO
+    public function connect(bool $force = false): \PDO
     {
-        if ($this->pdo) {
+        if ($this->pdo && !$force) {
             return $this->pdo;
+        }
+
+        // Circuit Breaker: se falhou recentemente, não espera novo timeout a cada requisição
+        if (!$force && ($cachedErr = Cache::get('sankhya_oracle_circuit_open'))) {
+            throw new \Exception("Conexão com o Oracle temporariamente suspensa por falha recente (circuit-breaker 60s): {$cachedErr}");
         }
 
         $tipo = ParametroSistema::getVal('SANKHYA_CONN_TIPO', 'DIRETO');
@@ -65,9 +73,12 @@ class SankhyaDatabaseService
                 \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
                 \PDO::ATTR_TIMEOUT => 5, // Timeout fast
             ]);
+            Cache::forget('sankhya_oracle_circuit_open');
         } catch (\PDOException $e) {
             Log::error("Sankhya Service - Connection failed: " . $e->getMessage());
             $rawMsg = $e->getMessage();
+            Cache::put('sankhya_oracle_circuit_open', $rawMsg, 60);
+
             if (str_contains($rawMsg, 'ORA-01017')) {
                 throw new \Exception("Falha de autenticação no Oracle (ORA-01017: Usuário ou senha inválidos). O servidor Oracle foi alcançado com sucesso, mas rejeitou o login. Verifique o campo 'Usuário do Banco' e digite a senha correta no campo 'Senha do Banco' nesta tela antes de testar ou sincronizar.");
             }
@@ -86,15 +97,21 @@ class SankhyaDatabaseService
     /**
      * Test Oracle connectivity.
      *
+     * @param bool $force Bypass circuit breaker
      * @return array
      */
-    public function testConnection(): array
+    public function testConnection(bool $force = true): array
     {
         try {
-            $conn = $this->connect();
+            if ($force) {
+                Cache::forget('sankhya_oracle_circuit_open');
+                $this->pdo = null;
+            }
+            $conn = $this->connect($force);
             $stmt = $conn->query("SELECT 1 FROM DUAL");
             $result = $stmt->fetch();
             if ($result) {
+                Cache::forget('sankhya_oracle_circuit_open');
                 return ['success' => true, 'message' => 'Conexão efetuada com sucesso ao Oracle (Sankhya).'];
             }
             return ['success' => false, 'message' => 'Retorno inválido da consulta de teste do Oracle.'];

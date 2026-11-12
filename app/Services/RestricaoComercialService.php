@@ -86,7 +86,8 @@ class RestricaoComercialService
         } catch (\Throwable $e) {
             $elapsed = round(microtime(true) - $t0, 3);
             Log::warning("RestricaoComercialService::produtosRestritos falhou após {$elapsed}s para VEND={$codVend}, PARC={$codParc}: " . $e->getMessage());
-            Cache::forget($cacheKey);
+            // Em caso de falha de conexão com o Oracle, memoriza temporariamente por 120s para não travar a digitação do usuário a cada tecla
+            Cache::put($cacheKey, [], 120);
             return null; // Retorna null indicando falha na consulta em lote para forçar fallback
         }
     }

@@ -7,6 +7,7 @@ use App\Models\Cotacao;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -37,25 +38,27 @@ class DashboardController extends Controller
             $endDate = now()->toDateString();
         }
 
-        $parsedStart = Carbon::parse($startDate)->startOfDay();
-        $parsedEnd = Carbon::parse($endDate)->endOfDay();
+        $cacheKey = "dash_stats_{$user->id}_{$user->papel}_{$startDate}_{$endDate}";
+        $data = Cache::remember($cacheKey, 60, function () use ($user, $startDate, $endDate) {
+            $parsedStart = Carbon::parse($startDate)->startOfDay();
+            $parsedEnd = Carbon::parse($endDate)->endOfDay();
 
-        // 2. Base Query and Scoping
-        $baseQuery = Cotacao::whereBetween('created_at', [$parsedStart, $parsedEnd]);
+            // 2. Base Query and Scoping
+            $baseQuery = Cotacao::whereBetween('created_at', [$parsedStart, $parsedEnd]);
 
-        if ($user->isRepresentante()) {
-            // Representative only sees their own quotes
-            $baseQuery->where('representante_id', $user->id);
-        } elseif ($user->isGestor()) {
-            // Gestor only sees their team's quotes
-            $teamIds = $user->equipesGerenciadas->pluck('id');
-            $baseQuery->whereHas('representante', function ($q) use ($teamIds) {
-                $q->whereIn('equipe_id', $teamIds);
-            });
-        }
+            if ($user->isRepresentante()) {
+                // Representative only sees their own quotes
+                $baseQuery->where('representante_id', $user->id);
+            } elseif ($user->isGestor()) {
+                // Gestor only sees their team's quotes
+                $teamIds = $user->equipesGerenciadas->pluck('id');
+                $baseQuery->whereHas('representante', function ($q) use ($teamIds) {
+                    $q->whereIn('equipe_id', $teamIds);
+                });
+            }
 
-        $data = [
-            'summary' => null,
+            $data = [
+                'summary' => null,
             'status_distribution' => null,
             'top_sellers' => null,
             'top_partners' => null,
@@ -367,6 +370,9 @@ class DashboardController extends Controller
             // Fail-safe to prevent API errors if tables are empty or querying issue
         }
 
+            return $data;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $data
@@ -432,18 +438,20 @@ class DashboardController extends Controller
         }
         $expiringToday = $expiringQuery->count();
 
-        // 4. Catalog & user health (matches product quality alert)
-        $productsWithoutPrice = \App\Models\Produto::where(function($q) {
-            $q->whereDoesntHave('precos')
-              ->orWhereHas('precos', function($p) {
-                  $p->where('preco_venda', '<=', 0)
-                    ->orWhere('preco_venda', 100.00);
-              })
-              ->orWhere('descricao', '^')
-              ->orWhere('codigo_sankhya', '0')
-              ->orWhere('codigo_sankhya', '')
-              ->orWhereNull('codigo_sankhya');
-        })->count();
+        // 4. Catalog & user health (matches product quality alert, com cache de 10 minutos para performance)
+        $productsWithoutPrice = Cache::remember('catalog_health_problem_count', 600, function () {
+            return \App\Models\Produto::where(function($q) {
+                $q->whereDoesntHave('precos')
+                  ->orWhereHas('precos', function($p) {
+                      $p->where('preco_venda', '<=', 0)
+                        ->orWhere('preco_venda', 100.00);
+                  })
+                  ->orWhere('descricao', '^')
+                  ->orWhere('codigo_sankhya', '0')
+                  ->orWhere('codigo_sankhya', '')
+                  ->orWhereNull('codigo_sankhya');
+            })->count();
+        });
 
         $usersWithoutTeam = User::where('ativo', true)->where('papel', 'REPRESENTANTE')->whereNull('equipe_id')->count();
 

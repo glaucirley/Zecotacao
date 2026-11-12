@@ -2329,7 +2329,7 @@
 
         adminPartnerSearchTimer = setTimeout(() => {
             executeAdminServerPartnerSearch(rawQuery.trim());
-        }, 300);
+        }, 350);
     }
 
     function sortPartnersByRelevance(items, qNorm) {
@@ -2578,7 +2578,7 @@
 
         adminProdRowTimers[rowId] = setTimeout(() => {
             executeAdminServerProductSearch(rowId, query);
-        }, 250);
+        }, 350);
     }
 
     async function executeAdminServerProductSearch(rowId, query) {
@@ -2600,6 +2600,9 @@
                         adminProductsList.push(prod);
                     }
                 });
+                if (adminProductsList.length > 200) {
+                    adminProductsList = adminProductsList.slice(-200);
+                }
 
                 const input = document.getElementById(`admin-prod-search-input-${rowId}`);
                 if (input && normalizeStr(input.value.trim()) === normalizeStr(query)) {

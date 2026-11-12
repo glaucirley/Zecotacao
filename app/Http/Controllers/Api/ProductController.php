@@ -235,17 +235,21 @@ class ProductController extends Controller
                 // Tabela de Preços vinculada à REGIÃO do cliente (TSIREG.CODTAB)
                 $codTab = $partner->codigo_tabela_preco;
 
-                // Se não estiver preenchido localmente, tenta buscar diretamente da TSIREG no Sankhya
+                // Se não estiver preenchido localmente, tenta buscar diretamente da TSIREG no Sankhya (com cache para não repetir a cada tecla)
                 if (empty($codTab) && !empty($partner->codigo_sankhya)) {
-                    try {
-                        $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
-                        $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$partner->codigo_sankhya);
-                        if (!empty($directTab)) {
-                            $partner->update(['codigo_tabela_preco' => $directTab]);
-                            $codTab = $directTab;
+                    $attemptKey = 'region_tab_attempt_' . $partner->codigo_sankhya;
+                    if (!\Illuminate\Support\Facades\Cache::has($attemptKey)) {
+                        \Illuminate\Support\Facades\Cache::put($attemptKey, true, 300);
+                        try {
+                            $sankhyaDb = resolve(\App\Services\SankhyaDatabaseService::class);
+                            $directTab = $sankhyaDb->fetchRegionPriceTableForPartner((string)$partner->codigo_sankhya);
+                            if (!empty($directTab)) {
+                                $partner->update(['codigo_tabela_preco' => $directTab]);
+                                $codTab = $directTab;
+                            }
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning("Erro ao sincronizar tabela da região na consulta de produtos: " . $e->getMessage());
                         }
-                    } catch (\Throwable $e) {
-                        \Illuminate\Support\Facades\Log::warning("Erro ao sincronizar tabela da região na consulta de produtos: " . $e->getMessage());
                     }
                 }
 
