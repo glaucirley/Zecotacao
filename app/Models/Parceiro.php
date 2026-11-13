@@ -205,7 +205,7 @@ class Parceiro extends Model
      */
     public function pertenceAoVendedor(?string $codVend): bool
     {
-        if ($this->carteira_livre) {
+        if ((bool)$this->carteira_livre) {
             return true;
         }
 
@@ -214,18 +214,22 @@ class Parceiro extends Model
         }
 
         $cleanCod = trim((string)$codVend);
-        $vendedores = array_map('trim', array_map('strval', $this->vendedores_codigos));
+        $vendedores = [
+            $this->vendedor_1_codigo,
+            $this->vendedor_2_codigo,
+            $this->vendedor_3_codigo,
+            $this->vendedor_4_codigo,
+            $this->vendedor_5_codigo,
+        ];
 
-        if (in_array($cleanCod, $vendedores, true)) {
-            return true;
-        }
-
-        if (is_numeric($cleanCod)) {
-            $intCod = (string)((int)$cleanCod);
-            foreach ($vendedores as $v) {
-                if (is_numeric($v) && (string)((int)$v) === $intCod) {
-                    return true;
-                }
+        foreach ($vendedores as $v) {
+            if ($v === null || $v === '') continue;
+            $cleanV = trim((string)$v);
+            if ($cleanV === $cleanCod) {
+                return true;
+            }
+            if (is_numeric($cleanCod) && is_numeric($cleanV) && (int)$cleanV === (int)$cleanCod) {
+                return true;
             }
         }
 

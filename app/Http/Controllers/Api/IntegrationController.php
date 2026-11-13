@@ -344,7 +344,7 @@ class IntegrationController extends Controller
             $plainToken = bin2hex(random_bytes(32));
             $resolvedRep = null;
 
-            $quote = DB::transaction(function () use ($data, $plainToken, &$resolvedRep) {
+            $quote = DB::transaction(function () use ($data, $plainToken, &$resolvedRep, $request) {
                 // Re-consulta com lockForUpdate para segurança máxima de concorrência
                 $existingQuote = Cotacao::where('numero', $data['numero'])->lockForUpdate()->first();
                 
@@ -487,7 +487,7 @@ class IntegrationController extends Controller
                         $repNome = $representative->nome ?: ('Vendedor ' . $representative->codigo_sankhya);
                         $clientNome = $partner->nome_fantasia ?: $partner->razao_social;
 
-                        $httpStatus = ($request->header('X-Allow-Errors-200') || $request->input('allow_200')) ? 200 : 403;
+                        $httpStatus = (request()->header('X-Allow-Errors-200') || request()->input('allow_200') || (isset($request) && ($request->header('X-Allow-Errors-200') || $request->input('allow_200')))) ? 200 : 403;
 
                         throw new \Illuminate\Http\Exceptions\HttpResponseException(
                             response()->json([
