@@ -23,6 +23,7 @@ class Parceiro extends Model
         'vendedor_3_codigo',
         'vendedor_4_codigo',
         'vendedor_5_codigo',
+        'vendedor_6_codigo',
         'telefone',
         'email',
         'endereco',
@@ -197,6 +198,7 @@ class Parceiro extends Model
             $this->vendedor_3_codigo,
             $this->vendedor_4_codigo,
             $this->vendedor_5_codigo,
+            $this->vendedor_6_codigo,
         ]));
     }
 
@@ -220,6 +222,7 @@ class Parceiro extends Model
             $this->vendedor_3_codigo,
             $this->vendedor_4_codigo,
             $this->vendedor_5_codigo,
+            $this->vendedor_6_codigo,
         ];
 
         foreach ($vendedores as $v) {

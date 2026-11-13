@@ -26,14 +26,14 @@ class PartnerController extends Controller
         $restringir = filter_var(\App\Models\ParametroSistema::getVal('RESTRINGIR_CLIENTES_POR_REPRESENTANTE', true), FILTER_VALIDATE_BOOLEAN);
         $userScope = $user ? ($user->papel . '_' . ($user->codigo_sankhya ?: $user->id) . '_' . ($restringir ? '1' : '0')) : 'all';
 
-        $cacheKey = 'partners_search_v6_' . md5($userScope . '_' . mb_strtolower($search) . '_' . ($status ?? '') . '_' . $limit);
+        $cacheKey = 'partners_search_v7_' . md5($userScope . '_' . mb_strtolower($search) . '_' . ($status ?? '') . '_' . $limit);
 
         $partners = Cache::remember($cacheKey, 60, function () use ($search, $status, $limit, $user, $restringir) {
             $query = Parceiro::query()->select([
                 'id', 'codigo_sankhya', 'razao_social', 'nome_fantasia',
                 'cnpj', 'cidade', 'uf', 'bairro', 'ativo',
                 'codigo_regiao', 'codigo_tabela_preco', 'carteira_livre',
-                'vendedor_1_codigo', 'vendedor_2_codigo', 'vendedor_3_codigo', 'vendedor_4_codigo', 'vendedor_5_codigo'
+                'vendedor_1_codigo', 'vendedor_2_codigo', 'vendedor_3_codigo', 'vendedor_4_codigo', 'vendedor_5_codigo', 'vendedor_6_codigo'
             ]);
 
             // Regra de Proteção de Carteira com AD_CARTLIVRE
@@ -53,7 +53,8 @@ class PartnerController extends Controller
                                   ->orWhereIn('vendedor_2_codigo', $teamCodes)
                                   ->orWhereIn('vendedor_3_codigo', $teamCodes)
                                   ->orWhereIn('vendedor_4_codigo', $teamCodes)
-                                  ->orWhereIn('vendedor_5_codigo', $teamCodes);
+                                  ->orWhereIn('vendedor_5_codigo', $teamCodes)
+                                  ->orWhereIn('vendedor_6_codigo', $teamCodes);
                             }
                         });
                     } elseif ($user->isRepresentante() || in_array($user->papel, ['representante', 'vendedor'])) {
@@ -67,7 +68,8 @@ class PartnerController extends Controller
                                   ->orWhere('vendedor_2_codigo', $codVend)
                                   ->orWhere('vendedor_3_codigo', $codVend)
                                   ->orWhere('vendedor_4_codigo', $codVend)
-                                  ->orWhere('vendedor_5_codigo', $codVend);
+                                  ->orWhere('vendedor_5_codigo', $codVend)
+                                  ->orWhere('vendedor_6_codigo', $codVend);
 
                                 if (is_numeric($codVend)) {
                                     $intCod = (string)((int)$codVend);
@@ -75,7 +77,8 @@ class PartnerController extends Controller
                                       ->orWhere('vendedor_2_codigo', $intCod)
                                       ->orWhere('vendedor_3_codigo', $intCod)
                                       ->orWhere('vendedor_4_codigo', $intCod)
-                                      ->orWhere('vendedor_5_codigo', $intCod);
+                                      ->orWhere('vendedor_5_codigo', $intCod)
+                                      ->orWhere('vendedor_6_codigo', $intCod);
                                 }
                             }
                         });

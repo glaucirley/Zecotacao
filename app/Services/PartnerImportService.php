@@ -80,6 +80,9 @@ class PartnerImportService
         'ad_aglutina4'    => 'vendedor_5_codigo',
         'vendedor_5'      => 'vendedor_5_codigo',
         'vendedor_5_codigo' => 'vendedor_5_codigo',
+        'ad_vendtlmkt'    => 'vendedor_6_codigo',
+        'vendedor_6'      => 'vendedor_6_codigo',
+        'vendedor_6_codigo' => 'vendedor_6_codigo',
 
         // Carteira Livre (AD_CARTLIVRE)
         'ad_cartlivre'    => 'carteira_livre',
