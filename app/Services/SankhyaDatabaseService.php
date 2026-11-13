@@ -333,13 +333,14 @@ class SankhyaDatabaseService
             }
         }
 
-        // Intermediary fallback: TGFPAR + TSIREG (sem TSIEND/TSIBAI/TSICID)
+        // Intermediary fallback: TGFPAR + TSIREG (com vendedores e carteira livre)
+        $sellerCols = "PAR.CODPARC, PAR.CODVEND AS VENDEDOR_1, PAR.AD_AGLUTINA AS VENDEDOR_2, PAR.AD_AGLUTINA2 AS VENDEDOR_3, PAR.AD_AGLUTINA3 AS VENDEDOR_4, PAR.AD_AGLUTINA4 AS VENDEDOR_5, PAR.AD_VENDTLMKT AS VENDEDOR_6, PAR.AD_CARTLIVRE AS CARTEIRA_LIVRE, PAR.NOMEPARC AS NOME_FANTASIA, PAR.RAZAOSOCIAL, PAR.CGC_CPF, PAR.TELEFONE, PAR.EMAIL, PAR.ATIVO, PAR.CODREG AS REGIAO_ID, REG.CODTAB AS CODTAB_REGIAO";
         try {
-            $sql = "SELECT PAR.CODPARC, PAR.CODVEND AS VENDEDOR_1, PAR.NOMEPARC AS NOME_FANTASIA, PAR.RAZAOSOCIAL, PAR.CGC_CPF, PAR.TELEFONE, PAR.EMAIL, PAR.ATIVO, PAR.CODREG AS REGIAO_ID, REG.CODTAB AS CODTAB_REGIAO FROM SANKHYA.TGFPAR PAR LEFT JOIN SANKHYA.TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
+            $sql = "SELECT {$sellerCols} FROM SANKHYA.TGFPAR PAR LEFT JOIN SANKHYA.TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
             return $conn->query($sql)->fetchAll();
         } catch (\PDOException $eDirect) {
             try {
-                $sql = "SELECT PAR.CODPARC, PAR.CODVEND AS VENDEDOR_1, PAR.NOMEPARC AS NOME_FANTASIA, PAR.RAZAOSOCIAL, PAR.CGC_CPF, PAR.TELEFONE, PAR.EMAIL, PAR.ATIVO, PAR.CODREG AS REGIAO_ID, REG.CODTAB AS CODTAB_REGIAO FROM TGFPAR PAR LEFT JOIN TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
+                $sql = "SELECT {$sellerCols} FROM TGFPAR PAR LEFT JOIN TSIREG REG ON PAR.CODREG = REG.CODREG WHERE PAR.CLIENTE = 'S' AND PAR.ATIVO = 'S'";
                 return $conn->query($sql)->fetchAll();
             } catch (\PDOException $eDirect2) {
                 Log::warning("Sankhya Service - fetchPartners intermediary TSIREG fallback failed: " . $eDirect2->getMessage());
@@ -348,10 +349,17 @@ class SankhyaDatabaseService
 
         // Minimal fallback
         try {
-            $sql = "SELECT CODPARC, CODVEND AS VENDEDOR_1, NOMEPARC AS NOME_FANTASIA, RAZAOSOCIAL, CGC_CPF, TELEFONE, EMAIL, ATIVO FROM SANKHYA.TGFPAR WHERE CLIENTE = 'S' AND ATIVO = 'S'";
+            $sql = "SELECT CODPARC, CODVEND AS VENDEDOR_1, AD_AGLUTINA AS VENDEDOR_2, AD_AGLUTINA2 AS VENDEDOR_3, AD_AGLUTINA3 AS VENDEDOR_4, AD_AGLUTINA4 AS VENDEDOR_5, AD_VENDTLMKT AS VENDEDOR_6, AD_CARTLIVRE AS CARTEIRA_LIVRE, NOMEPARC AS NOME_FANTASIA, RAZAOSOCIAL, CGC_CPF, TELEFONE, EMAIL, ATIVO FROM SANKHYA.TGFPAR WHERE CLIENTE = 'S' AND ATIVO = 'S'";
             return $conn->query($sql)->fetchAll();
         } catch (\PDOException $e3) {
             Log::warning("Sankhya Service - fetchPartners Attempt basic with prefix failed: " . $e3->getMessage());
+        }
+
+        try {
+            $sql = "SELECT CODPARC, CODVEND AS VENDEDOR_1, AD_AGLUTINA AS VENDEDOR_2, AD_AGLUTINA2 AS VENDEDOR_3, AD_AGLUTINA3 AS VENDEDOR_4, AD_AGLUTINA4 AS VENDEDOR_5, AD_VENDTLMKT AS VENDEDOR_6, AD_CARTLIVRE AS CARTEIRA_LIVRE, NOMEPARC AS NOME_FANTASIA, RAZAOSOCIAL, CGC_CPF, TELEFONE, EMAIL, ATIVO FROM TGFPAR WHERE CLIENTE = 'S' AND ATIVO = 'S'";
+            return $conn->query($sql)->fetchAll();
+        } catch (\PDOException $e4) {
+            Log::warning("Sankhya Service - fetchPartners Attempt basic no prefix failed: " . $e4->getMessage());
         }
 
         $sql = "SELECT CODPARC, CODVEND AS VENDEDOR_1, NOMEPARC AS NOME_FANTASIA, RAZAOSOCIAL, CGC_CPF, TELEFONE, EMAIL, ATIVO FROM TGFPAR WHERE CLIENTE = 'S' AND ATIVO = 'S'";
@@ -635,6 +643,84 @@ class SankhyaDatabaseService
         }
 
         return $count;
+    }
+
+    /**
+     * Sincroniza diretamente o campo AD_VENDTLMKT (Vendedor Telemarketing / Vendedor 6) de todos os clientes do Sankhya.
+     *
+     * @return array
+     */
+    public function syncAllPartnerTelemarketing(): array
+    {
+        // Garante que a coluna vendedor_6_codigo existe na tabela parceiros
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('parceiros', 'vendedor_6_codigo')) {
+            try {
+                \Illuminate\Support\Facades\Schema::table('parceiros', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->string('vendedor_6_codigo', 50)->nullable()->after('vendedor_5_codigo')->index();
+                });
+            } catch (\Throwable $eCol) {
+                Log::warning("Não foi possível criar vendedor_6_codigo automaticamente: " . $eCol->getMessage());
+            }
+        }
+
+        $conn = $this->connect();
+        $queries = [
+            "SELECT CODPARC, AD_VENDTLMKT FROM SANKHYA.TGFPAR WHERE AD_VENDTLMKT IS NOT NULL",
+            "SELECT CODPARC, AD_VENDTLMKT FROM TGFPAR WHERE AD_VENDTLMKT IS NOT NULL",
+            "SELECT CODPARC, AD_VENDTLMKT FROM SANKHYA.TGFPAR",
+            "SELECT CODPARC, AD_VENDTLMKT FROM TGFPAR",
+        ];
+
+        $rows = [];
+        $lastError = null;
+        foreach ($queries as $sql) {
+            try {
+                $rows = $conn->query($sql)->fetchAll();
+                if (!empty($rows)) break;
+            } catch (\Throwable $e) {
+                $lastError = $e->getMessage();
+            }
+        }
+
+        if (empty($rows)) {
+            // Diagnóstico de colunas na TGFPAR do Oracle
+            $colunasSugeridas = [];
+            try {
+                $stmtCols = $conn->query("SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE TABLE_NAME = 'TGFPAR' AND (COLUMN_NAME LIKE '%TLMKT%' OR COLUMN_NAME LIKE '%TELE%' OR COLUMN_NAME LIKE '%VEND%')");
+                $colunasSugeridas = $stmtCols->fetchAll(\PDO::FETCH_COLUMN);
+            } catch (\Throwable $eCols) {
+                // Ignore
+            }
+
+            return [
+                'success' => false,
+                'count' => 0,
+                'total_oracle' => 0,
+                'error' => $lastError,
+                'sugestoes' => $colunasSugeridas,
+            ];
+        }
+
+        $count = 0;
+        foreach ($rows as $r) {
+            $codParc = trim((string)($r['CODPARC'] ?? $r['codparc'] ?? ''));
+            $codVend = trim((string)($r['AD_VENDTLMKT'] ?? $r['ad_vendtlmkt'] ?? ''));
+
+            if ($codParc !== '' && $codVend !== '') {
+                $affected = Parceiro::where('codigo_sankhya', $codParc)
+                    ->update(['vendedor_6_codigo' => $codVend]);
+                if ($affected) {
+                    $count++;
+                }
+            }
+        }
+
+        return [
+            'success' => true,
+            'count' => $count,
+            'total_oracle' => count($rows),
+            'amostra' => array_slice($rows, 0, 5),
+        ];
     }
 
     /**

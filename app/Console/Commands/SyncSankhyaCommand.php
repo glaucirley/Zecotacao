@@ -16,7 +16,7 @@ class SyncSankhyaCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'sankhya:sync {--type=all : The type of sync (all, products, partners, regions, reps, prices, conditions, validades, estoque, campanhas)}';
+    protected $signature = 'sankhya:sync {--type=all : The type of sync (all, products, partners, regions, reps, prices, conditions, validades, estoque, campanhas, telemarketing)}';
 
     /**
      * The console command description.
@@ -75,6 +75,23 @@ class SyncSankhyaCommand extends Command
                 // Atualiza também os vínculos de CODTAB da TSIREG diretamente
                 $regCount = $db->syncAllPartnerRegionTables();
                 $this->info("Linked {$regCount} partner region price tables from TSIREG.CODTAB.");
+
+                // Atualiza status de carteira livre diretamente
+                $cartCount = $db->syncAllPartnerCarteiraLivre();
+                $this->info("Synced {$cartCount} partner carteira livre flags directly from TGFPAR.AD_CARTLIVRE.");
+            }
+
+            if (in_array($type, ['all', 'partners', 'telemarketing'])) {
+                $this->info("Syncing Telemarketing sellers (AD_VENDTLMKT) from TGFPAR...");
+                $tlmktResult = $db->syncAllPartnerTelemarketing();
+                if ($tlmktResult['success']) {
+                    $this->info("Linked {$tlmktResult['count']} partner(s) with Telemarketing sellers (Oracle total rows: {$tlmktResult['total_oracle']}).");
+                } else {
+                    $this->warn("Could not sync AD_VENDTLMKT: " . ($tlmktResult['error'] ?? 'Unknown error'));
+                    if (!empty($tlmktResult['sugestoes'])) {
+                        $this->line("Suggested columns found in TGFPAR: " . implode(', ', $tlmktResult['sugestoes']));
+                    }
+                }
             }
 
             if (in_array($type, ['regions'])) {
