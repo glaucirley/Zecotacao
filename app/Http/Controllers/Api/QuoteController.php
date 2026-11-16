@@ -121,7 +121,7 @@ class QuoteController extends Controller
         }
 
         // Limite seguro padrão para listagem sem paginação explícita
-        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 1000) : 500;
+        $limit = $request->filled('limit') ? min((int)$request->input('limit'), 1000) : 100;
         $quotes = $query->take($limit)->get();
 
         return response()->json([
@@ -1626,7 +1626,7 @@ class QuoteController extends Controller
         }
 
         $limit = $request->filled('limit') ? min((int)$request->input('limit'), 100) : 50;
-        $limitTake = $request->filled('search') ? 500 : 200;
+        $limitTake = $request->filled('search') ? 60 : 50;
         $rawProducts = $query->take($limitTake)->get();
 
         // Resolve vendor and customer for commercial restriction filtering (AD_EXCPRODUTO and AD_EXCMARCA)
@@ -1717,14 +1717,7 @@ class QuoteController extends Controller
             $hasClientContext = true;
         }
 
-        $priceItemsQuery = \App\Models\TabelaPrecoItem::where(function($q) use ($prodIds, $prodCodes) {
-            if (!empty($prodIds)) {
-                $q->whereIn('produto_id', $prodIds);
-            }
-            if (!empty($prodCodes)) {
-                $q->orWhereIn('codigo_sankhya_produto', $prodCodes);
-            }
-        });
+        $priceItemsQuery = \App\Models\TabelaPrecoItem::query();
 
         if (!empty($targetCodTab)) {
             $tabVariations = array_values(array_unique(array_filter([
@@ -1735,12 +1728,19 @@ class QuoteController extends Controller
                 is_numeric($targetCodTab) ? str_pad((string)((int)$targetCodTab), 4, '0', STR_PAD_LEFT) : null,
             ])));
             $priceItemsQuery->whereIn('codigo_sankhya_tabela', $tabVariations);
-            $priceItems = $priceItemsQuery->get();
-        } elseif ($hasClientContext) {
+        }
+
+        if (!empty($prodIds)) {
+            $priceItemsQuery->whereIn('produto_id', $prodIds);
+        } elseif (!empty($prodCodes)) {
+            $priceItemsQuery->whereIn('codigo_sankhya_produto', $prodCodes);
+        }
+
+        if ($hasClientContext && empty($targetCodTab)) {
             // Cliente sem tabela na região: não busca preços
             $priceItems = collect();
         } else {
-            $priceItems = $priceItemsQuery->get();
+            $priceItems = (!empty($prodIds) || !empty($prodCodes)) ? $priceItemsQuery->get() : collect();
         }
 
         $priceByProdId = [];

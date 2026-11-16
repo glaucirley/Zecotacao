@@ -3039,6 +3039,7 @@
         }
 
         let prodSearchTimer = null;
+        let prodSearchAbortController = null;
 
         async function loadProductsForQuote(forceReload = false) {
             if (allProductsList && allProductsList.length > 0 && !forceReload) {
@@ -3129,9 +3130,14 @@
 
         async function executeServerProductSearch(query) {
             try {
+                if (prodSearchAbortController) {
+                    prodSearchAbortController.abort();
+                }
+                prodSearchAbortController = new AbortController();
+
                 const partnerId = selectedPartner ? selectedPartner.id : '';
                 const url = `${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=50${partnerId ? `&parceiro_id=${partnerId}` : ''}`;
-                const res = await fetch(url);
+                const res = await fetch(url, { signal: prodSearchAbortController.signal });
                 const data = await res.json();
                 
                 let results = [];
@@ -3158,6 +3164,7 @@
                     renderProductSearchResults(results, false);
                 }
             } catch(e) {
+                if (e.name === 'AbortError') return;
                 console.error("Error searching server products:", e);
             }
         }

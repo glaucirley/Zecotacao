@@ -3795,22 +3795,28 @@
 
     // Live Autocomplete Product Search for Add Item Flow
     let addProductSearchTimer = null;
+    let addProductAbortController = null;
     let currentSearchedProducts = [];
 
     function onAddProductSearchInput(query) {
         clearTimeout(addProductSearchTimer);
-        if (!query || query.trim().length < 1) {
+        const trimmed = (query || "").trim();
+        if (trimmed.length < 2) {
             hideAddProductDropdown();
+            if (addProductAbortController) {
+                addProductAbortController.abort();
+                addProductAbortController = null;
+            }
             return;
         }
         addProductSearchTimer = setTimeout(() => {
-            fetchSearchProductsForAdd(query.trim());
-        }, 250);
+            fetchSearchProductsForAdd(trimmed);
+        }, 350);
     }
 
     function onAddProductSearchFocus() {
         const input = document.getElementById("add-product-search-input");
-        if (input && input.value.trim().length >= 1) {
+        if (input && input.value.trim().length >= 2) {
             fetchSearchProductsForAdd(input.value.trim());
         }
     }
@@ -3818,11 +3824,19 @@
     async function fetchSearchProductsForAdd(query) {
         const menu = document.getElementById("add-product-results-menu");
         if (!menu) return;
+
+        if (addProductAbortController) {
+            addProductAbortController.abort();
+        }
+        addProductAbortController = new AbortController();
+
         menu.style.display = "block";
         menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #64748b; font-size: 12px;">🔍 Buscando no catálogo...</div>`;
 
         try {
-            const res = await fetch(`${QUOTE_BASE_URL}/produtos?search=${encodeURIComponent(query)}&limit=30`);
+            const res = await fetch(`${QUOTE_BASE_URL}/produtos?search=${encodeURIComponent(query)}&limit=30`, {
+                signal: addProductAbortController.signal
+            });
             if (!res.ok) {
                 menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Erro ao buscar produtos.</div>`;
                 return;
@@ -3836,6 +3850,7 @@
                 menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Nenhum produto encontrado para "${escapeHtml(query)}".</div>`;
             }
         } catch (e) {
+            if (e.name === 'AbortError') return;
             menu.innerHTML = `<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Erro de conexão.</div>`;
         }
     }

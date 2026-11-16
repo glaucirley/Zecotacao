@@ -33,7 +33,7 @@ class SankhyaDatabaseService
 
         // Circuit Breaker: se falhou recentemente, não espera novo timeout a cada requisição
         if (!$force && ($cachedErr = Cache::get('sankhya_oracle_circuit_open'))) {
-            throw new \Exception("Conexão com o Oracle temporariamente suspensa por falha recente (circuit-breaker 60s): {$cachedErr}");
+            throw new \Exception("Conexão com o Oracle temporariamente suspensa por falha recente (circuit-breaker 120s): {$cachedErr}");
         }
 
         $tipo = ParametroSistema::getVal('SANKHYA_CONN_TIPO', 'DIRETO');
@@ -64,20 +64,21 @@ class SankhyaDatabaseService
             throw new \Exception("Configurações do banco Sankhya incompletas no painel de Parâmetros.");
         }
 
-        // Oracle PDO DSN format: oci:dbname=//host:port/service_name;charset=AL32UTF8
-        $dsn = "oci:dbname=//{$host}:{$port}/{$serviceName};charset=UTF8";
+        // Oracle PDO DSN format com timeouts TCP e de conexao explicitos para nao prender workers PHP-FPM
+        $tns = "(DESCRIPTION=(CONNECT_TIMEOUT=3)(TRANSPORT_CONNECT_TIMEOUT=3)(RETRY_COUNT=0)(ADDRESS=(PROTOCOL=TCP)(HOST={$host})(PORT={$port}))(CONNECT_DATA=(SERVICE_NAME={$serviceName})))";
+        $dsn = "oci:dbname={$tns};charset=UTF8";
 
         try {
             $this->pdo = new \PDO($dsn, $user, $password, [
                 \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                 \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                \PDO::ATTR_TIMEOUT => 5, // Timeout fast
+                \PDO::ATTR_TIMEOUT => 3, // Timeout fast
             ]);
             Cache::forget('sankhya_oracle_circuit_open');
         } catch (\PDOException $e) {
             Log::error("Sankhya Service - Connection failed: " . $e->getMessage());
             $rawMsg = $e->getMessage();
-            Cache::put('sankhya_oracle_circuit_open', $rawMsg, 60);
+            Cache::put('sankhya_oracle_circuit_open', $rawMsg, 120);
 
             if (str_contains($rawMsg, 'ORA-01017')) {
                 throw new \Exception("Falha de autenticação no Oracle (ORA-01017: Usuário ou senha inválidos). O servidor Oracle foi alcançado com sucesso, mas rejeitou o login. Verifique o campo 'Usuário do Banco' e digite a senha correta no campo 'Senha do Banco' nesta tela antes de testar ou sincronizar.");

@@ -132,31 +132,6 @@ class PartnerController extends Controller
 
             $results = $query->take($limit)->get();
 
-            // Se for busca pontual e algum parceiro estiver sem tabela de preços,
-            // tenta obter TSIREG.CODTAB do Sankhya sob demanda
-            if ($search !== '' && $results->count() <= 10) {
-                $sankhyaDb = app(\App\Services\SankhyaDatabaseService::class);
-                foreach ($results as $p) {
-                    if (empty($p->codigo_tabela_preco) && !empty($p->codigo_sankhya)) {
-                        try {
-                            $codTab = $sankhyaDb->fetchRegionPriceTableForPartner($p->codigo_sankhya);
-                            if (!empty($codTab)) {
-                                $p->codigo_tabela_preco = $codTab;
-                                Parceiro::where('id', $p->id)->update(['codigo_tabela_preco' => $codTab]);
-                            } else {
-                                $refreshed = $sankhyaDb->syncPartnerByCode($p->codigo_sankhya);
-                                if ($refreshed && !empty($refreshed->codigo_tabela_preco)) {
-                                    $p->codigo_tabela_preco = $refreshed->codigo_tabela_preco;
-                                    $p->codigo_regiao = $refreshed->codigo_regiao;
-                                }
-                            }
-                        } catch (\Throwable $t) {
-                            // Silently continue if Sankhya unreachable
-                        }
-                    }
-                }
-            }
-
             return $results;
         });
 
