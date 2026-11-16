@@ -47,8 +47,9 @@
         top: 100%;
         left: 0;
         min-width: 100%;
-        width: max(100%, 480px);
-        max-width: min(680px, 94vw);
+        width: min(calc(100vw - 36px), 520px);
+        max-width: calc(100vw - 36px);
+        box-sizing: border-box;
         z-index: 1050;
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -58,15 +59,22 @@
         overflow-y: auto;
         margin-top: 4px;
     }
+    @media (min-width: 641px) {
+        .product-autocomplete-results {
+            width: max(100%, 480px);
+            max-width: 620px;
+        }
+    }
     .product-autocomplete-item {
-        padding: 10px 14px;
+        padding: 9px 12px;
         border-bottom: 1px solid #f1f5f9;
         cursor: pointer;
         transition: background 0.15s ease;
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        gap: 12px;
+        gap: 8px;
+        box-sizing: border-box;
     }
     .product-autocomplete-item:hover {
         background: #f8fafc;
@@ -3846,8 +3854,8 @@
             const blockReason = p.motivo_bloqueio || '';
             const isMissingTable = blockReason.toLowerCase().includes('tabela inexistente') || blockReason.toLowerCase().includes('sem tabela');
             const priceHtml = isQuotable 
-                ? `<div style="text-align: right;"><span style="color: #059669; font-weight: 700; font-size: 12.5px;">Mín: R$ ${formatCurrency(minVal)}</span><br><span style="font-size: 10.5px; color: #64748b;">Tab: R$ ${formatCurrency(sugVal)}</span></div>` 
-                : `<span style="color: #ef4444; font-size: 11px; font-weight: 700;">${isMissingTable ? 'Tabela Inexistente' : 'Sem preço'}</span>`;
+                ? `<div style="text-align: right; white-space: nowrap; line-height: 1.25;"><span style="color: #059669; font-weight: 700; font-size: 11.5px;">Mín: R$ ${formatCurrency(minVal)}</span><br><span style="font-size: 10px; color: #64748b;">Tab: R$ ${formatCurrency(sugVal)}</span></div>` 
+                : `<span style="color: #ef4444; font-size: 10.5px; font-weight: 700; white-space: nowrap;">${isMissingTable ? 'Tabela Inexistente' : 'Sem preço'}</span>`;
 
             if (!isQuotable) {
                 div.style.opacity = '0.55';
@@ -3865,21 +3873,22 @@
             const pStockVal = (p.estoque !== null && p.estoque !== undefined) ? parseFloat(p.estoque) : null;
             const pValidade = p.validade_formatada || (p.validade_proxima ? String(p.validade_proxima).substring(0, 7).split('-').reverse().join('/') : null);
             const fullTitle = `${p.codigo_sankhya} - ${p.descricao}${p.marca ? ' (' + p.marca + ')' : ''}`;
+            const cleanCampanha = p.campanha ? p.campanha.replace(/promoc\?o/gi, 'Promoção') : '';
 
             div.setAttribute("title", fullTitle);
             div.innerHTML = `
                 <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+                    <div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px;">
                         <span class="prod-code">${escapeHtml(p.codigo_sankhya)}</span>
                         <div style="flex: 1; min-width: 0;">
                             <span class="prod-title">${escapeHtml(p.descricao)}</span>
                             ${p.marca ? `<span style="font-size: 11px; color: #64748b; font-weight: normal; margin-left: 6px; white-space: nowrap;">(${escapeHtml(p.marca)})</span>` : ''}
                         </div>
                     </div>
-                    <div style="font-size: 11px; color: #475569; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+                    <div style="font-size: 11px; color: #475569; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 3px;">
                         <span>📦 Estoque: <strong style="color: ${pStockVal !== null && pStockVal > 0 ? '#166534' : '#991b1b'};">${p.estoque_formatado || (pStockVal !== null ? pStockVal : '0')} ${escapeHtml(p.unidade || 'UN')}</strong></span>
                         ${pValidade && pValidade !== '--' ? `<span>📅 Venc: <strong>${escapeHtml(pValidade)}</strong></span>` : ''}
-                        ${p.campanha ? `<span style="background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; padding: 1px 5px; border-radius: 4px; font-weight: 700;">🎁 ${escapeHtml(p.campanha)}</span>` : ''}
+                        ${cleanCampanha ? `<span style="background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; padding: 1px 5px; border-radius: 4px; font-weight: 700;">🎁 ${escapeHtml(cleanCampanha)}</span>` : ''}
                     </div>
                 </div>
                 <div class="prod-price">${priceHtml}</div>
