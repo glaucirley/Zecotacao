@@ -2523,7 +2523,7 @@
             <!-- Product Search Input & Results Dropdown -->
             <div id="admin-prod-search-box-${rowId}" style="position:relative;">
                 <input type="text" id="admin-prod-search-input-${rowId}" class="form-control" placeholder="🔍 Digite para buscar produto por código, nome ou marca..." oninput="filterAdminRowProduct(${rowId})" style="font-size:12px;">
-                <div id="admin-prod-results-${rowId}" style="display:none; max-height:160px; overflow-y:auto; position:absolute; top:100%; left:0; right:0; z-index:100; background:#fff; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); margin-top:2px;"></div>
+                <div id="admin-prod-results-${rowId}" style="display:none; max-height:240px; overflow-y:auto; position:absolute; top:100%; left:0; min-width:100%; width:max(100%, 420px); max-width:min(600px, 94vw); z-index:100; background:#fff; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 8px 16px -2px rgba(0,0,0,0.12); margin-top:2px;"></div>
             </div>
 
             <!-- Quantity, Price & Subtotal Row -->

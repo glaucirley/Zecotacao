@@ -46,13 +46,15 @@
         position: absolute;
         top: 100%;
         left: 0;
-        right: 0;
+        min-width: 100%;
+        width: max(100%, 480px);
+        max-width: min(680px, 94vw);
         z-index: 1050;
         background: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
-        max-height: 260px;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1);
+        max-height: 320px;
         overflow-y: auto;
         margin-top: 4px;
     }
@@ -63,7 +65,8 @@
         transition: background 0.15s ease;
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
+        gap: 12px;
     }
     .product-autocomplete-item:hover {
         background: #f8fafc;
@@ -71,22 +74,29 @@
     .product-autocomplete-item .prod-code {
         font-weight: 700;
         color: #1e293b;
-        font-size: 12px;
+        font-size: 11.5px;
         background: #e2e8f0;
         padding: 2px 6px;
         border-radius: 4px;
-        margin-right: 8px;
+        display: inline-block;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
     .product-autocomplete-item .prod-title {
         font-weight: 600;
         color: #0f172a;
         font-size: 13px;
+        line-height: 1.35;
+        white-space: normal;
+        word-break: break-word;
     }
     .product-autocomplete-item .prod-price {
         font-size: 12px;
         color: #2563eb;
         font-weight: 600;
         white-space: nowrap;
+        text-align: right;
+        flex-shrink: 0;
     }
 
     .filter-tabs-wrapper {
@@ -3854,13 +3864,19 @@
 
             const pStockVal = (p.estoque !== null && p.estoque !== undefined) ? parseFloat(p.estoque) : null;
             const pValidade = p.validade_formatada || (p.validade_proxima ? String(p.validade_proxima).substring(0, 7).split('-').reverse().join('/') : null);
+            const fullTitle = `${p.codigo_sankhya} - ${p.descricao}${p.marca ? ' (' + p.marca + ')' : ''}`;
 
+            div.setAttribute("title", fullTitle);
             div.innerHTML = `
-                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; flex: 1;">
-                    <span class="prod-code">${escapeHtml(p.codigo_sankhya)}</span>
-                    <span class="prod-title">${escapeHtml(p.descricao)}</span>
-                    ${p.marca ? `<span style="font-size: 11px; color: #64748b; margin-left: 6px;">(${escapeHtml(p.marca)})</span>` : ''}
-                    <div style="font-size: 11px; color: #475569; margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+                        <span class="prod-code">${escapeHtml(p.codigo_sankhya)}</span>
+                        <div style="flex: 1; min-width: 0;">
+                            <span class="prod-title">${escapeHtml(p.descricao)}</span>
+                            ${p.marca ? `<span style="font-size: 11px; color: #64748b; font-weight: normal; margin-left: 6px; white-space: nowrap;">(${escapeHtml(p.marca)})</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size: 11px; color: #475569; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
                         <span>📦 Estoque: <strong style="color: ${pStockVal !== null && pStockVal > 0 ? '#166534' : '#991b1b'};">${p.estoque_formatado || (pStockVal !== null ? pStockVal : '0')} ${escapeHtml(p.unidade || 'UN')}</strong></span>
                         ${pValidade && pValidade !== '--' ? `<span>📅 Venc: <strong>${escapeHtml(pValidade)}</strong></span>` : ''}
                         ${p.campanha ? `<span style="background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; padding: 1px 5px; border-radius: 4px; font-weight: 700;">🎁 ${escapeHtml(p.campanha)}</span>` : ''}
