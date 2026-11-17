@@ -113,6 +113,15 @@
         background: #f1f5f9;
         padding: 4px;
         border-radius: 10px;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+        box-sizing: border-box;
+    }
+    .filter-tabs-wrapper::-webkit-scrollbar {
+        display: none; /* Chrome, Safari */
     }
     .filter-tab-btn {
         border: none;
@@ -127,6 +136,8 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
     .filter-tab-btn.active {
         background: #ffffff;
@@ -820,6 +831,28 @@
     }
 
     @media (max-width: 640px) {
+        .items-filter-bar {
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .search-box-wrapper {
+            min-width: 100%;
+            width: 100%;
+        }
+        .filter-tabs-wrapper {
+            width: 100%;
+            padding: 3px;
+            gap: 4px;
+        }
+        .filter-tab-btn {
+            padding: 5px 9px;
+            font-size: 11.5px;
+            gap: 4px;
+        }
+        .filter-tab-btn .tab-badge {
+            padding: 1px 6px;
+            font-size: 10.5px;
+        }
         .toast-container {
             top: 15px !important;
             left: 50% !important;
@@ -2954,7 +2987,12 @@
         currentFilterTab = tabName;
         document.querySelectorAll('.filter-tab-btn').forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.getElementById(`tab-${tabName}`);
-        if (activeBtn) activeBtn.classList.add('active');
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+            try {
+                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            } catch (e) {}
+        }
         renderItems();
     }
 
