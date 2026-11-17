@@ -770,16 +770,31 @@
         }
         .btn-close-drawer {
             background: rgba(255,255,255,0.2);
-            border: none;
+            border: 1px solid rgba(255,255,255,0.3);
             color: white;
-            font-size: 22px;
-            width: 32px;
-            height: 32px;
+            font-size: 24px;
+            line-height: 1;
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            min-height: 38px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .btn-close-drawer:hover,
+        .btn-close-drawer:active {
+            background: rgba(255,255,255,0.35);
+            transform: scale(1.05);
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.92); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         /* Stepper */
@@ -1197,6 +1212,32 @@
             <span>Nova Cotação</span>
         </button>
 
+        <!-- Confirmation Modal: Salvar Rascunho ou Descartar -->
+        <div id="confirm-exit-modal" class="modal-overlay" style="display:none; z-index:1100; align-items:center; justify-content:center; padding:20px;">
+            <div style="background:#ffffff; border-radius:18px; max-width:380px; width:100%; box-shadow:0 20px 40px rgba(0,0,0,0.25); overflow:hidden; animation:popIn 0.2s ease-out; margin:auto;">
+                <div style="padding:22px 20px 16px; text-align:center;">
+                    <div style="width:52px; height:52px; border-radius:50%; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; font-size:26px; margin:0 auto 14px;">
+                        ⚠️
+                    </div>
+                    <h3 style="margin:0 0 8px; font-size:17px; font-weight:800; color:#0f172a;">Salvar rascunho ou descartar?</h3>
+                    <p style="margin:0; font-size:13.5px; color:#64748b; line-height:1.45;">
+                        Você preencheu dados nesta cotação. Deseja salvar como rascunho em <strong>Em Criação</strong> para continuar depois, ou descartar?
+                    </p>
+                </div>
+                <div style="padding:12px 20px 20px; display:flex; flex-direction:column; gap:10px;">
+                    <button type="button" onclick="confirmExitSaveDraft()" style="width:100%; padding:12px; background:#0284c7; color:white; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 2px 6px rgba(2,132,199,0.35); touch-action:manipulation;">
+                        💾 Salvar Rascunho
+                    </button>
+                    <button type="button" onclick="confirmExitDiscard()" style="width:100%; padding:11px; background:#fee2e2; color:#b91c1c; border:1px solid #fecdd3; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; touch-action:manipulation;">
+                        🗑️ Descartar Cotação
+                    </button>
+                    <button type="button" onclick="closeConfirmExitModal()" style="width:100%; padding:10px; background:transparent; color:#64748b; border:none; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer; touch-action:manipulation;">
+                        Continuar Editando
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- New Quote Modal Overlay & Drawer -->
         <div id="new-quote-overlay" class="modal-overlay" onclick="handleDrawerClose()" style="display:none;"></div>
         <div id="new-quote-drawer" class="mobile-drawer" style="display:none;">
@@ -1205,11 +1246,11 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                     Incluir Nova Cotação
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <button type="button" onclick="saveDraftQuote(false)" style="background:#0284c7; color:white; border:none; padding:5px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(0,0,0,0.15);">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <button type="button" onclick="saveDraftQuote(false)" style="background:#0284c7; color:white; border:1px solid #38bdf8; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:5px; box-shadow:0 2px 5px rgba(0,0,0,0.2); touch-action:manipulation;">
                         💾 Salvar Rascunho
                     </button>
-                    <button type="button" class="btn-close-drawer" onclick="handleDrawerClose()">&times;</button>
+                    <button type="button" class="btn-close-drawer" onclick="handleDrawerClose()" title="Fechar (Salvar ou Descartar)" aria-label="Fechar">&times;</button>
                 </div>
             </div>
 
@@ -2564,16 +2605,43 @@
             }
         }
 
-        async function handleDrawerClose() {
+        function handleDrawerClose() {
             if (selectedPartner && quoteCartItems.length > 0) {
-                const saved = await saveDraftQuote(true);
-                if (saved) return;
+                const modal = document.getElementById("confirm-exit-modal");
+                if (modal) {
+                    modal.style.display = "flex";
+                    return;
+                }
             }
+            confirmExitDiscard(true);
+        }
+
+        function closeConfirmExitModal() {
+            const modal = document.getElementById("confirm-exit-modal");
+            if (modal) modal.style.display = "none";
+        }
+
+        async function confirmExitSaveDraft() {
+            closeConfirmExitModal();
+            await saveDraftQuote(false);
+        }
+
+        function confirmExitDiscard(silent = false) {
+            closeConfirmExitModal();
+            clearOfflineBackup();
+            selectedPartner = null;
+            quoteCartItems = [];
+            clearSelectedPartner();
+            clearQuoteFormError();
             closeNewQuoteModal();
+            if (!silent) {
+                showToast("Cotação descartada.", 'info');
+            }
         }
 
         function closeNewQuoteModal() {
             clearQuoteFormError();
+            closeConfirmExitModal();
             document.getElementById("new-quote-overlay").style.display = "none";
             document.getElementById("new-quote-drawer").style.display = "none";
         }
