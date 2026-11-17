@@ -2399,8 +2399,17 @@
                         adminPartnersList.push(partner);
                     }
                 });
-                const qNorm = normalizeStr(trimmedQuery);
-                const sortedResults = sortPartnersByRelevance(results, qNorm);
+                const qNorm = normalizeStr(trimmedQuery).trim();
+                const searchTerms = qNorm.split(/\s+/).filter(Boolean);
+                const matchingResults = searchTerms.length > 0
+                    ? results.filter(p => {
+                        if (!p) return false;
+                        const key = p._searchKey || preparePartnerSearchKey(p);
+                        return searchTerms.every(term => key.includes(term));
+                    })
+                    : results;
+
+                const sortedResults = sortPartnersByRelevance(matchingResults, qNorm);
                 renderAdminPartnerOptions(sortedResults, false);
             }
         } catch(e) {

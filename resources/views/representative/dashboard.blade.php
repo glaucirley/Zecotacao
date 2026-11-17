@@ -3094,7 +3094,16 @@
                     });
 
                     const qNorm = normalizeStr(trimmedQuery).trim();
-                    const sortedResults = sortPartnersByRelevance(rawResults, qNorm);
+                    const searchTerms = qNorm.split(/\s+/).filter(Boolean);
+                    const matchingResults = searchTerms.length > 0
+                        ? rawResults.filter(p => {
+                            if (!p) return false;
+                            const key = p._searchKey || preparePartnerSearchKey(p);
+                            return searchTerms.every(term => key.includes(term));
+                        })
+                        : rawResults;
+
+                    const sortedResults = sortPartnersByRelevance(matchingResults, qNorm);
                     renderPartnerSelectOptions(sortedResults, false);
                 }
             } catch(e) {

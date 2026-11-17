@@ -87,28 +87,42 @@ class PartnerController extends Controller
             }
 
             if ($search !== '') {
-                $cleanDigits = preg_replace('/[^0-9]/', '', $search);
-                $terms = array_filter(explode(' ', $search));
-                $significantTerms = array_values(array_filter($terms, fn($t) => mb_strlen($t) >= 2));
-                if (empty($significantTerms)) {
-                    $significantTerms = $terms;
-                }
+                $terms = array_filter(explode(' ', trim($search)));
+                $cleanDigitsAll = preg_replace('/[^0-9]/', '', $search);
 
-                $query->where(function ($q) use ($significantTerms, $cleanDigits, $search) {
-                    if (strlen($cleanDigits) >= 3) {
-                        $q->where('cnpj', 'like', "%{$cleanDigits}%")
-                          ->orWhere('codigo_sankhya', 'like', "%{$search}%");
+                $query->where(function ($q) use ($terms, $cleanDigitsAll, $search) {
+                    // Se a busca for um CNPJ/CPF completo ou quase completo (apenas digitos/pontos/hifens)
+                    $isPureDocument = (strlen($cleanDigitsAll) >= 8 && preg_match('/^[0-9.\-\/\s]+$/', $search));
+
+                    if ($isPureDocument) {
+                        $q->where('cnpj', 'like', "%{$cleanDigitsAll}%")
+                          ->orWhere('codigo_sankhya', 'like', "%{$cleanDigitsAll}%");
+                        return;
                     }
 
-                    $q->orWhere(function ($allTermsQ) use ($significantTerms) {
-                        foreach ($significantTerms as $term) {
-                            $allTermsQ->where(function ($subQ) use ($term) {
-                                $subQ->where('razao_social', 'like', "%{$term}%")
-                                     ->orWhere('nome_fantasia', 'like', "%{$term}%")
-                                     ->orWhere('codigo_sankhya', 'like', "%{$term}%");
-                            });
-                        }
-                    });
+                    // Busca multi-termo: CADA termo digitado deve ser encontrado no parceiro (AND entre termos)
+                    foreach ($terms as $term) {
+                        $q->where(function ($subQ) use ($term) {
+                            $cleanTermDigits = preg_replace('/[^0-9]/', '', $term);
+                            $termAscii = \Illuminate\Support\Str::ascii($term);
+
+                            $subQ->where('razao_social', 'like', "%{$term}%")
+                                 ->orWhere('nome_fantasia', 'like', "%{$term}%")
+                                 ->orWhere('codigo_sankhya', 'like', "%{$term}%")
+                                 ->orWhere('cidade', 'like', "%{$term}%");
+
+                            if ($termAscii !== $term) {
+                                $subQ->orWhere('razao_social', 'like', "%{$termAscii}%")
+                                     ->orWhere('nome_fantasia', 'like', "%{$termAscii}%")
+                                     ->orWhere('cidade', 'like', "%{$termAscii}%");
+                            }
+
+                            // Se o termo individual tiver pelo menos 3 digitos, pode casar no CNPJ
+                            if (strlen($cleanTermDigits) >= 3) {
+                                $subQ->orWhere('cnpj', 'like', "%{$cleanTermDigits}%");
+                            }
+                        });
+                    }
                 });
 
                 $safeSearch = addslashes($search);
