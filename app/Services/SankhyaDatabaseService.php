@@ -148,11 +148,9 @@ class SankhyaDatabaseService
             PRO.MARGLUCRO, 
             PRO.NCM,
             PRO.ATIVO,
-            (SELECT CUSVARIAVEL 
+            (SELECT MAX(CUS.CUSVARIAVEL) KEEP (DENSE_RANK LAST ORDER BY CUS.DTATUAL) 
                FROM {$prefix}TGFCUS CUS 
-              WHERE CUS.CODPROD = PRO.CODPROD 
-                AND ROWNUM = 1 
-              ORDER BY CUS.DTATUAL DESC) AS CUSTO_VARIAVEL
+              WHERE CUS.CODPROD = PRO.CODPROD) AS CUSTO_VARIAVEL
         FROM {$prefix}TGFPRO PRO";
     }
 

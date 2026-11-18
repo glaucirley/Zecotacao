@@ -272,8 +272,10 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
     }
 
     async function saveExternalOrderAndClose() {
-        await saveExternalOrder();
-        closeOrderModal();
+        const ok = await saveExternalOrder();
+        if (ok) {
+            closeOrderModal();
+        }
     }
 
     async function loadDetails() {
@@ -572,7 +574,7 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
 
         if (!num || !val || val <= 0) {
             showToast("Número de pedido e valor são obrigatórios.", "warning");
-            return;
+            return false;
         }
 
         try {
@@ -589,11 +591,14 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
             if (data.success) {
                 showToast("Pedido externo registrado com sucesso!", "success");
                 loadDetails();
+                return true;
             } else {
                 showToast("Erro ao registrar pedido: " + (data.message || data.error), "error");
+                return false;
             }
         } catch (e) {
             showToast("Erro de conexão ao salvar pedido externo.", "error");
+            return false;
         }
     }
 
@@ -635,6 +640,10 @@ Conferência de Faturamento #<span id="header-quote-number">...</span>
         document.getElementById("conflict-overlay").classList.remove("open");
         document.getElementById("conflict-modal").classList.remove("open");
         document.getElementById("conflict-motive").value = "";
+        const select = document.getElementById("conference-status-select");
+        if (select && typeof quote !== 'undefined' && quote && quote.pedido_externo) {
+            select.value = quote.pedido_externo.status_conferencia || "pendente";
+        }
     }
 
     async function confirmConflict() {

@@ -203,6 +203,9 @@
 
 @section('styles')
 <style>
+    :root {
+        --status-recusada: #ef4444;
+    }
     /* Kanban Styles */
     .kanban-container {
         scrollbar-width: thin;
@@ -331,13 +334,13 @@
 
     async function loadSellers() {
         try {
-            const res = await fetch(`${API_URL}/usuarios`);
+            const res = await fetch(`${API_URL}/cotacoes/meta`, {
+                headers: { "Accept": "application/json" }
+            });
             const data = await res.json();
-            if (data.success) {
+            if (data.success && data.data && Array.isArray(data.data.representatives)) {
                 const select = document.getElementById("funnel-seller-filter");
-                const usersList = Array.isArray(data.data) ? data.data : (data.data?.users || []);
-                // Filter only representatives (case-insensitive)
-                const reps = usersList.filter(u => String(u.papel || '').toLowerCase() === 'representante');
+                const reps = data.data.representatives;
                 reps.forEach(r => {
                     select.innerHTML += `<option value="${r.id}">${escapeHtml(r.nome)}</option>`;
                 });
@@ -354,7 +357,9 @@
         const period = document.getElementById("funnel-period-filter").value;
 
         try {
-            const res = await fetch(`${API_URL}/cotacoes/todas`);
+            const res = await fetch(`${API_URL}/cotacoes/todas`, {
+                headers: { "Accept": "application/json" }
+            });
             const data = await res.json();
             
             document.getElementById("loading-spinner").style.display = "none";
@@ -376,6 +381,8 @@
             }
         } catch (e) {
             console.error(e);
+            document.getElementById("loading-spinner").style.display = "none";
+            document.getElementById("kanban-pipeline-wrapper").style.display = "block";
             showToast("Erro de conexão ao buscar pipeline.", "error");
         }
     }
@@ -483,7 +490,9 @@
     // Modal Details Logic (Consistent with quotes.blade.php)
     async function openDetailModal(id) {
         try {
-            const res = await fetch(`${API_URL}/faturamento/${id}`);
+            const res = await fetch(`${API_URL}/cotacoes/${id}`, {
+                headers: { "Accept": "application/json" }
+            });
             const data = await res.json();
             if (!data.success) {
                 showToast("Erro ao carregar detalhes: " + (data.message || data.error), "error");

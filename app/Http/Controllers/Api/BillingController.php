@@ -19,7 +19,7 @@ class BillingController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador()) {
+        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden. Only billing staff, directors, and administrators can view the billing queue.'], 403);
         }
 
@@ -55,7 +55,7 @@ class BillingController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador()) {
+        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
@@ -83,7 +83,7 @@ class BillingController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador()) {
+        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
@@ -180,7 +180,7 @@ class BillingController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador()) {
+        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
@@ -231,7 +231,7 @@ class BillingController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador()) {
+        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
@@ -279,7 +279,7 @@ class BillingController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador()) {
+        if (!$user->isFaturamento() && !$user->isDiretor() && !$user->isAdministrador() && !$user->isSuporte()) {
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 

@@ -331,12 +331,13 @@ class IntegrationController extends Controller
         }
 
         // Check if quote exists and lock status checks
+        $lockedStatuses = ['AGUARDANDO_GESTOR', 'COM_DIRETOR', 'APROVADA', 'PDF_GERADO', 'FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'];
         $existingQuote = Cotacao::where('numero', $data['numero'])->first();
-        if ($existingQuote && in_array($existingQuote->status, ['FINALIZADA_COM_PEDIDO', 'FATURADA', 'PERDIDA', 'EXPIRADA'])) {
+        if ($existingQuote && in_array($existingQuote->status, $lockedStatuses)) {
             $lock->release();
             return response()->json([
                 'error' => 'Locked quote',
-                'message' => "The quote {$data['numero']} is in status {$existingQuote->status} and cannot be modified."
+                'message' => "The quote {$data['numero']} is in status {$existingQuote->status} and cannot be modified by integration."
             ], 422);
         }
 
@@ -344,9 +345,12 @@ class IntegrationController extends Controller
             $plainToken = bin2hex(random_bytes(32));
             $resolvedRep = null;
 
-            $quote = DB::transaction(function () use ($data, $plainToken, &$resolvedRep, $request) {
+            $quote = DB::transaction(function () use ($data, $plainToken, &$resolvedRep, $request, $lockedStatuses) {
                 // Re-consulta com lockForUpdate para segurança máxima de concorrência
                 $existingQuote = Cotacao::where('numero', $data['numero'])->lockForUpdate()->first();
+                if ($existingQuote && in_array($existingQuote->status, $lockedStatuses)) {
+                    throw new \Exception("The quote {$data['numero']} is in status {$existingQuote->status} and cannot be modified by integration.");
+                }
                 
                 // 2. Resolve Representative (Vendedor) with payload auto-provisioning fallback
                 $repData = $data['representante'];

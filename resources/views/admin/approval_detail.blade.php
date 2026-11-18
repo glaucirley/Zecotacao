@@ -840,12 +840,13 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
                     <td class="text-center">
                         <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
                             <select class="form-control item-action-select" style="font-size:12px; padding:4px 8px; width:110px;" onchange="onItemActionChange(${item.id}, this.value)">
-                                <option value="aprovado">Aprovar</option>
-                                <option value="recusado">Recusar</option>
+                                <option value="aprovado" ${item.status_item !== 'recusado' ? 'selected' : ''}>Aprovar</option>
+                                <option value="recusado" ${item.status_item === 'recusado' ? 'selected' : ''}>Recusar</option>
                             </select>
                             <input type="text" id="rej-reason-${item.id}" class="form-control item-rej-reason" 
                                 placeholder="Motivo da recusa..." 
-                                style="font-size:11px; padding:4px 8px; width:140px; display:none; border-color:#fca5a5;">
+                                value="${escapeHtml(item.motivo_recusa || '')}"
+                                style="font-size:11px; padding:4px 8px; width:140px; display:${item.status_item === 'recusado' ? 'block' : 'none'}; border-color:#fca5a5;">
                         </div>
                     </td>
                 </tr>
@@ -1128,14 +1129,56 @@ Análise da Cotação #<span id="header-quote-number">...</span> <span id="heade
         try {
             const res = await fetch(`${API_URL}/aprovacoes/${QUOTE_ID}/itens/${currentSimItemId}`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
                 body: JSON.stringify({ preco_unit_proposto: newPrice })
             });
 
             const data = await res.json();
             if (data.success) {
                 closeSimModal();
-                loadQuoteDetails();
+                showToast("Preço simulado com sucesso!", "success");
+
+                // Snapshot form states so user selections are not lost
+                const selections = {};
+                document.querySelectorAll(".item-action-select").forEach(sel => {
+                    const row = sel.closest("tr");
+                    const rowId = row?.id?.replace("item-row-", "");
+                    if (rowId) {
+                        selections[rowId] = {
+                            action: sel.value,
+                            reason: document.getElementById(`rej-reason-${rowId}`)?.value || ""
+                        };
+                    }
+                });
+
+                if (data.data) {
+                    quote = data.data;
+                } else if (quote && quote.itens) {
+                    const it = quote.itens.find(i => i.id == currentSimItemId);
+                    if (it) it.preco_unit_proposto = newPrice;
+                }
+
+                renderDecisionItems();
+
+                // Restore form selections
+                Object.keys(selections).forEach(itemId => {
+                    const row = document.getElementById(`item-row-${itemId}`);
+                    if (row) {
+                        const sel = row.querySelector(".item-action-select");
+                        const reason = document.getElementById(`rej-reason-${itemId}`);
+                        if (sel && selections[itemId].action) {
+                            sel.value = selections[itemId].action;
+                            if (reason) {
+                                reason.value = selections[itemId].reason;
+                                reason.style.display = sel.value === "recusado" ? "block" : "none";
+                            }
+                        }
+                    }
+                });
+                calculateOverallTotals();
             } else {
                 showToast("Erro na simulação: " + (data.message || data.error), "error");
             }

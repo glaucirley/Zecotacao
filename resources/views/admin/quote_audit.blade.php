@@ -86,18 +86,25 @@
 
     async function loadAuditLogs() {
         try {
-            const res = await fetch(`${API_URL}/aprovacoes/${QUOTE_ID}`);
-            if (res.status === 401 || res.status === 403) {
+            const res = await fetch(`${API_URL}/cotacoes/${QUOTE_ID}`, {
+                headers: { "Accept": "application/json" }
+            });
+            if (res.status === 401) {
                 window.location.href = "{{ url('/login') }}";
+                return;
+            }
+            if (res.status === 403) {
+                document.getElementById("loading-spinner").style.display = "none";
+                showToast("Acesso não autorizado para visualizar o histórico desta cotação.", "error");
                 return;
             }
             const json = await res.json();
             document.getElementById("loading-spinner").style.display = "none";
 
-            if (json.success) {
+            if (json.success && json.data) {
                 renderAudit(json.data);
             } else {
-                showToast("Erro ao buscar histórico: " + (json.error || 'Erro desconhecido'), "error");
+                showToast("Erro ao buscar histórico: " + (json.error || json.message || 'Erro desconhecido'), "error");
             }
         } catch(e) {
             console.error(e);
@@ -110,15 +117,17 @@
         document.getElementById("audit-content").style.display = "flex";
 
         // Update headers
-        document.getElementById("quote-title").innerText = `Cotação #${quote.numero}`;
+        document.getElementById("quote-title").innerText = `Cotação #${quote.numero || quote.id}`;
         
         // Status Badge
         const badge = document.getElementById("quote-status-badge");
-        badge.innerText = quote.status.replace(/_/g, ' ');
-        badge.className = `badge-status badge-${quote.status.toLowerCase().replace(/_/g, '-')}`;
+        badge.innerText = (quote.status || '').replace(/_/g, ' ');
+        badge.className = `badge-status ${(quote.status || '').toLowerCase()}`;
 
         // Subtitle
-        document.getElementById("quote-subtitle").innerText = `Cliente: ${quote.parceiro.razao_social} | Representante: ${quote.representante.nome}`;
+        const clientName = quote.parceiro ? (quote.parceiro.razao_social || quote.parceiro.nome_fantasia || 'Cliente') : 'Cliente Sem Identificação';
+        const repName = quote.representante ? quote.representante.nome : 'Sem Vendedor';
+        document.getElementById("quote-subtitle").innerText = `Cliente: ${clientName} | Representante: ${repName}`;
 
         // Render table
         const tbody = document.getElementById("audit-table-body");

@@ -145,6 +145,46 @@
         </form>
     </div>
 </div>
+
+<!-- Import Modal Sheet -->
+<div id="import-overlay" class="sheet-overlay" onclick="closeImportModal()" style="display:none;"></div>
+<div id="import-modal" class="sheet-drawer" style="display:none; max-width:550px;">
+    <div class="sheet-header">
+        <h3 style="margin: 0; color: var(--color-primary);">📥 Importar Clientes do Sankhya (CSV)</h3>
+        <button type="button" class="sheet-close-btn" onclick="closeImportModal()">&times;</button>
+    </div>
+    <div class="sheet-body" style="padding: 20px;">
+        <p style="font-size:13px; color:var(--color-text-muted); margin-top:0;">
+            Exporte a lista de parceiros do Sankhya em formato <strong>CSV</strong> (separado por vírgula <code>,</code> ou ponto-e-vírgula <code>;</code>) e faça o upload abaixo.
+        </p>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px; font-size:12px;">
+            <strong style="color:var(--color-text);">Colunas reconhecidas automaticamente do Sankhya:</strong>
+            <ul style="margin:6px 0 0 16px; padding:0; color:#475569; line-height:1.5;">
+                <li><code>CODPARC</code> ou <code>CODIGO_SANKHYA</code> (Obrigatório)</li>
+                <li><code>RAZAOSOCIAL</code> ou <code>RAZAO_SOCIAL</code></li>
+                <li><code>NOMEPARC</code> ou <code>NOME_FANTASIA</code></li>
+                <li><code>CGC_CPF</code> ou <code>CNPJ</code></li>
+                <li><code>TELEFONE</code>, <code>EMAIL</code></li>
+                <li><code>CIDADE</code> (ou <code>NOMECID</code>), <code>UF</code>, <code>BAIRRO</code></li>
+            </ul>
+        </div>
+
+        <form onsubmit="submitPartnerImport(event)">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label" style="font-weight:600;">Selecione o arquivo CSV (.csv ou .txt):</label>
+                <input type="file" id="import-file-input" class="form-control" accept=".csv,.txt" required style="padding:8px;">
+            </div>
+
+            <div id="import-feedback" style="display:none; margin-bottom:16px; font-size:13px;"></div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                <button type="submit" id="btn-submit-import" class="btn btn-primary">Iniciar Importação</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -365,8 +405,16 @@
 
     // --- Import Modal Logic ---
     function openImportModal() {
-        document.getElementById("import-overlay").style.display = "block";
-        document.getElementById("import-modal").style.display = "block";
+        const overlay = document.getElementById("import-overlay");
+        const modal = document.getElementById("import-modal");
+        if (overlay) {
+            overlay.style.display = "block";
+            overlay.classList.add("active", "open");
+        }
+        if (modal) {
+            modal.style.display = "block";
+            modal.classList.add("active", "open");
+        }
         document.getElementById("import-file-input").value = "";
         document.getElementById("import-feedback").style.display = "none";
         document.getElementById("btn-submit-import").disabled = false;
@@ -374,8 +422,16 @@
     }
 
     function closeImportModal() {
-        document.getElementById("import-overlay").style.display = "none";
-        document.getElementById("import-modal").style.display = "none";
+        const overlay = document.getElementById("import-overlay");
+        const modal = document.getElementById("import-modal");
+        if (overlay) {
+            overlay.style.display = "none";
+            overlay.classList.remove("active", "open");
+        }
+        if (modal) {
+            modal.style.display = "none";
+            modal.classList.remove("active", "open");
+        }
     }
 
     async function submitPartnerImport(e) {
@@ -444,45 +500,5 @@
         }
     }
 </script>
-
-<!-- Import Modal Sheet -->
-<div id="import-overlay" class="sheet-overlay" onclick="closeImportModal()" style="display:none;"></div>
-<div id="import-modal" class="sheet-drawer" style="display:none; max-width:550px;">
-    <div class="sheet-header">
-        <h3 style="margin: 0; color: var(--color-primary);">📥 Importar Clientes do Sankhya (CSV)</h3>
-        <button type="button" class="sheet-close-btn" onclick="closeImportModal()">&times;</button>
-    </div>
-    <div class="sheet-body" style="padding: 20px;">
-        <p style="font-size:13px; color:var(--color-text-muted); margin-top:0;">
-            Exporte a lista de parceiros do Sankhya em formato <strong>CSV</strong> (separado por vírgula <code>,</code> ou ponto-e-vírgula <code>;</code>) e faça o upload abaixo.
-        </p>
-
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px; font-size:12px;">
-            <strong style="color:var(--color-text);">Colunas reconhecidas automaticamente do Sankhya:</strong>
-            <ul style="margin:6px 0 0 16px; padding:0; color:#475569; line-height:1.5;">
-                <li><code>CODPARC</code> ou <code>CODIGO_SANKHYA</code> (Obrigatório)</li>
-                <li><code>RAZAOSOCIAL</code> ou <code>RAZAO_SOCIAL</code></li>
-                <li><code>NOMEPARC</code> ou <code>NOME_FANTASIA</code></li>
-                <li><code>CGC_CPF</code> ou <code>CNPJ</code></li>
-                <li><code>TELEFONE</code>, <code>EMAIL</code></li>
-                <li><code>CIDADE</code> (ou <code>NOMECID</code>), <code>UF</code>, <code>BAIRRO</code></li>
-            </ul>
-        </div>
-
-        <form onsubmit="submitPartnerImport(event)">
-            <div class="form-group" style="margin-bottom:16px;">
-                <label class="form-label" style="font-weight:600;">Selecione o arquivo CSV (.csv ou .txt):</label>
-                <input type="file" id="import-file-input" class="form-control" accept=".csv,.txt" required style="padding:8px;">
-            </div>
-
-            <div id="import-feedback" style="display:none; margin-bottom:16px; font-size:13px;"></div>
-
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
-                <button type="submit" id="btn-submit-import" class="btn btn-primary">Iniciar Importação</button>
-            </div>
-        </form>
-    </div>
-</div>
 @endsection
 

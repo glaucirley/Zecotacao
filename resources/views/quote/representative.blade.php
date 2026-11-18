@@ -2276,7 +2276,7 @@
         // 2. Itens recusados com motivo
         const rejectedItems = [];
         (quote.itens || []).forEach(item => {
-            const isRejected = (item.decisao_diretoria === 'RECUSADO') || (item.status === 'RECUSADO');
+            const isRejected = String(item.status_item || '').toLowerCase() === 'recusado';
             if (isRejected) {
                 const justif = (quote.justificativas || []).find(j => j.cotacao_item_id === item.id);
                 const desc = item.produto ? item.produto.descricao : (item.descricao_original || 'Produto');
@@ -2523,7 +2523,8 @@
             }
             if (pricing && pricing.pendingUnfoundCount > 0) {
                 showToast(`Existem ${pricing.pendingUnfoundCount} item(ns) não encontrado(s) pela IA pendentes. Substitua ou dispense os itens antes de avançar.`, 'warning');
-                document.getElementById("ai-unfound-items-panel")?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setFilterTab('unfound');
+                document.getElementById("items-cards-container")?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
             submitQuote();
@@ -4391,109 +4392,128 @@
         return true;
     }
 
+    let isSubmittingQuote = false;
     async function submitQuote() {
+        if (isSubmittingQuote) return;
         if (isEditingLocked) {
             showToast("Esta cotação já está com status " + quote.status.replace(/_/g, ' ') + " e não permite novo envio.", 'warning');
             return;
         }
 
-        const pendingUnfound = (quote && Array.isArray(quote.itens))
-            ? quote.itens.filter(i => Boolean(i.nao_encontrado) && i.status_item !== 'recusado')
-            : [];
-        if (pendingUnfound.length > 0) {
-            showToast(`Existem ${pendingUnfound.length} item(ns) não encontrado(s) pela IA pendentes. Clique em "Incluir Manualmente" para substituí-los pelo produto do catálogo ou em "Dispensar" antes de enviar.`, 'warning');
-            document.getElementById("ai-unfound-items-panel")?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-        }
+        const submitBtn = document.getElementById("btn-submit-action") || document.getElementById("btn-submit-quote");
+        try {
+            isSubmittingQuote = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.dataset.origText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '⏳ Enviando...';
+            }
 
-        // 1. Save draft changes first
-        const saved = await saveDraft(false);
-        if (!saved) return;
-
-        // Re-evaluate justification visibility after saving draft
-        updateJustificationPanelVisibility();
-
-        // 2. If justifications are visible (needed), validate and upload them
-        const justificationPanel = document.getElementById("justification-panel");
-        const isJustRequired = justificationPanel && justificationPanel.style.display !== "none";
-
-        if (isJustRequired) {
-            const texto = (document.getElementById("just-texto")?.value || "").trim();
-            const fileInput = document.getElementById("just-anexos");
-            const audioInput = document.getElementById("just-audio");
-
-            const hasText = texto.length > 0;
-            const hasNewFiles = Boolean((fileInput && fileInput.files && fileInput.files.length > 0) || (audioInput && audioInput.files && audioInput.files.length > 0));
-            const hasExistingJustification = Boolean(
-                quote.justificativas &&
-                quote.justificativas.some(j => !j.cotacao_item_id && ((j.texto && String(j.texto).trim().length > 0) || j.audio_url))
-            );
-            const hasExistingAttachments = Boolean(
-                (quote.anexos && quote.anexos.length > 0) ||
-                (quote.justificativas && quote.justificativas.some(j => !j.cotacao_item_id && j.anexos && j.anexos.length > 0))
-            );
-
-            // Mandatory written text if no existing justification
-            if (!hasText && !hasExistingJustification) {
-                showToast("É obrigatório informar uma justificativa por escrito antes de enviar para aprovação.", 'error');
-                highlightAndScrollToJustification('just-texto');
+            const pendingUnfound = (quote && Array.isArray(quote.itens))
+                ? quote.itens.filter(i => Boolean(i.nao_encontrado) && i.status_item !== 'recusado')
+                : [];
+            if (pendingUnfound.length > 0) {
+                showToast(`Existem ${pendingUnfound.length} item(ns) não encontrado(s) pela IA pendentes. Clique em "Incluir Manualmente" para substituí-los pelo produto do catálogo ou em "Dispensar" antes de enviar.`, 'warning');
+                setFilterTab('unfound');
+                document.getElementById("items-cards-container")?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
 
-            // Mandatory attachment if EXIGE_ANEXO_JUSTIFICATIVA is enabled
-            if (EXIGE_ANEXO_JUSTIFICATIVA && !hasNewFiles && !hasExistingAttachments) {
-                showToast("O parâmetro de segurança exige anexo de pelo menos um comprovante (documento, foto ou orçamento concorrente) para aprovação de cotação com desconto acima da alçada.", 'error');
-                highlightAndScrollToJustification('just-anexos');
-                return;
-            }
+            // 1. Save draft changes first
+            const saved = await saveDraft(false);
+            if (!saved) return;
 
-            // Client-side validations
-            if (fileInput && fileInput.files && fileInput.files.length > 0 && !validateAttachmentFiles(fileInput)) {
-                return;
-            }
-            if (audioInput && audioInput.files && audioInput.files.length > 0 && !validateAudioFile(audioInput)) {
-                return;
-            }
+            // Re-evaluate justification visibility after saving draft
+            updateJustificationPanelVisibility();
 
-            // Perform multipart submit for attachments/justification if new content provided
-            if (hasText || hasNewFiles) {
-                const formData = new FormData();
-                if (hasText) formData.append("texto", texto);
-                if (fileInput && fileInput.files && fileInput.files.length > 0) {
-                    for (let i = 0; i < fileInput.files.length; i++) {
-                        formData.append("anexos[]", fileInput.files[i]);
-                    }
-                }
-                if (audioInput && audioInput.files && audioInput.files.length > 0) {
-                    formData.append("audio", audioInput.files[0]);
-                }
+            // 2. If justifications are visible (needed), validate and upload them
+            const justificationPanel = document.getElementById("justification-panel");
+            const isJustRequired = justificationPanel && justificationPanel.style.display !== "none";
 
-                const justRes = await fetch(`${QUOTE_BASE_URL}/justificativa`, {
-                    method: "POST",
-                    headers: {
-                        "Accept": "application/json",
-                        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ""
-                    },
-                    body: formData
-                });
-                const justData = await justRes.json().catch(() => ({}));
-                if (!justRes.ok || !justData.success) {
-                    let errorMsg = justData.message || justData.error || ("Falha no envio HTTP " + justRes.status);
-                    if (justData.messages && typeof justData.messages === 'object') {
-                        const firstKey = Object.keys(justData.messages)[0];
-                        if (firstKey && justData.messages[firstKey]) {
-                            const val = justData.messages[firstKey];
-                            errorMsg = Array.isArray(val) ? val[0] : val;
-                        }
-                    }
-                    showToast("Erro ao enviar justificativa: " + errorMsg, 'error');
+            if (isJustRequired) {
+                const texto = (document.getElementById("just-texto")?.value || "").trim();
+                const fileInput = document.getElementById("just-anexos");
+                const audioInput = document.getElementById("just-audio");
+
+                const hasText = texto.length > 0;
+                const hasNewFiles = Boolean((fileInput && fileInput.files && fileInput.files.length > 0) || (audioInput && audioInput.files && audioInput.files.length > 0));
+                const hasExistingJustification = Boolean(
+                    quote.justificativas &&
+                    quote.justificativas.some(j => !j.cotacao_item_id && ((j.texto && String(j.texto).trim().length > 0) || j.audio_url))
+                );
+                const hasExistingAttachments = Boolean(
+                    (quote.anexos && quote.anexos.length > 0) ||
+                    (quote.justificativas && quote.justificativas.some(j => !j.cotacao_item_id && j.anexos && j.anexos.length > 0))
+                );
+
+                // Mandatory written text if no existing justification
+                if (!hasText && !hasExistingJustification) {
+                    showToast("É obrigatório informar uma justificativa por escrito antes de enviar para aprovação.", 'error');
+                    highlightAndScrollToJustification('just-texto');
                     return;
                 }
-            }
-        }
 
-        // 3. Trigger submit to workflow routing
-        try {
+                // Mandatory attachment if EXIGE_ANEXO_JUSTIFICATIVA is enabled
+                if (EXIGE_ANEXO_JUSTIFICATIVA && !hasNewFiles && !hasExistingAttachments) {
+                    showToast("O parâmetro de segurança exige anexo de pelo menos um comprovante (documento, foto ou orçamento concorrente) para aprovação de cotação com desconto acima da alçada.", 'error');
+                    highlightAndScrollToJustification('just-anexos');
+                    return;
+                }
+
+                // Client-side validations
+                if (fileInput && fileInput.files && fileInput.files.length > 0 && !validateAttachmentFiles(fileInput)) {
+                    return;
+                }
+                if (audioInput && audioInput.files && audioInput.files.length > 0 && !validateAudioFile(audioInput)) {
+                    return;
+                }
+
+                // Perform multipart submit for attachments/justification if new content provided
+                if (hasText || hasNewFiles) {
+                    const formData = new FormData();
+                    if (hasText) formData.append("texto", texto);
+                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        for (let i = 0; i < fileInput.files.length; i++) {
+                            formData.append("anexos[]", fileInput.files[i]);
+                        }
+                    }
+                    if (audioInput && audioInput.files && audioInput.files.length > 0) {
+                        formData.append("audio", audioInput.files[0]);
+                    }
+
+                    const justRes = await fetch(`${QUOTE_BASE_URL}/justificativa`, {
+                        method: "POST",
+                        headers: {
+                            "Accept": "application/json",
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ""
+                        },
+                        body: formData
+                    });
+                    const justData = await justRes.json().catch(() => ({}));
+                    if (!justRes.ok || !justData.success) {
+                        let errorMsg = justData.message || justData.error || ("Falha no envio HTTP " + justRes.status);
+                        if (justData.messages && typeof justData.messages === 'object') {
+                            const firstKey = Object.keys(justData.messages)[0];
+                            if (firstKey && justData.messages[firstKey]) {
+                                const val = justData.messages[firstKey];
+                                errorMsg = Array.isArray(val) ? val[0] : val;
+                            }
+                        }
+                        showToast("Erro ao enviar justificativa: " + errorMsg, 'error');
+                        return;
+                    }
+                    if (justData.data) {
+                        if (Array.isArray(justData.data.justificativas)) {
+                            quote.justificativas = justData.data.justificativas;
+                        }
+                        if (Array.isArray(justData.data.anexos)) {
+                            quote.anexos = justData.data.anexos;
+                        }
+                    }
+                }
+            }
+
+            // 3. Trigger submit to workflow routing
             const res = await fetch(`${QUOTE_BASE_URL}/enviar`, {
                 method: "POST",
                 headers: {
@@ -4535,7 +4555,14 @@
             }
         } catch (e) {
             showToast("Erro de conexão ao enviar.", 'error');
+        } finally {
+            isSubmittingQuote = false;
+            if (submitBtn && submitBtn.dataset.origText) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = submitBtn.dataset.origText;
+            }
         }
+    }
     }
 
     async function downloadPdf() {
@@ -5338,6 +5365,11 @@
         if (!pdfUrl) pdfUrl = `${QUOTE_BASE_URL}/pdf`;
         if (!quoteNumero) quoteNumero = quote ? quote.numero : '';
 
+        // Salva qualquer edição de itens pendente antes de gerar o PDF
+        if (typeof isQuoteItemsDirty !== 'undefined' && isQuoteItemsDirty && typeof saveDraft === 'function') {
+            await saveDraft(false);
+        }
+
         if (quote && quote.status === 'EM_CRIACAO') {
             const pricing = typeof getQuotePricingStatus === 'function' ? getQuotePricingStatus() : null;
             if (pricing && pricing.pendingUnfoundCount > 0) {
@@ -5362,6 +5394,17 @@
             try {
                 showToast("Preparando PDF para compartilhamento...", "info");
                 const res = await fetch(pdfUrl);
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    showToast(errData.message || errData.error || "Erro ao gerar PDF da proposta.", "error");
+                    return;
+                }
+                const contentType = res.headers.get("content-type") || "";
+                if (!contentType.includes("pdf") && !contentType.includes("octet-stream")) {
+                    const errData = await res.json().catch(() => ({}));
+                    showToast(errData.message || "Erro inesperado ao gerar PDF da proposta.", "error");
+                    return;
+                }
                 const blob = await res.blob();
                 const file = new File([blob], `proposta_${quoteNumero}.pdf`, { type: 'application/pdf' });
 

@@ -420,8 +420,24 @@ h1, h2, h3, h4, h5, h6 {
 .badge-status.faturada { background-color: rgba(15, 118, 110, 0.1); color: var(--status-faturada); }
 .badge-status.perdida { background-color: rgba(239, 68, 68, 0.1); color: var(--status-perdida); }
 .badge-status.expirada { background-color: rgba(100, 116, 139, 0.12); color: var(--status-expirada); }
-.badge-status.recusado { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
-.badge-status.aprovado { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.badge-status.recusado,
+.badge-status.recusada { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+.badge-status.aprovado,
+.badge-status.aprovada { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+
+.badge-campanha {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: #fdf2f8;
+    color: #be185d;
+    border: 1px solid #fbcfe8;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+}
 
 /* Custom items grid features for representatives */
 .item-card-row,

@@ -1760,11 +1760,7 @@
         setQuoteTab('todas');
     }
 
-    // Modal and Actions handlers
-    function handleDetailClick(id, status) {
-        const quote = rawQuotes.find(q => q.id == id);
-        if (!quote) return;
-
+    function populateDetailModal(quote, isLoadingItems = false) {
         const clientName = quote.parceiro ? (quote.parceiro.razao_social || quote.parceiro.nome_fantasia || 'Cliente Sem Nome') : 'Cliente Não Identificado';
         const docVal = (quote.parceiro && (quote.parceiro.cnpj || quote.parceiro.cnpj_cpf)) ? (quote.parceiro.cnpj || quote.parceiro.cnpj_cpf) : 'N/A';
         const cleanDoc = docVal.replace(/\D/g, '');
@@ -1779,52 +1775,60 @@
         document.getElementById("modal-rep").innerText = repName;
         document.getElementById("modal-date").innerText = quote.created_at ? new Date(quote.created_at).toLocaleDateString('pt-BR') : 'N/A';
 
-        document.getElementById("modal-payment").innerText = quote.condicao_pagamento || 'A combinar';
+        document.getElementById("modal-payment").innerText = quote.forma_pagamento || quote.condicao_pagamento || 'A combinar';
         document.getElementById("modal-delivery").innerText = quote.prazo_entrega || '3 dias';
-        document.getElementById("modal-freight").innerText = quote.tipo_frete || 'CIF';
+        document.getElementById("modal-freight").innerText = quote.frete_tipo || quote.tipo_frete || 'CIF';
 
         const statusText = quote.status === 'APROVADA' ? 'Aprovada (Pendente PDF)' : (quote.status === 'PDF_GERADO' ? 'PDF Gerado' : (quote.status ? quote.status.replace(/_/g, ' ') : 'N/A'));
         document.getElementById("modal-status").innerText = statusText;
 
         const priorityBadge = document.getElementById("modal-priority");
-        if (quote.prioridade) {
-            priorityBadge.style.display = 'inline-block';
-        } else {
-            priorityBadge.style.display = 'none';
+        if (priorityBadge) {
+            priorityBadge.style.display = quote.prioridade ? 'inline-block' : 'none';
         }
 
         // Render Items
         const itemsBody = document.getElementById("modal-items-body");
         itemsBody.innerHTML = "";
-        (quote.itens || []).forEach(item => {
-            const desc = item.produto ? item.produto.descricao : 'Item sem cadastro';
-            const vlrSug = parseFloat(item.preco_tabela || 0);
-            const vlrProp = parseFloat(item.preco_unitario || 0);
+        const items = quote.itens || [];
 
-            let diffPct = 0;
-            if (vlrSug > 0) {
-                diffPct = ((vlrProp - vlrSug) / vlrSug) * 100;
-            }
+        if (isLoadingItems && items.length === 0) {
+            itemsBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:15px; color:#64748b;">Carregando itens...</td></tr>';
+        } else if (items.length === 0) {
+            itemsBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:15px; color:#64748b;">Nenhum item cadastrado nesta cotação.</td></tr>';
+        } else {
+            items.forEach(item => {
+                const desc = item.produto ? item.produto.descricao : (item.descricao_original || 'Item sem cadastro');
+                const vlrSug = parseFloat(item.preco_unit_sugerido ?? item.preco_tabela ?? 0);
+                const vlrProp = parseFloat(item.preco_unit_proposto ?? item.preco_unitario ?? 0);
+                const qty = item.qtd ?? item.quantidade ?? 1;
 
-            let adjColor = diffPct < 0 ? '#ef4444' : '#10b981';
-            let adjText = diffPct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+                let diffPct = 0;
+                if (vlrSug > 0) {
+                    diffPct = ((vlrProp - vlrSug) / vlrSug) * 100;
+                }
 
-            itemsBody.innerHTML += `
-                <tr>
-                    <td>
-                        <strong>${escapeHtml(desc)}</strong>
-                        ${item.nao_encontrado ? '<span style="display:inline-block; margin-left:6px; background:#fff1f2; color:#be123c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fecdd3;">⚠️ Não encontrado pela IA</span>' : ''}
-                        ${item.restricao_efeito === 'B' ? `<span style="display:inline-block; margin-left:6px; background:#fff7ed; color:#c2410c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fed7aa;">🚫 Não permitido: ${escapeHtml(item.restricao_msg_vendedor || 'Restrição comercial')}</span>` : ''}
-                        ${item.descricao_original ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Original: "${escapeHtml(item.descricao_original)}" ${item.observacao_ia ? `<span style="color:#be123c;">(${escapeHtml(item.observacao_ia)})</span>` : ''}</div>` : ''}
-                    </td>
-                    <td class="text-center">${item.quantidade}</td>
-                    <td class="text-right">R$ ${vlrSug.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
-                    <td class="text-right">R$ ${vlrProp.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
-                    <td class="text-center" style="color:${adjColor}; font-weight:bold;">${adjText}</td>
-                    <td class="text-center"><span class="badge-status ${item.status ? item.status.toLowerCase() : 'pendente'}">${escapeHtml(item.status || 'APROVADO')}</span></td>
-                </tr>
-            `;
-        });
+                let adjColor = diffPct < 0 ? '#ef4444' : '#10b981';
+                let adjText = diffPct.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+                const statusItem = item.status_item ?? item.status ?? 'aprovado';
+
+                itemsBody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(desc)}</strong>
+                            ${item.nao_encontrado ? '<span style="display:inline-block; margin-left:6px; background:#fff1f2; color:#be123c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fecdd3;">⚠️ Não encontrado pela IA</span>' : ''}
+                            ${item.restricao_efeito === 'B' ? `<span style="display:inline-block; margin-left:6px; background:#fff7ed; color:#c2410c; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid #fed7aa;">🚫 Não permitido: ${escapeHtml(item.restricao_msg_vendedor || 'Restrição comercial')}</span>` : ''}
+                            ${item.descricao_original ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Original: "${escapeHtml(item.descricao_original)}" ${item.observacao_ia ? `<span style="color:#be123c;">(${escapeHtml(item.observacao_ia)})</span>` : ''}</div>` : ''}
+                        </td>
+                        <td class="text-center">${qty}</td>
+                        <td class="text-right">R$ ${vlrSug.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+                        <td class="text-right">R$ ${vlrProp.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+                        <td class="text-center" style="color:${adjColor}; font-weight:bold;">${adjText}</td>
+                        <td class="text-center"><span class="badge-status ${statusItem ? statusItem.toLowerCase() : 'pendente'}">${escapeHtml(statusItem.toUpperCase())}</span></td>
+                    </tr>
+                `;
+            });
+        }
 
         document.getElementById("modal-subtotal").innerText = "R$ " + parseFloat(quote.subtotal || quote.total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
         document.getElementById("modal-discount").innerText = "R$ " + parseFloat(quote.desconto_total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
@@ -1832,10 +1836,40 @@
 
         // Populate Collapsible Audit in Modal
         renderModalAuditTrail(quote);
+    }
 
-        // Open drawer
+    // Modal and Actions handlers
+    async function handleDetailClick(id, status) {
+        let quote = rawQuotes.find(q => q.id == id);
+
+        // Open drawer immediately
         document.getElementById("detail-overlay").classList.add("active", "open");
         document.getElementById("detail-modal").classList.add("active", "open");
+
+        if (quote) {
+            populateDetailModal(quote, true);
+        }
+
+        // Fetch live full quote details with all items and relationships
+        try {
+            const res = await fetch(`${API_URL}/cotacoes/${id}`, {
+                headers: { "Accept": "application/json" }
+            });
+            const data = await res.json();
+            if (data.success && data.data) {
+                quote = data.data;
+                const idx = rawQuotes.findIndex(q => q.id == id);
+                if (idx !== -1) {
+                    rawQuotes[idx] = { ...rawQuotes[idx], ...data.data };
+                }
+                populateDetailModal(quote, false);
+            }
+        } catch (e) {
+            console.error("Erro ao carregar detalhes da cotação:", e);
+            if (quote) {
+                populateDetailModal(quote, false);
+            }
+        }
     }
 
     function toggleModalAuditAccordion(forceState) {

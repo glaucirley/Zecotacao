@@ -1033,7 +1033,7 @@ class QuoteController extends Controller
 
         $validator = Validator::make($request->all(), [
             'texto' => 'nullable|string',
-            'audio' => 'nullable|file|mimes:audio/mpeg,mp3,wav,ogg,m4a,application/octet-stream|max:10240', // 10MB limit
+            'audio' => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac,webm,mp4,3gp,oga,bin|max:10240', // 10MB limit
             'cotacao_item_id' => 'nullable|exists:cotacao_itens,id',
             'anexos' => 'nullable|array',
             'anexos.*' => [
@@ -1384,9 +1384,9 @@ class QuoteController extends Controller
         // Sequence requirement: PDF can only be generated after quotation approval!
         $allowedStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO', 'FATURADA'];
         if (!in_array($quote->status, $allowedStatuses)) {
-            // Se estiver em EM_CRIACAO, verificar se a cotação se qualifica para aprovação automática
+            // Se estiver em EM_CRIACAO ou DEVOLVIDA, verificar se a cotação se qualifica para aprovação automática
             // (ex: sem diferença nos preços ou com desconto dentro da alçada e sem itens pendentes)
-            if ($quote->status === 'EM_CRIACAO') {
+            if (in_array($quote->status, ['EM_CRIACAO', 'DEVOLVIDA'])) {
                 $workflowService = app(\App\Services\QuoteWorkflowService::class);
                 $wfResult = $workflowService->evaluateAndRoute($quote);
                 if (!empty($wfResult['success']) && in_array($quote->fresh()->status, $allowedStatuses)) {

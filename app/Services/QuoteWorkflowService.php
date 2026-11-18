@@ -446,7 +446,8 @@ class QuoteWorkflowService
                     })->orWhereNotNull('audio_url');
                 })
                 ->exists();
-            $hasAttachments = $quote->anexos()->exists() || 
+            $hasAudio = $quote->justificativas()->whereNotNull('audio_url')->where('audio_url', '!=', '')->exists();
+            $hasAttachments = $hasAudio || $quote->anexos()->exists() || 
                 $quote->justificativas->contains(fn($j) => $j->anexos()->exists());
 
             if (!$hasJustification) {

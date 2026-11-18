@@ -1075,6 +1075,7 @@
                 <button type="button" class="filter-pill active" id="pill-filter-ativas" onclick="setStatusFilter('ATIVAS')">Ativas <span id="count-pill-ativas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
                 <button type="button" class="filter-pill" id="pill-filter-rascunhos" onclick="setStatusFilter('EM_CRIACAO')">Rascunhos <span id="count-pill-rascunhos" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
                 <button type="button" class="filter-pill" id="pill-filter-pendentes" onclick="setStatusFilter('PENDENTE')">Pendentes <span id="count-pill-pendentes" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
+                <button type="button" class="filter-pill" id="pill-filter-devolvidas" onclick="setStatusFilter('DEVOLVIDA')">Devolvidas <span id="count-pill-devolvidas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
                 <button type="button" class="filter-pill" id="pill-filter-aprovadas" onclick="setStatusFilter('APROVADA')">Aprovadas <span id="count-pill-aprovadas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
                 <button type="button" class="filter-pill" id="pill-filter-encerradas" onclick="setStatusFilter('ENCERRADAS')">Encerradas <span id="count-pill-encerradas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
                 <button type="button" class="filter-pill" id="pill-filter-todas" onclick="setStatusFilter('ALL')">Todas <span id="count-pill-todas" style="font-size: 11px; opacity: 0.9;">(0)</span></button>
@@ -1630,6 +1631,7 @@
             let countAtivas = 0;
             let countRascunhos = 0;
             let countPendentes = 0;
+            let countDevolvidas = 0;
             let countAprovadas = 0;
             let countEncerradas = 0;
 
@@ -1640,6 +1642,7 @@
                 if (ativasStatuses.includes(q.status)) countAtivas++;
                 if (q.status === 'EM_CRIACAO') countRascunhos++;
                 if (q.status === 'AGUARDANDO_GESTOR' || q.status === 'COM_DIRETOR') countPendentes++;
+                if (q.status === 'DEVOLVIDA') countDevolvidas++;
                 if (q.status === 'APROVADA' || q.status === 'PDF_GERADO') countAprovadas++;
                 if (encerradasStatuses.includes(q.status)) countEncerradas++;
             });
@@ -1647,6 +1650,7 @@
             const elAtivas = document.getElementById("count-pill-ativas");
             const elRascunhos = document.getElementById("count-pill-rascunhos");
             const elPendentes = document.getElementById("count-pill-pendentes");
+            const elDevolvidas = document.getElementById("count-pill-devolvidas");
             const elAprovadas = document.getElementById("count-pill-aprovadas");
             const elEncerradas = document.getElementById("count-pill-encerradas");
             const elTodas = document.getElementById("count-pill-todas");
@@ -1654,6 +1658,7 @@
             if (elAtivas) elAtivas.innerText = `(${countAtivas})`;
             if (elRascunhos) elRascunhos.innerText = `(${countRascunhos})`;
             if (elPendentes) elPendentes.innerText = `(${countPendentes})`;
+            if (elDevolvidas) elDevolvidas.innerText = `(${countDevolvidas})`;
             if (elAprovadas) elAprovadas.innerText = `(${countAprovadas})`;
             if (elEncerradas) elEncerradas.innerText = `(${countEncerradas})`;
             if (elTodas) elTodas.innerText = `(${quotes.length})`;
@@ -1790,6 +1795,8 @@
                     matchesStatus = ativasStatuses.includes(q.status);
                 } else if (activeStatusFilter === 'PENDENTE') {
                     matchesStatus = q.status === 'AGUARDANDO_GESTOR' || q.status === 'COM_DIRETOR';
+                } else if (activeStatusFilter === 'DEVOLVIDA') {
+                    matchesStatus = q.status === 'DEVOLVIDA';
                 } else if (activeStatusFilter === 'APROVADA') {
                     matchesStatus = q.status === 'APROVADA' || q.status === 'PDF_GERADO';
                 } else if (activeStatusFilter === 'ENCERRADAS') {
@@ -2240,12 +2247,10 @@
             coordsEl.removeAttribute("data-lat");
             coordsEl.removeAttribute("data-lng");
 
-            const setFallbackCoords = (reason) => {
-                const fallbackLat = -23.550520;
-                const fallbackLng = -46.633308;
-                coordsEl.innerHTML = `<span style="color:#0f5132; font-weight:600;">📍 Usando Localização da Matriz (Mock): ${fallbackLat}, ${fallbackLng}</span><br><span style="font-size:10px; color:var(--color-text-muted);">Motivo: ${reason}</span>`;
-                coordsEl.setAttribute("data-lat", fallbackLat);
-                coordsEl.setAttribute("data-lng", fallbackLng);
+            const setGpsError = (reason) => {
+                coordsEl.innerHTML = `<span style="color:#b91c1c; font-weight:600;">⚠️ Localização GPS indisponível: ${escapeHtml(reason)}</span><br><span style="font-size:11px; color:var(--color-text-muted);">Ative a localização do aparelho/navegador e tente novamente.</span><br><button type="button" class="btn btn-outline" style="margin-top:6px; padding:3px 10px; font-size:11px;" onclick="getGPSLocation()">🔄 Tentar Obter GPS Novamente</button>`;
+                coordsEl.removeAttribute("data-lat");
+                coordsEl.removeAttribute("data-lng");
             };
 
             if (navigator.geolocation) {
@@ -2263,16 +2268,16 @@
                         if (error.code === error.PERMISSION_DENIED) {
                             msg = "Permissão de localização negada.";
                         } else if (error.code === error.POSITION_UNAVAILABLE) {
-                            msg = "Sinal GPS indisponível.";
+                            msg = "Sinal GPS indisponível no dispositivo.";
                         } else if (error.code === error.TIMEOUT) {
-                            msg = "Tempo limite GPS esgotado.";
+                            msg = "Tempo limite para obter sinal GPS esgotado.";
                         }
-                        setFallbackCoords(msg);
+                        setGpsError(msg);
                     },
                     { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
                 );
             } else {
-                setFallbackCoords("GPS não suportado neste navegador.");
+                setGpsError("GPS não suportado neste navegador.");
             }
         }
 
@@ -2289,13 +2294,13 @@
             }
 
             if (!lat || !lng) {
-                showToast("Coordenadas GPS ausentes ou não carregadas. Por favor, aguarde.", 'warning');
+                showToast("Coordenadas GPS ausentes ou não capturadas. Por favor, obtenha o GPS antes de registrar.", 'warning');
                 return;
             }
 
             const btn = document.getElementById("btn-do-checkin");
-            const originalText = btn.innerText;
-            btn.innerText = "Registrando...";
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = "<span>⏳ Registrando...</span>";
             btn.disabled = true;
 
             try {
@@ -2315,13 +2320,13 @@
 
                 if (res.status === 419) {
                     showToast("Sessão expirada. Por favor, recarregue a página.", 'error');
-                    btn.innerText = originalText;
+                    btn.innerHTML = originalHtml;
                     btn.disabled = false;
                     return;
                 }
 
                 const data = await res.json();
-                btn.innerText = originalText;
+                btn.innerHTML = originalHtml;
                 btn.disabled = false;
 
                 if (data.success) {
@@ -2333,9 +2338,11 @@
                 }
             } catch(e) {
                 console.error("Check-in request error:", e);
-                btn.innerText = originalText;
+                btn.innerHTML = originalHtml;
                 btn.disabled = false;
-                showToast("Erro de conexão ao realizar check-in. Verifique o console.", 'error');
+                showToast("Erro de conexão ao realizar check-in.", 'error');
+            }
+        }
             }
         }
 

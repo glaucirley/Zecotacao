@@ -14,13 +14,23 @@ class CheckinController extends Controller
     {
         $request->validate([
             'parceiro_id' => 'required|exists:parceiros,id',
-            'latitude' => 'required|numeric',
-            'longitude' => 'required|numeric',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
         ]);
 
+        $user = Auth::user();
+        $parceiro = Parceiro::findOrFail($request->input('parceiro_id'));
+
+        if ($user && method_exists($user, 'canAccessPartner') && !$user->canAccessPartner($parceiro)) {
+            return response()->json([
+                'error' => 'Acesso negado',
+                'message' => 'Este cliente não pertence à sua carteira de atendimento autorizada.'
+            ], 403);
+        }
+
         $checkin = Checkin::create([
-            'usuario_id' => Auth::id(),
-            'parceiro_id' => $request->input('parceiro_id'),
+            'usuario_id' => $user->id,
+            'parceiro_id' => $parceiro->id,
             'latitude' => $request->input('latitude'),
             'longitude' => $request->input('longitude'),
         ]);

@@ -114,17 +114,6 @@ class WebViewController extends Controller
             return redirect('/cotacoes');
         }
 
-        // Auto-migrate check for new roles and columns (suporte enum, tipo_vendedor)
-        try {
-            if (!Schema::hasColumn('usuarios', 'tipo_vendedor')) {
-                \Illuminate\Support\Facades\DB::statement("ALTER TABLE usuarios ADD COLUMN tipo_vendedor ENUM('interno', 'externo') NOT NULL DEFAULT 'externo' AFTER papel");
-            }
-        } catch (\Throwable $ex) {
-            try {
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-            } catch (\Throwable $e) {}
-        }
-
         return view('admin.users');
     }
 

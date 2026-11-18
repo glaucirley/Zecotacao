@@ -46,8 +46,8 @@ class CleanUnfoundDummyProductsCommand extends Command
             })
             ->whereNotExists(function ($sub) {
                 $sub->select(DB::raw(1))
-                    ->from('tabela_precos_itens')
-                    ->whereColumn('tabela_precos_itens.produto_id', 'produtos.id');
+                    ->from('tabela_preco_itens')
+                    ->whereColumn('tabela_preco_itens.produto_id', 'produtos.id');
             })
             ->get(['id', 'codigo_sankhya', 'descricao']);
 
