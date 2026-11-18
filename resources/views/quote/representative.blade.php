@@ -3001,7 +3001,7 @@
             showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.", 'warning');
             return;
         }
-        const item = quote.itens.find(i => i.id === itemId);
+        const item = quote.itens.find(i => String(i.id) === String(itemId));
         if (!item) return;
         const current = parseInt(item.qtd) || 1;
         const updated = Math.max(1, current + delta);
@@ -3014,7 +3014,7 @@
             showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.", 'warning');
             return;
         }
-        const item = quote.itens.find(i => i.id === itemId);
+        const item = quote.itens.find(i => String(i.id) === String(itemId));
         if (!item) return;
         const current = parseFloat(item.preco_unit_proposto) || 0;
         const updated = Math.max(0.01, parseFloat((current + delta).toFixed(2)));
@@ -3027,7 +3027,7 @@
             showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edição.", 'warning');
             return;
         }
-        const item = quote.itens.find(i => i.id === itemId);
+        const item = quote.itens.find(i => String(i.id) === String(itemId));
         if (!item) return;
         const price = Math.max(0.01, parseFloat(parseFloat(exactPrice || 0).toFixed(2)));
         updateItemCalculations(itemId, null, price);
@@ -3736,6 +3736,32 @@
     let autoSaveQuoteTimer = null;
     let isQuoteItemsDirty = false;
 
+    function syncDomInputsToLocalState() {
+        if (!quote || !Array.isArray(quote.itens)) return;
+        quote.itens.forEach(it => {
+            const card = document.getElementById(`card-item-${it.id}`);
+            if (card) {
+                const qtyInput = card.querySelector(".qty-input");
+                if (qtyInput) {
+                    const parsedQty = parseInt(qtyInput.value, 10);
+                    if (!isNaN(parsedQty) && parsedQty > 0) {
+                        it.qtd = parsedQty;
+                    }
+                }
+                const priceInput = card.querySelector(".price-input");
+                if (priceInput) {
+                    const parsedPrice = parseFloat(String(priceInput.value).replace(',', '.'));
+                    if (!isNaN(parsedPrice) && parsedPrice > 0) {
+                        it.preco_unit_proposto = parseFloat(parsedPrice.toFixed(2));
+                    }
+                }
+                it.subtotal = roundUpCents((it.qtd || 1) * (it.preco_unit_proposto || 0));
+                const sugerido = parseFloat(it.preco_unit_sugerido || 0);
+                it.ajuste_percentual = sugerido > 0 ? ((it.preco_unit_proposto - sugerido) / sugerido) * 100 : 0;
+            }
+        });
+    }
+
     function scheduleAutoSaveQuote() {
         if (isEditingLocked) return;
         isQuoteItemsDirty = true;
@@ -3751,16 +3777,26 @@
 
     function updateItemCalculations(itemId, newQtd, newPrice) {
         if (isEditingLocked) return;
-        const item = quote.itens.find(i => i.id === itemId);
+        const item = quote.itens.find(i => String(i.id) === String(itemId));
         if (!item) return;
 
-        if (newQtd !== null) item.qtd = parseInt(newQtd) || 1;
-        if (newPrice !== null) item.preco_unit_proposto = parseFloat(parseFloat(newPrice).toFixed(2)) || 0.00;
+        if (newQtd !== null) {
+            const parsedQtd = parseInt(newQtd, 10);
+            if (!isNaN(parsedQtd) && parsedQtd > 0) {
+                item.qtd = parsedQtd;
+            }
+        }
+        if (newPrice !== null) {
+            const parsedPrice = parseFloat(String(newPrice).replace(',', '.'));
+            if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+                item.preco_unit_proposto = parseFloat(parsedPrice.toFixed(2));
+            }
+        }
 
-        item.subtotal = roundUpCents(item.qtd * item.preco_unit_proposto);
+        item.subtotal = roundUpCents((item.qtd || 1) * (item.preco_unit_proposto || 0));
         
         // Recalculate discount percentage
-        const sugerido = parseFloat(item.preco_unit_sugerido);
+        const sugerido = parseFloat(item.preco_unit_sugerido || 0);
         item.ajuste_percentual = sugerido > 0 ? ((item.preco_unit_proposto - sugerido) / sugerido) * 100 : 0;
 
         // Update tag badge dynamically in real time as user edits price
@@ -4059,23 +4095,24 @@
         if (!Array.isArray(serverItems)) return [];
         const localMap = new Map();
         (quote.itens || []).forEach(it => {
-            if (it && it.id !== deletedItemId) {
-                localMap.set(it.id, {
-                    qtd: it.qtd,
-                    preco_unit_proposto: it.preco_unit_proposto,
+            if (it && String(it.id) !== String(deletedItemId)) {
+                localMap.set(String(it.id), {
+                    qtd: parseInt(it.qtd, 10) || 1,
+                    preco_unit_proposto: parseFloat(parseFloat(it.preco_unit_proposto || 0).toFixed(2)),
                     subtotal: it.subtotal,
                     ajuste_percentual: it.ajuste_percentual
                 });
             }
         });
         return serverItems.map(sItem => {
-            const local = localMap.get(sItem.id);
-            if (local && (local.qtd !== sItem.qtd || local.preco_unit_proposto !== sItem.preco_unit_proposto)) {
+            const local = localMap.get(String(sItem.id));
+            if (local) {
+                // Preserva incondicionalmente os valores de quantidade e preço propostos digitados localmente
                 return {
                     ...sItem,
                     qtd: local.qtd,
                     preco_unit_proposto: local.preco_unit_proposto,
-                    subtotal: local.subtotal !== undefined ? local.subtotal : roundUpCents(local.qtd * local.preco_unit_proposto),
+                    subtotal: roundUpCents(local.qtd * local.preco_unit_proposto),
                     ajuste_percentual: local.ajuste_percentual !== undefined ? local.ajuste_percentual : sItem.ajuste_percentual
                 };
             }
@@ -4084,6 +4121,9 @@
     }
 
     async function addNewItem() {
+        // 1. Sincroniza qualquer input do DOM pendente antes de validar/salvar
+        syncDomInputsToLocalState();
+
         const productId = document.getElementById("selected-product-id").value;
         if (!productId) {
             showToast("Por favor, digite no campo de busca e selecione um produto da lista.", 'warning');
@@ -4105,13 +4145,11 @@
         }
 
         // Flush any unsaved item edits to the server before adding
-        if (isQuoteItemsDirty) {
-            if (autoSaveQuoteTimer) {
-                clearTimeout(autoSaveQuoteTimer);
-                autoSaveQuoteTimer = null;
-            }
-            await saveDraft(false);
+        if (autoSaveQuoteTimer) {
+            clearTimeout(autoSaveQuoteTimer);
+            autoSaveQuoteTimer = null;
         }
+        await saveDraft(false);
 
         const wasReplacing = Boolean(replacingUnfoundItemId);
         const payload = {
@@ -4144,6 +4182,8 @@
                 if (wasReplacing) {
                     showToast("Produto incluído manualmente no lugar do item não encontrado pela IA!", 'success');
                 }
+                // Persiste imediatamente o novo item junto com as alterações locais
+                scheduleAutoSaveQuote();
             } else {
                 showToast("Erro ao adicionar item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)), 'error');
             }
@@ -4157,20 +4197,21 @@
             showToast("Esta cotação não permite remoção de itens no status atual (" + quote.status.replace(/_/g, ' ') + ").", 'warning');
             return;
         }
-        const targetItem = quote?.itens?.find(i => i.id === itemId);
+        const targetItem = quote?.itens?.find(i => String(i.id) === String(itemId));
         const confirmMsg = targetItem && targetItem.nao_encontrado
             ? `Deseja dispensar/remover o item não encontrado "${targetItem.descricao_original || 'Item'}" desta cotação?`
             : "Deseja realmente remover este item?";
         if (!confirm(confirmMsg)) return;
 
+        // 1. Sincroniza qualquer input do DOM pendente
+        syncDomInputsToLocalState();
+
         // Flush any unsaved item edits to the server before deleting
-        if (isQuoteItemsDirty) {
-            if (autoSaveQuoteTimer) {
-                clearTimeout(autoSaveQuoteTimer);
-                autoSaveQuoteTimer = null;
-            }
-            await saveDraft(false);
+        if (autoSaveQuoteTimer) {
+            clearTimeout(autoSaveQuoteTimer);
+            autoSaveQuoteTimer = null;
         }
+        await saveDraft(false);
 
         try {
             const res = await fetch(`${QUOTE_BASE_URL}/itens/${itemId}`, {
@@ -4184,6 +4225,7 @@
                 quote.itens = mergeServerItemsWithLocalState(data.data.itens, itemId);
                 recalculateTotalsFromState();
                 renderItems();
+                scheduleAutoSaveQuote();
             } else {
                 showToast("Erro ao remover item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)), 'error');
             }
@@ -4204,6 +4246,9 @@
             autoSaveQuoteTimer = null;
         }
 
+        // Always sync DOM inputs before serializing payload
+        syncDomInputsToLocalState();
+
         // Collect current values from page
         const payload = {
             forma_pagamento: getSelectedFormaPagamentoValue(),
@@ -4211,12 +4256,12 @@
             prazo_entrega: document.getElementById("prazo-entrega") ? document.getElementById("prazo-entrega").value : (quote.prazo_entrega || "3 dias"),
             frete_tipo: document.getElementById("frete-tipo") ? document.getElementById("frete-tipo").value : (quote.frete_tipo || 'CIF'),
             transportadora: document.getElementById("transportadora") ? document.getElementById("transportadora").value : (quote.transportadora || null),
-            observacao_cliente: document.getElementById("obs-cliente").value,
-            observacao_interna: document.getElementById("obs-interna").value,
-            itens: quote.itens.map(i => ({
+            observacao_cliente: document.getElementById("obs-cliente") ? document.getElementById("obs-cliente").value : (quote.observacao_cliente || ''),
+            observacao_interna: document.getElementById("obs-interna") ? document.getElementById("obs-interna").value : (quote.observacao_interna || ''),
+            itens: (quote.itens || []).map(i => ({
                 id: i.id,
-                qtd: i.qtd,
-                preco_unit_proposto: i.preco_unit_proposto
+                qtd: parseInt(i.qtd, 10) || 1,
+                preco_unit_proposto: parseFloat(parseFloat(i.preco_unit_proposto || 0).toFixed(2))
             }))
         };
 
@@ -4228,7 +4273,11 @@
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
-                quote = data.data;
+                const serverItens = data.data.itens;
+                quote = {
+                    ...data.data,
+                    itens: mergeServerItemsWithLocalState(serverItens)
+                };
                 isQuoteItemsDirty = false;
                 if (showNotification) {
                     showToast("Rascunho salvo com sucesso.", 'success');
