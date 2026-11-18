@@ -26,7 +26,7 @@ class TokenAuthenticationMiddleware
         if ($id) {
             $quote = is_numeric($id) ? Cotacao::find($id) : Cotacao::where('numero', $id)->first();
         } else {
-            $quote = Cotacao::where('token_representante', $token)->first();
+            $quote = Cotacao::findQuoteByRepresentativeToken($token);
         }
 
         if (!$quote) {

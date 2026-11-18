@@ -1105,12 +1105,16 @@ class SankhyaDatabaseService
         $where = '';
         $params = [];
         if (!empty($codProds)) {
-            $inPlaceholders = [];
-            foreach (array_values($codProds) as $idx => $cod) {
-                $ph = ":cp_{$idx}";
-                $inPlaceholders[] = $cod;
+            $sanitized = array_slice(array_values(array_unique(array_filter(array_map('intval', $codProds)))), 0, 1000);
+            if (!empty($sanitized)) {
+                $inPlaceholders = [];
+                foreach ($sanitized as $idx => $cod) {
+                    $ph = ":cp_{$idx}";
+                    $inPlaceholders[] = $ph;
+                    $params[$ph] = $cod;
+                }
+                $where = " WHERE CODPROD IN (" . implode(',', $inPlaceholders) . ")";
             }
-            $where = " WHERE CODPROD IN (" . implode(',', $inPlaceholders) . ")";
         }
 
         // 1. Tenta SELECT * para trazer todas as colunas existentes na view (CODPROD, DTVAL, ESTOQUE, ESTDISP, SALDO, etc.)
@@ -1349,12 +1353,16 @@ class SankhyaDatabaseService
         $where = '';
         $params = [];
         if (!empty($codProds)) {
-            $inPlaceholders = [];
-            foreach (array_values($codProds) as $idx => $cod) {
-                $ph = ":cp_{$idx}";
-                $inPlaceholders[] = $cod;
+            $sanitized = array_slice(array_values(array_unique(array_filter(array_map('intval', $codProds)))), 0, 1000);
+            if (!empty($sanitized)) {
+                $inPlaceholders = [];
+                foreach ($sanitized as $idx => $cod) {
+                    $ph = ":cp_{$idx}";
+                    $inPlaceholders[] = $ph;
+                    $params[$ph] = $cod;
+                }
+                $where = " WHERE CODPROD IN (" . implode(',', $inPlaceholders) . ")";
             }
-            $where = " WHERE CODPROD IN (" . implode(',', $inPlaceholders) . ")";
         }
 
         try {

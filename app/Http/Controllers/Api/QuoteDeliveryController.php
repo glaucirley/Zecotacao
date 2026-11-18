@@ -53,7 +53,9 @@ class QuoteDeliveryController extends Controller
                 if (is_numeric($idOrToken)) {
                     $q->where('id', $idOrToken);
                 } else {
+                    $hash = hash('sha256', $idOrToken);
                     $q->where('numero', $idOrToken)
+                      ->orWhere('token_representante', $hash)
                       ->orWhere('token_representante', $idOrToken);
                 }
             })
@@ -215,7 +217,16 @@ class QuoteDeliveryController extends Controller
             'motivo' => 'required|string|max:100',
         ]);
 
-        $contato = ClienteContato::findOrFail($contactId);
+        $contato = ClienteContato::with('parceiro')->findOrFail($contactId);
+        $user = Auth::user();
+
+        if ($user && $contato->parceiro && !$user->canAccessPartner($contato->parceiro)) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'Você não tem permissão para inativar contatos deste cliente.'
+            ], 403);
+        }
+
         $contato->status = 'INATIVO';
         $contato->motivo_inativacao = $validated['motivo'];
         $contato->save();

@@ -85,9 +85,22 @@ class ApprovalController extends Controller
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
+        $repLimit = (float)($quote->representante?->limite_desconto_percentual ?? 0.00);
+        $gestorLimit = (float)($quote->representante?->equipe?->gestor?->limite_desconto_percentual ?? 0.00);
+        $regraLiberacao = \App\Models\ParametroSistema::getVal('REGRA_LIBERACAO_DESCONTO', 'PRECO_MINIMO');
+        $modoAvaliacao = \App\Models\ParametroSistema::getVal('DESCONTO_AVALIACAO_MODO', 'ITEM_A_ITEM');
+        $exigeAnexo = filter_var(\App\Models\ParametroSistema::getVal('EXIGE_ANEXO_JUSTIFICATIVA', true), FILTER_VALIDATE_BOOLEAN);
+
         return response()->json([
             'success' => true,
-            'data' => $quote
+            'data' => $quote,
+            'meta' => [
+                'rep_limit' => $repLimit,
+                'gestor_limit' => $gestorLimit,
+                'evaluation_mode' => $modoAvaliacao,
+                'regra_liberacao' => $regraLiberacao,
+                'exige_anexo' => $exigeAnexo,
+            ]
         ]);
     }
 
@@ -109,9 +122,20 @@ class ApprovalController extends Controller
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
-        // Validate status (must be pending approval)
+        // Validate status: quote must be in approval stage
         if (!in_array($quote->status, ['AGUARDANDO_GESTOR', 'COM_DIRETOR'])) {
-            return response()->json(['error' => 'Invalid state', 'message' => 'Não é possível editar preços de uma cotação que não está em fase de aprovação.'], 422);
+            return response()->json([
+                'error' => 'Invalid state',
+                'message' => "Não é possível editar preços de uma cotação que não está em fase de aprovação (status atual: {$quote->status})."
+            ], 422);
+        }
+
+        // Se estiver COM_DIRETOR, apenas diretor ou administrador podem decidir
+        if ($quote->status === 'COM_DIRETOR' && $user->isGestor()) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'Esta cotação está na alçada da Diretoria e não pode ser editada por um Gestor.'
+            ], 403);
         }
 
         $request->validate([
@@ -179,6 +203,22 @@ class ApprovalController extends Controller
             }
         } elseif (!$user->isDiretor() && !$user->isAdministrador()) {
             return response()->json(['error' => 'Forbidden.'], 403);
+        }
+
+        // Validate status: quote must be in approval stage
+        if (!in_array($quote->status, ['AGUARDANDO_GESTOR', 'COM_DIRETOR'])) {
+            return response()->json([
+                'error' => 'Invalid state',
+                'message' => "Esta cotação não está aguardando aprovação (status atual: {$quote->status})."
+            ], 422);
+        }
+
+        // Se estiver COM_DIRETOR, apenas diretor ou administrador podem decidir
+        if ($quote->status === 'COM_DIRETOR' && $user->isGestor()) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'Esta cotação está na alçada da Diretoria e não pode ser decidida por um Gestor.'
+            ], 403);
         }
 
         $request->validate([
@@ -254,6 +294,22 @@ class ApprovalController extends Controller
             }
         } elseif (!$user->isDiretor() && !$user->isAdministrador()) {
             return response()->json(['error' => 'Forbidden.'], 403);
+        }
+
+        // Validate status: quote must be in approval stage
+        if (!in_array($quote->status, ['AGUARDANDO_GESTOR', 'COM_DIRETOR'])) {
+            return response()->json([
+                'error' => 'Invalid state',
+                'message' => "Esta cotação não está aguardando aprovação (status atual: {$quote->status})."
+            ], 422);
+        }
+
+        // Se estiver COM_DIRETOR, apenas diretor ou administrador podem decidir
+        if ($quote->status === 'COM_DIRETOR' && $user->isGestor()) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'Esta cotação está na alçada da Diretoria e não pode ser decidida por um Gestor.'
+            ], 403);
         }
 
         $validator = Validator::make($request->all(), [

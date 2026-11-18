@@ -16,8 +16,8 @@ class ParameterController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->isAdministrador() && !$user->isDiretor()) {
-            return response()->json(['error' => 'Forbidden. Only administrators and directors can view or manage system parameters.'], 403);
+        if (!$user->isAdministrador() && !$user->isDiretor() && !$user->isGestor()) {
+            return response()->json(['error' => 'Forbidden. Only administrators, directors and managers can view system parameters.'], 403);
         }
 
         $defaults = [

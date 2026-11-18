@@ -95,6 +95,24 @@
         }
         window.escapeHtml = escapeHtml;
 
+        function parsePtBrNumber(val) {
+            if (val === null || val === undefined) return 0;
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            let s = String(val).trim();
+            if (!s) return 0;
+            s = s.replace(/^[R$\s]+/, '').trim();
+            if (s.includes(',') && s.includes('.')) {
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else if (s.includes(',')) {
+                s = s.replace(',', '.');
+            } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+                s = s.replace(/\./g, '');
+            }
+            const num = parseFloat(s);
+            return isNaN(num) ? 0 : num;
+        }
+        window.parsePtBrNumber = parsePtBrNumber;
+
         let lastToastMessage = null;
         let lastToastTime = 0;
         function showToast(message, type = 'info', title = null) {
@@ -121,8 +139,8 @@
             else if (type === 'error') { icon = '✕'; defaultTitle = 'Erro'; }
             else if (type === 'warning') { icon = '⚠️'; defaultTitle = 'Atenção'; }
 
-            const toastTitle = title || defaultTitle;
-            const formattedMsg = strMsg.replace(/\n/g, '<br>');
+            const toastTitle = escapeHtml(title || defaultTitle);
+            const formattedMsg = escapeHtml(strMsg).replace(/\n/g, '<br>');
 
             toast.innerHTML = `
                 <span class="app-toast-icon">${icon}</span>

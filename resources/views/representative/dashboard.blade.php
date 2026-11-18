@@ -2461,13 +2461,15 @@
             document.getElementById("new-quote-overlay").style.display = "block";
             document.getElementById("new-quote-drawer").style.display = "flex";
             
+            // Carrega parceiros primeiro para permitir restauração consistente do rascunho
+            await loadPartnersForQuote();
+
             // Verifica rascunho salvo localmente no aparelho (offline-first)
             const draft = getOfflineDraft();
             if (draft && draft.items && draft.items.length > 0) {
                 quoteCartItems = draft.items;
                 currentStep2Tab = 'catalog';
                 if (draft.partner) {
-                    selectedPartner = draft.partner;
                     selectPartnerById(draft.partner.id);
                     currentWizardStep = 2;
                 } else {
@@ -2495,12 +2497,6 @@
                 switchStep2Tab('catalog');
                 renderCart();
             }
-            
-            // Force load partners and products afresh
-            await Promise.all([
-                loadPartnersForQuote(),
-                loadProductsForQuote(true)
-            ]);
         }
 
         let isSavingDraft = false;
@@ -2967,6 +2963,9 @@
             if (container) container.style.display = "none";
             saveOfflineBackup();
 
+            // Recarrega o catálogo de produtos com os preços e regras específicas deste cliente
+            loadProductsForQuote(true);
+
             // Pré-carrega restrições comerciais no Oracle em segundo plano logo na seleção do cliente
             preloadCommercialRestrictions(selectedPartner.id);
         }
@@ -2991,6 +2990,7 @@
 
         function clearSelectedPartner() {
             selectedPartner = null;
+            allProductsList = [];
             clearOfflineBackup();
             const card = document.getElementById("selected-partner-card");
             const container = document.getElementById("partner-search-results");
@@ -3359,8 +3359,21 @@
 
             container.innerHTML = "";
             products.forEach(p => {
-                const price = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
-                const priceStr = price > 0 ? `R$ ${price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : 'R$ 100,00 (padrão)';
+                const rawMin = parseFloat(p.preco_minimo || p.venda_minima || 0);
+                const rawSug = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
+                const activePrice = (rawMin > 0) ? rawMin : rawSug;
+                const isCotavel = (p.cotavel !== false && activePrice > 0);
+
+                let priceStr = '';
+                if (activePrice > 0) {
+                    priceStr = `Mín: R$ ${activePrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    if (rawSug > 0 && rawSug !== activePrice) {
+                        priceStr += ` <span style="font-size:11px; color:#64748b;">(Sug: R$ ${rawSug.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span>`;
+                    }
+                } else {
+                    priceStr = '<span style="color:#ef4444; font-weight:600;">Sem preço cadastrado</span>';
+                }
+
                 const codeStr = p.codigo_sankhya || p.codprod || p.id;
                 const brandStr = p.marca ? ` | ${p.marca}` : '';
 
@@ -3382,6 +3395,16 @@
                                 <span style="font-weight:800; font-size:13px; color:#15803d; min-width:22px; text-align:center;">${cartQty}</span>
                                 <button type="button" onclick="changeQtyFromCatalog(${p.id}, 1)" style="width:26px; height:26px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; font-weight:bold; font-size:14px; color:#1e293b; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
                             </div>
+                        </div>
+                    `;
+                } else if (!isCotavel) {
+                    container.innerHTML += `
+                        <div class="product-item-row" id="prod-row-${p.id}" style="opacity: 0.65;">
+                            <div style="flex-grow:1; padding-right:8px;">
+                                <div class="product-item-title">${escapeHtml(p.descricao)}</div>
+                                <div class="product-item-price" style="margin-top:2px;">Cód: ${escapeHtml(codeStr)}${escapeHtml(brandStr)} &bull; ${priceStr}</div>
+                            </div>
+                            <button type="button" class="btn-add-prod" disabled style="background:#cbd5e1; color:#64748b; cursor:not-allowed;">Indisponível</button>
                         </div>
                     `;
                 } else {
@@ -3416,10 +3439,15 @@
                 return;
             }
 
-            const rawSug = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
             const rawMin = parseFloat(prod.preco_minimo || prod.venda_minima || 0);
+            const rawSug = parseFloat(prod.preco_sugerido || prod.preco_tabela || prod.preco_venda || prod.preco || 0);
             const rawPrice = (rawMin > 0) ? rawMin : rawSug;
-            const unitPrice = (isNaN(rawPrice) || rawPrice <= 0) ? 100.00 : rawPrice;
+
+            if (prod.cotavel === false || isNaN(rawPrice) || rawPrice <= 0) {
+                showToast("Este produto não possui preço cadastrado na tabela deste cliente ou está indisponível.", "warning");
+                return;
+            }
+            const unitPrice = rawPrice;
 
             const existingIndex = quoteCartItems.findIndex(item => item.product_id == prodId);
             if (existingIndex >= 0) {
@@ -3474,7 +3502,9 @@
 
         function updateCartPrice(index, val) {
             if (!quoteCartItems[index]) return;
-            const parsed = parseFloat(String(val).replace(',', '.'));
+            const parsed = (typeof parsePtBrNumber === 'function')
+                ? parsePtBrNumber(val)
+                : parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
             if (!isNaN(parsed) && parsed >= 0) {
                 quoteCartItems[index].price = parsed;
             } else if (String(val).trim() === '') {

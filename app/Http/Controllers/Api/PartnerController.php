@@ -125,15 +125,14 @@ class PartnerController extends Controller
                     }
                 });
 
-                $safeSearch = addslashes($search);
                 $query->orderByRaw("
                     CASE 
-                        WHEN codigo_sankhya = '{$safeSearch}' THEN 1
-                        WHEN razao_social LIKE '{$safeSearch}%' OR nome_fantasia LIKE '{$safeSearch}%' THEN 2
+                        WHEN codigo_sankhya = ? THEN 1
+                        WHEN razao_social LIKE ? OR nome_fantasia LIKE ? THEN 2
                         ELSE 3
                     END ASC,
                     razao_social ASC
-                ");
+                ", [$search, "{$search}%", "{$search}%"]);
             } else {
                 $query->orderBy('razao_social');
             }

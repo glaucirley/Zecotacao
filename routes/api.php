@@ -110,6 +110,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/produtos-admin', [ProductController::class, 'store']);
             Route::patch('/produtos-admin/{id}', [ProductController::class, 'update']);
             Route::delete('/produtos-admin/{id}', [ProductController::class, 'destroy']);
+
+            // Inativar contato de cliente
+            Route::patch('/cliente-contatos/{id}/inativar', [QuoteDeliveryController::class, 'inactivateContact']);
         });
     });
 
@@ -151,6 +154,5 @@ Route::prefix('v1')->group(function () {
         Route::get('/cotacoes/{id}/restricoes/pre-aquecer', [QuoteController::class, 'prewarmRestrictions']);
         Route::get('/cotacoes/{id}/contatos-envio', [QuoteDeliveryController::class, 'getDeliveryData']);
         Route::post('/cotacoes/{id}/envios', [QuoteDeliveryController::class, 'send']);
-        Route::patch('/cliente-contatos/{id}/inativar', [QuoteDeliveryController::class, 'inactivateContact']);
     });
 });

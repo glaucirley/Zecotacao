@@ -3750,7 +3750,9 @@
                 }
                 const priceInput = card.querySelector(".price-input");
                 if (priceInput) {
-                    const parsedPrice = parseFloat(String(priceInput.value).replace(',', '.'));
+                    const parsedPrice = (typeof parsePtBrNumber === 'function')
+                        ? parsePtBrNumber(priceInput.value)
+                        : parseFloat(String(priceInput.value).replace(/\./g, '').replace(',', '.'));
                     if (!isNaN(parsedPrice) && parsedPrice > 0) {
                         it.preco_unit_proposto = parseFloat(parsedPrice.toFixed(2));
                     }
@@ -3787,7 +3789,9 @@
             }
         }
         if (newPrice !== null) {
-            const parsedPrice = parseFloat(String(newPrice).replace(',', '.'));
+            const parsedPrice = (typeof parsePtBrNumber === 'function')
+                ? parsePtBrNumber(newPrice)
+                : parseFloat(String(newPrice).replace(/\./g, '').replace(',', '.'));
             if (!isNaN(parsedPrice) && parsedPrice >= 0) {
                 item.preco_unit_proposto = parseFloat(parsedPrice.toFixed(2));
             }

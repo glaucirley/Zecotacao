@@ -385,12 +385,24 @@ class QuoteWorkflowService
         $canAutoApprove = false;
         $autoApproveReason = '';
 
-        if (!$hasItemsBelowMin) {
-            $canAutoApprove = true;
-            $autoApproveReason = sprintf(
-                'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo (Desconto aplicado: %.2f%%).',
-                $calculatedDiscount
-            );
+        if ($regraLiberacao === 'ALCADA_REPRESENTANTE') {
+            if (!$hasItemsBelowMin && $calculatedDiscount <= $repLimit) {
+                $canAutoApprove = true;
+                $autoApproveReason = sprintf(
+                    'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo e o desconto aplicado de %.2f%% está dentro da alçada do representante (limite: %.2f%%).',
+                    $calculatedDiscount,
+                    $repLimit
+                );
+            }
+        } else {
+            // Regra PRECO_MINIMO padrão
+            if (!$hasItemsBelowMin) {
+                $canAutoApprove = true;
+                $autoApproveReason = sprintf(
+                    'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo (Desconto aplicado: %.2f%%).',
+                    $calculatedDiscount
+                );
+            }
         }
 
         // 4. Auto-approve if permitted

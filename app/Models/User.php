@@ -197,6 +197,58 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user can access/manage a partner (client).
+     */
+    public function canAccessPartner(\App\Models\Parceiro $partner): bool
+    {
+        if ($this->isAdministrador() || $this->isDiretor() || $this->isFaturamento() || $this->isSuporte() || ($this->papel === 'suporte')) {
+            return true;
+        }
+
+        $restringir = filter_var(\App\Models\ParametroSistema::getVal('RESTRINGIR_CLIENTES_POR_REPRESENTANTE', true), FILTER_VALIDATE_BOOLEAN);
+        if (!$restringir || $partner->carteira_livre) {
+            return true;
+        }
+
+        if ($this->isGestor()) {
+            $memberCodes = $this->equipe ? $this->equipe->membros()->pluck('codigo_sankhya')->filter()->all() : [];
+            $teamCodes = array_values(array_unique(array_filter(array_merge([$this->codigo_sankhya], $memberCodes))));
+            $parcCodes = [
+                $partner->vendedor_1_codigo, $partner->vendedor_2_codigo,
+                $partner->vendedor_3_codigo, $partner->vendedor_4_codigo,
+                $partner->vendedor_5_codigo, $partner->vendedor_6_codigo
+            ];
+            return !empty(array_intersect($teamCodes, array_filter($parcCodes)));
+        }
+
+        $codVend = trim((string)($this->codigo_sankhya ?? ''));
+        if ($codVend === '') {
+            return false;
+        }
+
+        $parcCodes = array_map('strval', array_filter([
+            $partner->vendedor_1_codigo, $partner->vendedor_2_codigo,
+            $partner->vendedor_3_codigo, $partner->vendedor_4_codigo,
+            $partner->vendedor_5_codigo, $partner->vendedor_6_codigo
+        ]));
+
+        if (in_array($codVend, $parcCodes, true)) {
+            return true;
+        }
+
+        if (is_numeric($codVend)) {
+            $intCod = (string)((int)$codVend);
+            foreach ($parcCodes as $pc) {
+                if (is_numeric($pc) && (int)$pc === (int)$intCod) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if user has access to WhatsApp chat repository.
      */
     public function hasChatAccess(): bool
