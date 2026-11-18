@@ -91,15 +91,18 @@ class ContactValidationService
         }
 
         // Identificar se pertence a um usuário interno da empresa (representante, gestor, diretor, admin)
-        $matchedUser = User::all()->first(function ($user) use ($nationalDigits) {
-            if (!$user->telefone) return false;
-            $userDigits = preg_replace('/\D/', '', $user->telefone);
-            $userDigits = ltrim($userDigits, '0');
-            if (str_starts_with($userDigits, '55')) {
-                $userDigits = substr($userDigits, 2);
-            }
-            return $userDigits === $nationalDigits;
-        });
+        $matchedUser = User::whereNotNull('telefone')
+            ->where('telefone', '!=', '')
+            ->select(['id', 'nome', 'papel', 'telefone'])
+            ->get()
+            ->first(function ($user) use ($nationalDigits) {
+                $userDigits = preg_replace('/\D/', '', $user->telefone);
+                $userDigits = ltrim($userDigits, '0');
+                if (str_starts_with($userDigits, '55')) {
+                    $userDigits = substr($userDigits, 2);
+                }
+                return $userDigits === $nationalDigits;
+            });
 
         $warning = null;
         $isInternal = false;

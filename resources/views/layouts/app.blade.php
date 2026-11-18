@@ -641,6 +641,10 @@
             } else if (e.key === 'Escape') {
                 closeGlobalSearch();
                 closeAppConfirm();
+                if (typeof closeAppPrompt === 'function') closeAppPrompt();
+                document.querySelectorAll('.modal.open, .modal.show, .app-modal-overlay.open').forEach(m => {
+                    m.classList.remove('open', 'show');
+                });
             }
         });
 

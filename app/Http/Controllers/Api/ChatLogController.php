@@ -127,9 +127,10 @@ class ChatLogController extends Controller
             });
         }
 
+        $limit = min(max((int)$request->input('limit', 100), 1), 200);
         $contacts = $query->with(['cotacao' => function($q) {
             $q->select('id', 'numero', 'parceiro_id');
-        }, 'cotacao.parceiro'])->get();
+        }, 'cotacao.parceiro'])->limit($limit)->get();
 
         foreach ($contacts as $c) {
             $resolution = $this->resolveQuoteAndNameForChat(

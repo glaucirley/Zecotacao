@@ -2774,9 +2774,14 @@
                 }
             });
 
-            if (currentWizardStep === 2) {
+            if (currentWizardStep === 1) {
+                setTimeout(() => document.getElementById("partner-search-input")?.focus(), 100);
+            } else if (currentWizardStep === 2) {
                 switchStep2Tab(currentStep2Tab || 'catalog');
                 filterProducts();
+                if ((currentStep2Tab || 'catalog') === 'catalog') {
+                    setTimeout(() => document.getElementById("prod-search-input")?.focus(), 100);
+                }
             }
 
             // Update summary if step 3
@@ -3797,6 +3802,18 @@
                 showQuoteFormError("Erro de comunicação com o servidor. Verifique sua conexão e tente novamente.", "Erro de Conexão");
             }
         }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const confirmModal = document.getElementById("confirm-exit-modal");
+                const drawer = document.getElementById("new-quote-drawer");
+                if (confirmModal && confirmModal.style.display !== 'none') {
+                    closeConfirmExitModal();
+                } else if (drawer && drawer.style.display !== 'none') {
+                    handleDrawerClose();
+                }
+            }
+        });
     </script>
 </body>
 </html>

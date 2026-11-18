@@ -5438,5 +5438,15 @@
             window.open(pdfUrl, '_blank');
         }
     }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (typeof closeLostModal === 'function') closeLostModal();
+            if (typeof closeReleaseModal === 'function') closeReleaseModal();
+            if (typeof closeSendQuoteModal === 'function') closeSendQuoteModal();
+            const rejectModal = document.getElementById("reject-details-modal");
+            if (rejectModal) rejectModal.style.display = "none";
+        }
+    });
 </script>
 @endsection
