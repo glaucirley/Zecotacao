@@ -288,6 +288,7 @@
 @section('scripts')
 <script>
     const API_URL = "{{ url('/api/v1') }}";
+    const CURRENT_USER = @json(auth()->user());
     let usersList = [];
     let teamsList = [];
 
@@ -319,6 +320,7 @@
             }
         } catch (e) {
             console.error(e);
+            document.getElementById("loading-spinner").style.display = "none";
             showToast("Erro de conexão ao buscar usuários.", "error");
         }
     }
@@ -531,7 +533,7 @@
                 <!-- Gestor da Equipe (No Topo) -->
                 <div style="padding:12px 16px; background:#f0fdf4; border-bottom:1px solid #bbf7d0; display:flex; align-items:center; gap:10px;">
                     <div style="width:32px; height:32px; border-radius:50%; background:#16a34a; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">
-                        ${managerInitial}
+                        ${escapeHtml(managerInitial)}
                     </div>
                     <div style="min-width:0; flex-grow:1;">
                         <div style="font-size:11px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.3px;">Gestor da Equipe</div>

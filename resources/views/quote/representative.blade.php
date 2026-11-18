@@ -634,7 +634,7 @@
         box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
         padding: 10px 16px;
         padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-        z-index: 1050;
+        z-index: 900;
         display: none; /* Initially hidden until quote loads */
         transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         box-sizing: border-box;
@@ -1254,7 +1254,7 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="form-group" style="margin-bottom: 8px;">
                             <label class="form-label" style="font-size: 11px;">Forma de Pagamento</label>
-                            <select id="forma-pagamento" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="onFormaPagamentoChange()">
+                            <select id="forma-pagamento" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="onFormaPagamentoChange(); scheduleAutoSaveQuote();">
                                 <option value="">Selecione a condição...</option>
                                 @if(isset($condicoesPagamento) && count($condicoesPagamento) > 0)
                                     @foreach($condicoesPagamento as $cp)
@@ -1265,12 +1265,12 @@
                                 @endif
                                 <option value="__custom__">Outra (digitar manualmente)...</option>
                             </select>
-                            <input type="text" id="forma-pagamento-custom" class="form-control" style="display: none; margin-top: 6px; padding: 6px 10px; font-size: 12px;" placeholder="Digite a forma de pagamento..." oninput="updateConditionsSummaryText()">
+                            <input type="text" id="forma-pagamento-custom" class="form-control" style="display: none; margin-top: 6px; padding: 6px 10px; font-size: 12px;" placeholder="Digite a forma de pagamento..." oninput="updateConditionsSummaryText(); scheduleAutoSaveQuote();">
                             <div id="forma-pagamento-warning" style="display: none; margin-top: 4px; padding: 4px 8px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; font-size: 11px; color: #b45309;"></div>
                         </div>
                         <div class="form-group" style="margin-bottom: 8px;">
                             <label class="form-label" style="font-size: 11px;">Prazo de Entrega</label>
-                            <input type="text" id="prazo-entrega" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" onchange="updateConditionsSummaryText()">
+                            <input type="text" id="prazo-entrega" class="form-control" style="padding: 8px 10px; font-size: 12.5px;" oninput="updateConditionsSummaryText(); scheduleAutoSaveQuote();">
                         </div>
                     </div>
                 </div>
@@ -1280,11 +1280,11 @@
                     <h4 style="font-size: 13px; margin-bottom: 12px; font-weight: 700; color: #1e293b;">Observações</h4>
                     <div class="form-group" style="margin-bottom: 10px;">
                         <label for="obs-cliente" class="form-label" style="font-size: 11px;">Observação para o Cliente (Visível no PDF)</label>
-                        <textarea id="obs-cliente" class="form-control" rows="2" style="font-size: 12.5px;" placeholder="Ex: Prazo de entrega de 5 dias úteis."></textarea>
+                        <textarea id="obs-cliente" class="form-control" rows="2" style="font-size: 12.5px;" placeholder="Ex: Prazo de entrega de 5 dias úteis." oninput="scheduleAutoSaveQuote()"></textarea>
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="obs-interna" class="form-label" style="font-size: 11px;">Observação Interna (Apenas Equipe)</label>
-                        <textarea id="obs-interna" class="form-control" rows="2" style="font-size: 12.5px;" placeholder="Ex: Cliente solicita prioridade no faturamento."></textarea>
+                        <textarea id="obs-interna" class="form-control" rows="2" style="font-size: 12.5px;" placeholder="Ex: Cliente solicita prioridade no faturamento." oninput="scheduleAutoSaveQuote()"></textarea>
                     </div>
                 </div>
             </div>
@@ -1423,7 +1423,7 @@
 </div>
 
 <!-- Lost quote modal -->
-<div id="lost-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; padding: 20px;">
+<div id="lost-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1100; padding: 20px;">
     <div class="auth-card" style="max-width: 500px; padding: 30px;">
         <h3 style="margin-bottom: 12px; color: var(--status-perdida);">Marcar Cotação como Perdida</h3>
         <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
@@ -1441,7 +1441,7 @@
 </div>
 
 <!-- Release for Billing Modal -->
-<div id="release-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; padding: 20px;">
+<div id="release-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1100; padding: 20px;">
     <div class="auth-card" style="max-width: 500px; padding: 30px;">
         <h3 style="margin-bottom: 12px; color: #0d9488;">Liberar para Faturamento</h3>
         <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
@@ -1474,7 +1474,7 @@
 </div>
 
 <!-- Send Quote to Client Modal (WhatsApp & Web Share) -->
-<div id="send-quote-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1050; padding: 16px;">
+<div id="send-quote-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); align-items: center; justify-content: center; z-index: 1100; padding: 16px;">
     <div class="auth-card" style="max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); background: #ffffff;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -2528,7 +2528,7 @@
                 return;
             }
             submitQuote();
-        } else if (['APROVADA', 'PDF_GERADO'].includes(quote.status)) {
+        } else if (['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'].includes(quote.status)) {
             openSendQuoteModal();
         } else if (quote.status === 'FINALIZADA_COM_PEDIDO') {
             openReleaseModal();
@@ -2671,7 +2671,7 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span>Em Análise de Alçada</span>
             `;
-        } else if (['APROVADA', 'PDF_GERADO'].includes(quote.status)) {
+        } else if (['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO'].includes(quote.status)) {
             primaryBtn.style.background = "#25d366";
             primaryBtn.style.color = "#ffffff";
             primaryBtn.style.border = "none";
@@ -3540,7 +3540,8 @@
                     const isBelowMin = propPrice < minEf;
                     const isRejected = item.status_item === 'recusado';
                     const isApproved = item.status_item === 'aprovado';
-                    const isItemLocked = isEditingLocked || isRejected;
+                    const isDevolvida = quote && quote.status === 'DEVOLVIDA';
+                    const isItemLocked = isEditingLocked || (isRejected && !isDevolvida);
                     const rowClass = isRejected ? "recusado" : (isApproved ? "aprovado" : "");
 
                     // Semantic Price Tag Badge for Line 3
@@ -3872,6 +3873,12 @@
 
         const desconto = Math.max(0, subtotal - total);
         const descontoPerc = subtotal > 0 && desconto > 0 ? ((desconto / subtotal) * 100).toFixed(1) : 0;
+
+        if (quote) {
+            quote.subtotal = subtotal;
+            quote.total = total;
+            quote.desconto_total = desconto;
+        }
 
         // Sticky Footer Totals
         const stickyTotalEl = document.getElementById("sticky-total-proposto");

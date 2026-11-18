@@ -158,8 +158,14 @@
 
 <!-- ================= TAB 1: MINHA FILA ================= -->
 <div id="tab-content-queue">
+    @php
+        $u = auth()->user();
+        $canApprove = $u && ($u->isGestor() || $u->isDiretor() || $u->isAdministrador());
+        $canBill = $u && ($u->isFaturamento() || $u->isDiretor() || $u->isAdministrador() || $u->isSuporte());
+    @endphp
     <div class="queue-grid">
         <!-- 1. Aprovações -->
+        @if($canApprove)
         <div class="queue-card">
             <div class="queue-card-top">
                 <div class="queue-icon-box" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
@@ -176,8 +182,10 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </a>
         </div>
+        @endif
 
         <!-- 2. Pedidos Faturamento -->
+        @if($canBill)
         <div class="queue-card">
             <div class="queue-card-top">
                 <div class="queue-icon-box" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
@@ -194,6 +202,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </a>
         </div>
+        @endif
 
         <!-- 3. Cotações Vencem Hoje -->
         <div class="queue-card">
@@ -254,7 +263,7 @@
                     <label for="filter-end-date" style="font-size: 12px; font-weight: 600; color: var(--color-text-muted);">Até:</label>
                     <input type="date" id="filter-end-date" class="form-control" style="padding: 6px 10px; font-size:12px; width:auto; margin:0;">
                 </div>
-                <button class="btn btn-primary" onclick="loadDashboardData()" style="font-size:12px; padding: 8px 16px; background-color: var(--color-accent); border-color: var(--color-accent);">Filtrar</button>
+                <button class="btn btn-primary" onclick="loadDashboardData()" style="font-size:12px; padding: 8px 16px;">Filtrar</button>
             </div>
         </div>
     </div>
@@ -344,7 +353,7 @@
                 <h3 id="analysis-title" style="font-size: 16px; font-weight: 700; color: var(--color-text-main); margin: 0;">Evolução Temporal de Vendas</h3>
             </div>
             <div>
-                <select id="analysis-selector" class="form-control" onchange="switchAnalysisView()" style="font-size: 13px; font-weight: 600; padding: 8px 16px; width: auto; border-radius: 8px; cursor: pointer; border: 1px solid var(--color-border); background-color: var(--color-card-bg);">
+                <select id="analysis-selector" class="form-control" onchange="switchAnalysisView()" style="font-size: 13px; font-weight: 600; padding: 8px 16px; width: auto; border-radius: 8px; cursor: pointer; border: 1px solid var(--color-border); background-color: var(--color-card);">
                     <option value="timeline">📈 Evolução Temporal de Vendas</option>
                     <option value="status">📊 Distribuição de Status</option>
                     <option value="vendedores">👥 Desempenho por Representante</option>
@@ -542,6 +551,7 @@
     let chartSellersInstance = null;
 
     document.addEventListener("DOMContentLoaded", () => {
+        loadQueueData();
         setPeriod(30); // Default to last 30 days
     });
 
@@ -731,7 +741,12 @@
 
         // 3. Render Timeline Chart
         if (perms.ver_evolucao_temporal && data.timeline) {
-            const dates = data.timeline.map(t => new Date(t.date).toLocaleDateString('pt-BR'));
+            const dates = data.timeline.map(t => {
+                if (!t.date) return '';
+                const parts = String(t.date).split('T')[0].split('-');
+                if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+                return t.date;
+            });
             const counts = data.timeline.map(t => t.count);
             const values = data.timeline.map(t => t.value_billed);
             
@@ -1189,10 +1204,5 @@
             console.error("Erro ao carregar fila:", e);
         }
     }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        loadQueueData();
-        loadDashboardData();
-    });
 </script>
 @endsection

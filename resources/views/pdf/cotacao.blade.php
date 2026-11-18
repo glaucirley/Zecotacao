@@ -97,6 +97,9 @@
             border-bottom: 1px solid #cbd5e1;
             text-align: left;
         }
+        .items-table tr {
+            page-break-inside: avoid;
+        }
         .items-table td {
             padding: 5px 6px;
             border-bottom: 1px solid #e2e8f0;
@@ -324,8 +327,8 @@
                         @if(!empty($item->produto?->marca))
                             <span style="font-size: 7.5px; color: #64748b; font-weight: bold; text-transform: uppercase;">Marca: {{ $item->produto->marca }}</span>
                         @endif
-                        @if($item->mostrar_selo_campanha || $item->campanha_id)
-                            <div class="prod-campaign-subtext">Campanha: {{ $item->campanha_id ?: 'Condição Especial Aplicada' }}</div>
+                        @if($item->mostrar_selo_campanha || $item->campanha_id || ($item->campanha && $item->campanha->nome))
+                            <div class="prod-campaign-subtext">Campanha: {{ $item->campanha?->nome ?: ($item->campanha_id ?: 'Condição Especial Aplicada') }}</div>
                         @endif
                     </td>
                     <td class="text-center" style="color: #475569; font-weight: 500;">
@@ -396,10 +399,13 @@
     <!-- Commercial Conditions & Observations -->
     <table class="conditions-card">
         <tr>
-            <td style="width: 50%;">
+            <td style="width: 35%;">
                 <span class="cond-label">Forma de pagamento:</span> <span class="cond-val">{{ $quote->forma_pagamento ?: 'A combinar' }}</span>
             </td>
-            <td style="width: 50%; vertical-align: top;">
+            <td style="width: 30%;">
+                <span class="cond-label">Prazo de entrega:</span> <span class="cond-val">{{ $quote->prazo_entrega ?: '3 dias' }}</span>
+            </td>
+            <td style="width: 35%; vertical-align: top;">
                 <span class="cond-label">Representante:</span> <span class="cond-val">{{ $quote->representante->nome ?? 'Atendimento Central' }}</span>
             </td>
         </tr>

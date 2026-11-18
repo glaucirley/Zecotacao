@@ -548,6 +548,17 @@ class QuoteController extends Controller
             return response()->json(['error' => 'Erro de validação', 'messages' => $validator->errors()], 422);
         }
 
+        if ($request->filled('parceiro_id') && (int)$request->input('parceiro_id') !== (int)$quote->parceiro_id) {
+            $novoParceiro = \App\Models\Parceiro::find($request->input('parceiro_id'));
+            $user = auth()->user();
+            if ($user && method_exists($user, 'canAccessPartner') && $novoParceiro && !$user->canAccessPartner($novoParceiro)) {
+                return response()->json([
+                    'error' => 'Acesso negado',
+                    'message' => 'O cliente selecionado não pertence à sua carteira de atendimento autorizada.'
+                ], 403);
+            }
+        }
+
         // Carrega todos os itens existentes da cotação em 1 única query (evita N+1 de 50 queries)
         $existingItems = $request->has('itens') ? $quote->itens()->get()->keyBy('id') : collect();
 
@@ -1601,7 +1612,7 @@ class QuoteController extends Controller
             'codvend' => $codvend,
             'codparc' => $codparc,
             'tempo_execucao_segundos' => $elapsed,
-            'total_restricoes' => count($items),
+            'total_restricoes' => count($items ?? []),
             'origem' => $wasCached ? 'cache' : 'oracle'
         ]);
     }

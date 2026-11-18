@@ -36,7 +36,7 @@ return [
     ],
 
     'integration' => [
-        'api_key' => env('INTEGRATION_API_KEY', 'default_n8n_key_123'),
+        'api_key' => env('INTEGRATION_API_KEY'),
     ],
 
 ];

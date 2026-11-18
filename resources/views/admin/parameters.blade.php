@@ -753,6 +753,7 @@
             }
         } catch (e) {
             console.error(e);
+            document.getElementById("loading-spinner").style.display = "none";
             showToast("Erro de conexão ao carregar parâmetros.", "error");
         }
     }
@@ -780,15 +781,25 @@
                         method: "PATCH",
                         headers: {
                             "Content-Type": "application/json",
+                            "Accept": "application/json",
                             "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                         },
                         body: JSON.stringify({ valor: val })
+                    }).then(async r => {
+                        const json = await r.json().catch(() => ({}));
+                        return { ok: r.ok, status: r.status, chave, data: json };
                     })
                 );
             });
 
-            await Promise.all(promises);
-            showToast("Todas as alterações da aba foram salvas com sucesso!", "success");
+            const results = await Promise.all(promises);
+            const failed = results.filter(r => !r.ok);
+            if (failed.length === 0) {
+                showToast("Todas as alterações da aba foram salvas com sucesso!", "success");
+            } else {
+                const msgs = failed.map(f => `${f.chave}: ${f.data.message || f.data.error || 'Erro ' + f.status}`).join(' | ');
+                showToast(`Atenção: ${failed.length} parâmetro(s) falharam ao salvar: ${msgs}`, "error");
+            }
         } catch (e) {
             console.error(e);
             showToast("Erro de comunicação ao salvar parâmetros.", "error");

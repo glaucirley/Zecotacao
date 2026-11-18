@@ -446,8 +446,8 @@
                 <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; text-align: left; max-width: 440px; margin: 0 auto;">
                     <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Cliente</div>
                     <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark); margin-bottom: 10px;">
-                        {{ $quote->parceiro->nome_fantasia ?: $quote->parceiro->razao_social }}
-                        @if($quote->parceiro->nome_fantasia && $quote->parceiro->nome_fantasia !== $quote->parceiro->razao_social)
+                        {{ $quote->parceiro ? ($quote->parceiro->nome_fantasia ?: $quote->parceiro->razao_social) : 'Cliente não informado' }}
+                        @if($quote->parceiro && $quote->parceiro->nome_fantasia && $quote->parceiro->nome_fantasia !== $quote->parceiro->razao_social)
                             <div style="font-size: 11.5px; font-weight: 500; color: #64748b;">{{ $quote->parceiro->razao_social }}</div>
                         @endif
                         @if(!empty($envio?->nome_contato_snapshot) && $envio->nome_contato_snapshot !== 'Cliente')
@@ -455,7 +455,7 @@
                         @endif
                     </div>
                     <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Representante Comercial</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark);">{{ $quote->representante->nome }}</div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: var(--text-dark);">{{ $quote->representante?->nome ?? 'Representante Central Veterinária' }}</div>
                 </div>
                 <p style="font-size: 12.5px; color: #64748b; margin-top: 16px;">
                     Fale com seu representante comercial pelo botão abaixo para solicitar a renovação da proposta.
@@ -493,8 +493,8 @@
                     <div class="info-item">
                         <span class="info-label">Cliente / Razão Social</span>
                         <span class="info-value">
-                            <strong>{{ $quote->parceiro->nome_fantasia ?: $quote->parceiro->razao_social }}</strong>
-                            @if($quote->parceiro->nome_fantasia && $quote->parceiro->nome_fantasia !== $quote->parceiro->razao_social)
+                            <strong>{{ $quote->parceiro ? ($quote->parceiro->nome_fantasia ?: $quote->parceiro->razao_social) : 'Cliente não informado' }}</strong>
+                            @if($quote->parceiro && $quote->parceiro->nome_fantasia && $quote->parceiro->nome_fantasia !== $quote->parceiro->razao_social)
                                 <br><span style="font-size: 11.5px; color: #64748b; font-weight: normal;">{{ $quote->parceiro->razao_social }}</span>
                             @endif
                             @if(!empty($envio?->nome_contato_snapshot) && $envio->nome_contato_snapshot !== 'Cliente')
@@ -504,15 +504,15 @@
                     </div>
                     <div class="info-item">
                         <span class="info-label">CNPJ / CPF</span>
-                        <span class="info-value">{{ $quote->parceiro->cnpj ?: 'Não informado' }}</span>
+                        <span class="info-value">{{ $quote->parceiro?->cnpj ?: 'Não informado' }}</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Cidade / UF</span>
-                        <span class="info-value">{{ $quote->parceiro->cidade ?: 'Uberlândia' }}/{{ $quote->parceiro->uf ?: 'MG' }}</span>
+                        <span class="info-value">{{ ($quote->parceiro?->cidade ?: 'Uberlândia') . '/' . ($quote->parceiro?->uf ?: 'MG') }}</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Representante Comercial</span>
-                        <span class="info-value">{{ $quote->representante->nome }}</span>
+                        <span class="info-value">{{ $quote->representante?->nome ?? 'Representante Central Veterinária' }}</span>
                     </div>
                 </div>
             </div>
@@ -600,7 +600,7 @@
     @if(!$expired || $repWhatsappUrl)
         <div class="floating-footer">
             @if(!$expired)
-                <a href="/p/{{ $token }}/pdf" class="btn-action btn-pdf" target="_blank" rel="noopener">
+                <a href="{{ url('/p/' . $token . '/pdf') }}" class="btn-action btn-pdf" target="_blank" rel="noopener">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                     <span>Baixar PDF</span>
                 </a>
@@ -632,7 +632,7 @@
             }
             if (navigator.webdriver) return;
             try {
-                fetch('/p/{{ $token }}/track', {
+                fetch('{{ url('/p/' . $token . '/track') }}', {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: {

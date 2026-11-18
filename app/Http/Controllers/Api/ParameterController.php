@@ -278,6 +278,14 @@ class ParameterController extends Controller
                 \Illuminate\Support\Facades\Log::error("Async Sync Validades Error: " . $e->getMessage());
             }
 
+            // 7. Sync Product Campanhas View
+            try {
+                $campanhaRows = $db->fetchCampanhasFromView();
+                $db->saveCampanhasFromViewRows($campanhaRows, true);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Async Sync Campanhas Error: " . $e->getMessage());
+            }
+
             \Illuminate\Support\Facades\Log::info("Async Sankhya Catalog Sync Completed Successfully!");
             exit;
         }

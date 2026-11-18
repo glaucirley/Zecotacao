@@ -18,9 +18,9 @@ class ApiKeyMiddleware
         $apiKey = $request->header('X-API-Key');
         $expectedKey = config('services.integration.api_key');
 
-        if (!$apiKey || $apiKey !== $expectedKey) {
+        if (empty($apiKey) || empty($expectedKey) || !hash_equals((string)$expectedKey, (string)$apiKey)) {
             return response()->json([
-                'error' => 'Unauthorized. Invalid API Key.'
+                'error' => 'Unauthorized. Invalid or unconfigured API Key.'
             ], 401);
         }
 

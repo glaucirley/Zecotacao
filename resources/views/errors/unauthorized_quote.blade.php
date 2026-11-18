@@ -82,7 +82,7 @@
         </p>
 
         <div class="btn-group">
-            @if(auth()->check() && auth()->user()->isRepresentante())
+            @if(auth()->check() && auth()->user()->usaInterfaceMobile())
                 <a href="{{ url('/painel-representante') }}" class="btn btn-primary" style="padding: 10px 18px; text-decoration: none;">
                     Meu Painel de Cotações
                 </a>

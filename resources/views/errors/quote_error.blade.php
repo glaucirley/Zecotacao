@@ -49,7 +49,7 @@
         </p>
         <div>
             @if(auth()->check())
-                <a href="{{ auth()->user()->isRepresentante() ? url('/painel-representante') : url('/dashboard') }}" class="btn btn-primary" style="text-decoration: none; padding: 10px 20px;">
+                <a href="{{ auth()->user()->usaInterfaceMobile() ? url('/painel-representante') : url('/dashboard') }}" class="btn btn-primary" style="text-decoration: none; padding: 10px 20px;">
                     Voltar ao Início
                 </a>
             @else

@@ -63,9 +63,15 @@ class CheckinController extends Controller
             return response()->json(['error' => 'Forbidden.'], 403);
         }
 
-        $checkins = Checkin::with(['usuario', 'parceiro'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = Checkin::with(['usuario', 'parceiro'])->orderBy('created_at', 'desc');
+
+        if ($user->isGestor()) {
+            $teamMemberIds = $user->equipesGerenciadas ? $user->equipesGerenciadas->flatMap(fn($e) => $e->membros->pluck('id'))->all() : [];
+            $teamMemberIds[] = $user->id;
+            $query->whereIn('usuario_id', array_unique($teamMemberIds));
+        }
+
+        $checkins = $query->take(200)->get();
 
         return response()->json([
             'success' => true,

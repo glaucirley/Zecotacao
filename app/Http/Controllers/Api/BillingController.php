@@ -94,6 +94,15 @@ class BillingController extends Controller
             return response()->json(['error' => 'Locked quote', 'message' => 'Esta cotação já foi faturada.'], 422);
         }
 
+        // Validate that quote is in a billable status
+        $billableStatuses = ['APROVADA', 'PDF_GERADO', 'AGUARDANDO_PEDIDO', 'FINALIZADA_COM_PEDIDO'];
+        if (!in_array($quote->status, $billableStatuses)) {
+            return response()->json([
+                'error' => 'Invalid status',
+                'message' => "Esta cotação não está liberada para registro de pedido externo (status atual: {$quote->status})."
+            ], 422);
+        }
+
         $request->validate([
             'numero_pedido_externo' => 'required|string|max:100',
             'valor_pedido' => 'required|numeric|min:0.01'

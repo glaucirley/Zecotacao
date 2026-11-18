@@ -580,7 +580,6 @@
         </div>
     </div>
 
-    @yield('scripts')
     <script>
         function appGoBack() {
             if (window.history.length > 1 && document.referrer && document.referrer.includes(window.location.host)) {
@@ -679,6 +678,7 @@
                 searchDebounceTimer = setTimeout(async () => {
                     try {
                         const res = await fetch(`{{ url('/api/v1/dashboard/search') }}?q=${encodeURIComponent(q)}`);
+                        if (!res.ok) throw new Error('Falha ao buscar dados');
                         const data = await res.json();
                         if (data.success && data.results && data.results.length > 0) {
                             const badgeColors = {
@@ -689,7 +689,7 @@
                             container.innerHTML = data.results.map(r => {
                                 const b = badgeColors[r.type] || { bg: '#f1f5f9', color: '#475569', text: r.badge || r.type };
                                 return `
-                                    <a href="${r.url}" class="search-result-item" onclick="closeGlobalSearch()">
+                                    <a href="${escapeHtml(r.url)}" class="search-result-item" onclick="closeGlobalSearch()">
                                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                                             <div class="search-result-title">${escapeHtml(r.title)}</div>
                                             <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: ${b.bg}; color: ${b.color}; flex-shrink: 0;">${escapeHtml(b.text)}</span>
@@ -833,5 +833,6 @@
             updateSidebarQueueBadges();
         });
     </script>
+    @yield('scripts')
 </body>
 </html>

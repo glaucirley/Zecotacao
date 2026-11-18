@@ -400,7 +400,7 @@ class DashboardController extends Controller
             $approvalQuery->where('status', 'AGUARDANDO_GESTOR')
                 ->whereHas('representante', fn($q) => $q->whereIn('equipe_id', $teamIds));
         } elseif ($user->isDiretor()) {
-            $approvalQuery->whereIn('status', ['AGUARDANDO_GESTOR', 'COM_DIRETOR']);
+            $approvalQuery->where('status', 'COM_DIRETOR');
         } elseif (!$user->isAdministrador()) {
             $approvalQuery->whereRaw('1 = 0');
         }
