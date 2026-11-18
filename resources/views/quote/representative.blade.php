@@ -3733,6 +3733,22 @@
         return Math.ceil(Math.round(clean * 100 * 100) / 100) / 100;
     }
 
+    let autoSaveQuoteTimer = null;
+    let isQuoteItemsDirty = false;
+
+    function scheduleAutoSaveQuote() {
+        if (isEditingLocked) return;
+        isQuoteItemsDirty = true;
+        if (autoSaveQuoteTimer) {
+            clearTimeout(autoSaveQuoteTimer);
+        }
+        autoSaveQuoteTimer = setTimeout(async () => {
+            if (isQuoteItemsDirty && !isEditingLocked) {
+                await saveDraft(false);
+            }
+        }, 700);
+    }
+
     function updateItemCalculations(itemId, newQtd, newPrice) {
         if (isEditingLocked) return;
         const item = quote.itens.find(i => i.id === itemId);
@@ -3776,6 +3792,9 @@
         updateJustificationPanelVisibility();
 
         recalculateTotalsFromState();
+
+        // Automatically trigger debounced background save to avoid data loss
+        scheduleAutoSaveQuote();
     }
 
     function resetToMin(itemId, minPrice) {
@@ -4036,6 +4055,34 @@
         document.getElementById("new-item-subtotal-label").innerText = "Subtotal Proposto: R$ " + formatCurrency(sub);
     }
 
+    function mergeServerItemsWithLocalState(serverItems, deletedItemId = null) {
+        if (!Array.isArray(serverItems)) return [];
+        const localMap = new Map();
+        (quote.itens || []).forEach(it => {
+            if (it && it.id !== deletedItemId) {
+                localMap.set(it.id, {
+                    qtd: it.qtd,
+                    preco_unit_proposto: it.preco_unit_proposto,
+                    subtotal: it.subtotal,
+                    ajuste_percentual: it.ajuste_percentual
+                });
+            }
+        });
+        return serverItems.map(sItem => {
+            const local = localMap.get(sItem.id);
+            if (local && (local.qtd !== sItem.qtd || local.preco_unit_proposto !== sItem.preco_unit_proposto)) {
+                return {
+                    ...sItem,
+                    qtd: local.qtd,
+                    preco_unit_proposto: local.preco_unit_proposto,
+                    subtotal: local.subtotal !== undefined ? local.subtotal : roundUpCents(local.qtd * local.preco_unit_proposto),
+                    ajuste_percentual: local.ajuste_percentual !== undefined ? local.ajuste_percentual : sItem.ajuste_percentual
+                };
+            }
+            return sItem;
+        });
+    }
+
     async function addNewItem() {
         const productId = document.getElementById("selected-product-id").value;
         if (!productId) {
@@ -4057,6 +4104,15 @@
             return;
         }
 
+        // Flush any unsaved item edits to the server before adding
+        if (isQuoteItemsDirty) {
+            if (autoSaveQuoteTimer) {
+                clearTimeout(autoSaveQuoteTimer);
+                autoSaveQuoteTimer = null;
+            }
+            await saveDraft(false);
+        }
+
         const wasReplacing = Boolean(replacingUnfoundItemId);
         const payload = {
             produto_id: parseInt(productId),
@@ -4075,7 +4131,8 @@
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
-                quote.itens = data.data.itens;
+                quote.itens = mergeServerItemsWithLocalState(data.data.itens);
+                recalculateTotalsFromState();
                 if (data.data.historico) {
                     quote.historico = data.data.historico;
                     renderAuditTrail();
@@ -4106,6 +4163,15 @@
             : "Deseja realmente remover este item?";
         if (!confirm(confirmMsg)) return;
 
+        // Flush any unsaved item edits to the server before deleting
+        if (isQuoteItemsDirty) {
+            if (autoSaveQuoteTimer) {
+                clearTimeout(autoSaveQuoteTimer);
+                autoSaveQuoteTimer = null;
+            }
+            await saveDraft(false);
+        }
+
         try {
             const res = await fetch(`${QUOTE_BASE_URL}/itens/${itemId}`, {
                 method: "DELETE"
@@ -4115,7 +4181,8 @@
                 if (replacingUnfoundItemId === itemId) {
                     cancelManualInclusionReplacement();
                 }
-                quote.itens = data.data.itens;
+                quote.itens = mergeServerItemsWithLocalState(data.data.itens, itemId);
+                recalculateTotalsFromState();
                 renderItems();
             } else {
                 showToast("Erro ao remover item: " + (data.message || data.error || ("Operação recusada pelo servidor HTTP " + res.status)), 'error');
@@ -4130,6 +4197,11 @@
         if (isEditingLocked) {
             showToast("Esta cotação está com status " + quote.status.replace(/_/g, ' ') + " e não permite edições.", 'warning');
             return false;
+        }
+
+        if (autoSaveQuoteTimer) {
+            clearTimeout(autoSaveQuoteTimer);
+            autoSaveQuoteTimer = null;
         }
 
         // Collect current values from page
@@ -4157,6 +4229,7 @@
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
                 quote = data.data;
+                isQuoteItemsDirty = false;
                 if (showNotification) {
                     showToast("Rascunho salvo com sucesso.", 'success');
                 }
