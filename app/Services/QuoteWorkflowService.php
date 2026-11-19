@@ -307,9 +307,9 @@ class QuoteWorkflowService
             if ($item->isBloqueado()) {
                 continue;
             }
-            $suggested = (float)$item->preco_unit_sugerido;
-            $minPrice = (float)$item->preco_minimo;
-            $proposedPrice = (float)$item->preco_unit_proposto;
+            $suggested = round((float)$item->preco_unit_sugerido, 2);
+            $minPrice = round((float)$item->preco_minimo, 2);
+            $proposedPrice = round((float)$item->preco_unit_proposto, 2);
 
             // Detectar inconsistência cadastral (mínimo cadastral maior que o sugerido de tabela)
             $isInconsistent = ($suggested > 0 && $minPrice > $suggested);
@@ -385,24 +385,23 @@ class QuoteWorkflowService
         $canAutoApprove = false;
         $autoApproveReason = '';
 
-        if ($regraLiberacao === 'ALCADA_REPRESENTANTE') {
-            if (!$hasItemsBelowMin && $calculatedDiscount <= $repLimit) {
-                $canAutoApprove = true;
-                $autoApproveReason = sprintf(
-                    'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo e o desconto aplicado de %.2f%% está dentro da alçada do representante (limite: %.2f%%).',
-                    $calculatedDiscount,
-                    $repLimit
-                );
-            }
-        } else {
-            // Regra PRECO_MINIMO padrão
-            if (!$hasItemsBelowMin) {
-                $canAutoApprove = true;
-                $autoApproveReason = sprintf(
-                    'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo (Desconto aplicado: %.2f%%).',
-                    $calculatedDiscount
-                );
-            }
+        // Regra de Negócio: O preço mínimo é a política comercial e piso autorizado de venda da empresa.
+        // A regra de desconto / solicitação de aprovação SÓ ATIVA quando o desconto exceder o valor mínimo
+        // (isto é, quando algum item for vendido com preço ABAIXO do preço mínimo).
+        // Se todos os itens respeitam o preço mínimo (!$hasItemsBelowMin), a cotação é LIBERADA AUTOMATICAMENTE!
+        if (!$hasItemsBelowMin) {
+            $canAutoApprove = true;
+            $autoApproveReason = sprintf(
+                'Liberada automaticamente pelo sistema: todos os itens respeitam o preço mínimo da tabela da região (Desconto comercial: %.2f%%).',
+                $calculatedDiscount
+            );
+        } elseif ($regraLiberacao === 'ALCADA_REPRESENTANTE' && $calculatedDiscount <= $repLimit) {
+            $canAutoApprove = true;
+            $autoApproveReason = sprintf(
+                'Liberada automaticamente pelo sistema: desconto aplicado de %.2f%% está dentro da alçada do representante (limite: %.2f%%).',
+                $calculatedDiscount,
+                $repLimit
+            );
         }
 
         // 4. Auto-approve if permitted

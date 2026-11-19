@@ -196,16 +196,16 @@
             <span class="user-role-label" style="background:#0284c7;">Diretoria</span>
         </div>
         <div class="param-description">
-            Define quando uma cotação precisa de aprovação de um superior hierárquico antes de ser enviada ao cliente ou convertida em pedido.
+            Define o critério para aprovação hierárquica de cotações. Pela política comercial da empresa, cotações com preços no mínimo ou acima são liberadas automaticamente. A aprovação só é solicitada quando houver item abaixo do preço mínimo.
         </div>
         <div class="param-example-box">
-            <strong>Exemplo prático:</strong> Quando o desconto concedido passar da alçada configurada no representante → enviar cotação ao gestor. Ex.: Representante possui 5% de alçada e concede 7% de desconto ➔ o sistema encaminha a cotação imediatamente para a fila do gestor.
+            <strong>Exemplo prático:</strong> Com <em>Apenas Preço Mínimo</em>, se o vendedor mantiver os itens no preço mínimo ou acima, a cotação é liberada instantaneamente para envio em PDF/WhatsApp. A solicitação de liberação para Gestor/Diretoria só é acionada caso o preço proposto seja inferior ao preço mínimo do catálogo.
         </div>
         <div class="param-action-row">
             <div class="param-input-group" style="max-width: 100%;">
                 <select id="val-REGRA_LIBERACAO_DESCONTO" class="form-control" style="font-size: 13.5px; padding: 8px 12px;">
-                    <option value="ALCADA_REPRESENTANTE">Alçada do Representante (Recomendado - Exige Gestor)</option>
-                    <option value="PRECO_MINIMO">Apenas Preço Mínimo (Libera se acima do mínimo)</option>
+                    <option value="PRECO_MINIMO">Apenas Preço Mínimo (Padrão da Empresa - Libera no Preço Mínimo)</option>
+                    <option value="ALCADA_REPRESENTANTE">Alçada do Representante (Exige Gestor se ultrapassar % de alçada)</option>
                 </select>
             </div>
         </div>

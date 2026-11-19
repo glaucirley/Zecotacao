@@ -1920,10 +1920,10 @@
             quote.itens.forEach(it => {
                 if (it.status_item === 'recusado' || it.nao_encontrado) return;
                 const qtd = parseInt(it.qtd || 1);
-                const sug = parseFloat(it.preco_unit_sugerido || 0);
-                const prop = parseFloat(it.preco_unit_proposto || 0);
+                const sug = Math.round(parseFloat(it.preco_unit_sugerido || 0) * 100) / 100;
+                const prop = Math.round(parseFloat(it.preco_unit_proposto || 0) * 100) / 100;
                 const minEf = getItemEffectiveMin(it);
-                if (prop < minEf) hasBelowMin = true;
+                if (prop < (minEf - 0.005)) hasBelowMin = true;
                 totalSug += qtd * Math.max(sug, prop);
                 totalProp += qtd * prop;
             });
@@ -1932,7 +1932,7 @@
 
         if (!type) {
             const { repLimit, gestorLimit, hasGestor } = getRepresentativeLimits();
-            if (hasBelowMin || discountPct > (repLimit + 0.0001)) {
+            if (hasBelowMin) {
                 type = (!hasGestor || (gestorLimit > 0 && discountPct > (gestorLimit + 0.0001))) ? 'diretoria' : 'gestor';
             } else {
                 type = 'automatica';
@@ -2573,8 +2573,8 @@
                 }
                 activeItemsCount++;
                 const minEf = getItemEffectiveMin(i);
-                const prop = parseFloat(i.preco_unit_proposto || 0);
-                const sug = parseFloat(i.preco_unit_sugerido || 0);
+                const prop = Math.round(parseFloat(i.preco_unit_proposto || 0) * 100) / 100;
+                const sug = Math.round(parseFloat(i.preco_unit_sugerido || 0) * 100) / 100;
                 const qtd = parseInt(i.qtd || 1);
 
                 if (prop < (minEf - 0.005) && i.status_item !== 'aprovado') {
@@ -3051,8 +3051,8 @@
     }
 
     function getItemEffectiveMin(item) {
-        const sug = parseFloat(item.preco_unit_sugerido || 0);
-        const min = parseFloat(item.preco_minimo || 0);
+        const sug = Math.round(parseFloat(item.preco_unit_sugerido || 0) * 100) / 100;
+        const min = Math.round(parseFloat(item.preco_minimo || 0) * 100) / 100;
         // Quando o mínimo cadastral for maior que o sugerido (inconsistência cadastral),
         // o piso de tolerância para não bloquear o representante é o preço sugerido.
         if (sug > 0 && min > sug) {
@@ -3086,8 +3086,8 @@
             return `<span class="badge-price-tag tag-below-min" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-weight:700;">✕ Item recusado na avaliação</span>`;
         }
 
-        const propPrice = parseFloat(item.preco_unit_proposto || 0);
-        const sugPrice = parseFloat(item.preco_unit_sugerido || 0);
+        const propPrice = Math.round(parseFloat(item.preco_unit_proposto || 0) * 100) / 100;
+        const sugPrice = Math.round(parseFloat(item.preco_unit_sugerido || 0) * 100) / 100;
         const minEf = getItemEffectiveMin(item);
         const isBelowMin = propPrice < (minEf - 0.005);
         const { repLimit, gestorLimit, hasGestor } = getRepresentativeLimits();

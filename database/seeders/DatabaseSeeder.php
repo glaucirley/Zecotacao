@@ -48,8 +48,8 @@ class DatabaseSeeder extends Seeder
         ]);
 
         ParametroSistema::firstOrCreate(['chave' => 'REGRA_LIBERACAO_DESCONTO'], [
-            'valor' => 'ALCADA_REPRESENTANTE',
-            'descricao' => 'Regra para liberação automática de cotação: ALCADA_REPRESENTANTE (desconto acima da alçada do vendedor exige aprovação) ou PRECO_MINIMO (libera se estiver acima do mínimo)',
+            'valor' => 'PRECO_MINIMO',
+            'descricao' => 'Regra para liberação automática de cotação: PRECO_MINIMO (libera automaticamente se todos os itens estiverem no preço mínimo ou acima) ou ALCADA_REPRESENTANTE',
             'tipo' => 'texto',
             'editavel_por' => 'diretor',
         ]);
