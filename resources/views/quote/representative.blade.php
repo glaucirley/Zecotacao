@@ -1731,6 +1731,11 @@
             }
             document.title = `Zé Cotação — Cotação ${quote.numero}`;
 
+            // Sincroniza e recalcula totais locais excluindo itens bloqueados
+            if (typeof recalculateTotalsFromState === 'function') {
+                recalculateTotalsFromState();
+            }
+
             // Render view immediately with quote details (Instant response, zero lag!)
             renderView();
         } else {
@@ -1799,6 +1804,11 @@
                 pageTitleEl.setAttribute("title", `Cotação ${quote.numero}`);
             }
             document.title = `Zé Cotação — Cotação ${quote.numero}`;
+
+            // Sincroniza e recalcula totais locais excluindo itens bloqueados
+            if (typeof recalculateTotalsFromState === 'function') {
+                recalculateTotalsFromState();
+            }
 
             // Render view immediately with quote details (Instant response, zero lag!)
             renderView();

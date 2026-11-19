@@ -91,6 +91,12 @@ class PublicProposalController extends Controller
         $quote = $envio->cotacao;
         $isExpired = $this->isProposalExpired($envio);
 
+        // Auto-reconciliação: garante que cotações com restrições comerciais recalculam e gravam o total limpo sem itens bloqueados
+        if ($quote && $quote->itens && $quote->itens->contains(fn($it) => method_exists($it, 'isBloqueado') && $it->isBloqueado())) {
+            $quote->recalcularTotais();
+            $quote->refresh();
+        }
+
         // Itens aprovados para a exibição oficial ao cliente (filtrando itens restritos e não encontrados)
         $items = $quote->itens->where('status_item', 'aprovado')->reject(function ($it) {
             return (bool)$it->nao_encontrado || (method_exists($it, 'isBloqueado') && $it->isBloqueado());

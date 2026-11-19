@@ -281,6 +281,8 @@ class CotacaoItem extends Model
 
     public function isBloqueado(): bool
     {
-        return $this->restricao_efeito === 'B';
+        $efeito = strtoupper(trim((string)($this->restricao_efeito ?? '')));
+        $status = strtolower(trim((string)($this->status_item ?? '')));
+        return $efeito === 'B' || in_array($status, ['bloqueado', 'recusado', 'rejeitado']);
     }
 }

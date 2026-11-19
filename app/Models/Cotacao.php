@@ -201,7 +201,10 @@ class Cotacao extends Model
         $total = 0.00;
 
         foreach ($itens as $item) {
-            if ($item->status_item === 'recusado' || (bool)$item->nao_encontrado || $item->isBloqueado()) {
+            if ($item->isBloqueado()
+                || (bool)$item->nao_encontrado
+                || strtoupper(trim((string)($item->restricao_efeito ?? ''))) === 'B'
+                || in_array(strtolower(trim((string)($item->status_item ?? ''))), ['recusado', 'rejeitado', 'bloqueado'])) {
                 continue;
             }
 

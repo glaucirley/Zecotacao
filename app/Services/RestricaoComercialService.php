@@ -364,11 +364,10 @@ class RestricaoComercialService
             if (empty($item->restricao_origem)) {
                 $item->restricao_origem = ($canal === 'N8N') ? 'N8N' : 'PAINEL';
             }
-            if ($item->isDirty()) {
-                $item->save();
-            }
-
             if ($res['efeito'] === 'B') {
+                if ($item->status_item !== 'recusado') {
+                    $item->status_item = 'bloqueado';
+                }
                 $itemInfo = [
                     'item_id' => $item->id,
                     'codprod' => $codProd,
@@ -390,7 +389,16 @@ class RestricaoComercialService
                     ]);
                 }
             }
+
+            if ($item->isDirty()) {
+                $item->save();
+            }
         }
+
+        // Recalcula SEMPRE os totais da cotação para que itens com restrição comercial ('B') sejam imediatamente excluídos do total gravado,
+        // inclusive se houver falha de conexão no Sankhya para os demais itens
+        $quote->recalcularTotais();
+        $quote->refresh();
 
         if ($houveFalhaConexao) {
             $quote->restricoes_validadas = false;
@@ -408,10 +416,6 @@ class RestricaoComercialService
         $quote->restricoes_validadas = true;
         $quote->restricoes_validadas_em = now();
         $quote->save();
-
-        // Recalcula os totais da cotação para que itens com restrição comercial ('B') sejam imediatamente excluídos do total gravado
-        $quote->recalcularTotais();
-        $quote->refresh();
 
         return [
             'sucesso' => empty($bloqueados),

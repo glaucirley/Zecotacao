@@ -365,20 +365,7 @@ class QuoteController extends Controller
                     }
 
                     CotacaoItem::create($itemDataToCreate);
-
-                    $subtotal += ceil(round(round($qtd * max($sugerido, $precoProposto), 4) * 100, 2)) / 100;
-                    $total += $itemSubtotal;
                 }
-
-                // Update quote totals com arredondamento para cima
-                $subtotal = ceil(round(round($subtotal, 4) * 100, 2)) / 100;
-                $total = ceil(round(round($total, 4) * 100, 2)) / 100;
-                $desconto = round(max(0.00, $subtotal - $total), 2);
-                $quote->update([
-                    'subtotal' => $subtotal,
-                    'desconto' => $desconto,
-                    'total' => $total
-                ]);
 
                 // Audit history log
                 CotacaoHistorico::create([
@@ -396,6 +383,11 @@ class QuoteController extends Controller
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning("Falha ao validar restrições na criação de cotação manual: " . $e->getMessage());
                 }
+
+                // Recalcula SEMPRE os totais após criar itens e validar restrições,
+                // garantindo que itens bloqueados ('B') NUNCA sejam incluídos no total gravado!
+                $quote->recalcularTotais();
+                $quote->refresh();
 
                 return response()->json([
                     'success' => true,
@@ -505,6 +497,13 @@ class QuoteController extends Controller
                     'message' => 'Não foi possível carregar os dados da cotação. Tente novamente mais tarde.'
                 ], 500);
             }
+        }
+
+        // Auto-reconciliação de integridade: se a cotação possuir itens com restrição comercial ('B') ou recusados,
+        // recalcula e atualiza o total gravado para garantir que nunca inclua itens bloqueados no banco
+        if ($quote && $quote->itens && $quote->itens->contains(fn($it) => $it->isBloqueado() || (bool)$it->nao_encontrado || $it->status_item === 'recusado')) {
+            $quote->recalcularTotais();
+            $quote->refresh();
         }
 
         return response()->json([
