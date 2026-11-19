@@ -2343,8 +2343,6 @@
                 showToast("Erro de conexão ao realizar check-in.", 'error');
             }
         }
-            }
-        }
 
         async function loadRecentCheckins() {
             const listEl = document.getElementById("recent-checkins-list");

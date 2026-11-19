@@ -4570,7 +4570,6 @@
             }
         }
     }
-    }
 
     async function downloadPdf() {
         if (!quote) {

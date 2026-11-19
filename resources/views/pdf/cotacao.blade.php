@@ -327,8 +327,11 @@
                         @if(!empty($item->produto?->marca))
                             <span style="font-size: 7.5px; color: #64748b; font-weight: bold; text-transform: uppercase;">Marca: {{ $item->produto->marca }}</span>
                         @endif
-                        @if($item->mostrar_selo_campanha || $item->campanha_id || ($item->campanha && $item->campanha->nome))
-                            <div class="prod-campaign-subtext">Campanha: {{ $item->campanha?->nome ?: ($item->campanha_id ?: 'Condição Especial Aplicada') }}</div>
+                        @php
+                            $campanhaText = is_object($item->campanha) ? ($item->campanha->nome ?? null) : (is_string($item->campanha) ? $item->campanha : null);
+                        @endphp
+                        @if($item->mostrar_selo_campanha || $item->campanha_id || !empty($campanhaText))
+                            <div class="prod-campaign-subtext">Campanha: {{ $campanhaText ?: 'Condição Especial Aplicada' }}</div>
                         @endif
                     </td>
                     <td class="text-center" style="color: #475569; font-weight: 500;">
