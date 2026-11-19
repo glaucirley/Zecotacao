@@ -3127,6 +3127,7 @@
 
         let prodSearchTimer = null;
         let prodSearchAbortController = null;
+        let prodSearchReqId = 0;
 
         async function loadProductsForQuote(forceReload = false) {
             if (allProductsList && allProductsList.length > 0 && !forceReload) {
@@ -3143,6 +3144,9 @@
             try {
                 const partnerParam = (selectedPartner && selectedPartner.id) ? `&parceiro_id=${selectedPartner.id}` : '';
                 const res = await fetch(`${API_URL}/produtos?limit=40${partnerParam}`);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
                 const data = await res.json();
                 isProductsLoading = false;
 
@@ -3163,7 +3167,7 @@
                 if (container) {
                     container.innerHTML = `
                         <div style="text-align:center; padding:14px; background:#fef2f2; border-radius:8px; border:1px solid #fca5a5;">
-                            <div style="font-size:13px; color:#b91c1c; font-weight:600; margin-bottom:6px;">Erro ao carregar catálogo.</div>
+                            <div style="font-size:13px; color:#b91c1c; font-weight:600; margin-bottom:6px;">Erro ao carregar catálogo (${escapeHtml(e.message || 'Falha de conexão')}).</div>
                             <button type="button" onclick="loadProductsForQuote(true)" style="background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">🔄 Tentar Novamente</button>
                         </div>
                     `;
@@ -3173,10 +3177,14 @@
 
         function filterProducts() {
             clearTimeout(prodSearchTimer);
-            const rawQuery = document.getElementById("prod-search-input").value;
+            const inputEl = document.getElementById("prod-search-input");
+            const rawQuery = inputEl ? inputEl.value : "";
             const query = rawQuery.trim();
 
             if (!query) {
+                if (prodSearchAbortController) {
+                    try { prodSearchAbortController.abort(); } catch(e) {}
+                }
                 renderProductSearchResults(allProductsList ? allProductsList.slice(0, 40) : []);
                 return;
             }
@@ -3185,6 +3193,7 @@
             const normalizedQuery = normalizeStr(query);
             const terms = normalizedQuery.split(/\s+/).filter(Boolean);
             const localMatches = (allProductsList || []).filter(p => {
+                if (!p) return false;
                 const searchables = [
                     normalizeStr(p.descricao),
                     normalizeStr(p.codigo_sankhya),
@@ -3197,13 +3206,14 @@
             });
 
             if (localMatches.length > 0) {
-                renderProductSearchResults(localMatches, true);
+                renderProductSearchResults(localMatches);
             } else {
                 const container = document.getElementById("prod-search-results");
                 if (container) {
                     container.innerHTML = `
-                        <div style="text-align:center; padding:18px; color:var(--color-primary); font-size:12.5px; font-weight:600;">
-                            🔍 Buscando "<strong>${escapeHtml(query)}</strong>" no catálogo completo...
+                        <div style="text-align:center; padding:22px 16px; color:var(--color-primary); font-size:13px; font-weight:600;">
+                            <div style="display:inline-block; font-size:18px; margin-bottom:6px;">🔍</div>
+                            <div>Buscando "<strong>${escapeHtml(query)}</strong>" no catálogo completo...</div>
                         </div>
                     `;
                 }
@@ -3212,47 +3222,81 @@
             // Debounced live server query across ALL products in MySQL
             prodSearchTimer = setTimeout(() => {
                 executeServerProductSearch(query);
-            }, 350);
+            }, 300);
         }
 
         async function executeServerProductSearch(query) {
+            const thisReqId = ++prodSearchReqId;
+            const trimmedQuery = (query || "").trim();
+            if (!trimmedQuery) return;
+
             try {
                 if (prodSearchAbortController) {
-                    prodSearchAbortController.abort();
+                    try { prodSearchAbortController.abort(); } catch(e) {}
                 }
                 prodSearchAbortController = new AbortController();
 
+                // 10-second timeout to protect against slow backend/network
+                const timeoutId = setTimeout(() => {
+                    try { prodSearchAbortController.abort(); } catch(e) {}
+                }, 10000);
+
                 const partnerId = selectedPartner ? selectedPartner.id : '';
-                const url = `${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=50${partnerId ? `&parceiro_id=${partnerId}` : ''}`;
+                const url = `${API_URL}/produtos?search=${encodeURIComponent(trimmedQuery)}&limit=50${partnerId ? `&parceiro_id=${partnerId}` : ''}`;
                 const res = await fetch(url, { signal: prodSearchAbortController.signal });
+                clearTimeout(timeoutId);
+
+                if (thisReqId !== prodSearchReqId) return; // Discard stale response
+
+                if (!res.ok) {
+                    throw new Error(`Servidor retornou erro HTTP ${res.status}`);
+                }
+
                 const data = await res.json();
+                if (thisReqId !== prodSearchReqId) return; // Discard stale response
                 
                 let results = [];
                 if (data.success && Array.isArray(data.data)) {
                     results = data.data;
                 } else if (Array.isArray(data)) {
                     results = data;
+                } else if (data.data && Array.isArray(data.data)) {
+                    results = data.data;
                 }
 
-                // Cache search results into allProductsList capped at 200 items max
-                if (Array.isArray(results)) {
+                // Cache search results into allProductsList capped at 250 items max
+                if (Array.isArray(results) && results.length > 0) {
                     results.forEach(prod => {
-                        if (!allProductsList.some(p => p.id == prod.id)) {
+                        if (prod && !allProductsList.some(p => p.id == prod.id)) {
                             allProductsList.push(prod);
                         }
                     });
-                    if (allProductsList.length > 200) {
-                        allProductsList = allProductsList.slice(-200);
+                    if (allProductsList.length > 250) {
+                        allProductsList = allProductsList.slice(-250);
                     }
                 }
 
-                const currentQuery = document.getElementById("prod-search-input").value.trim();
-                if (normalizeStr(currentQuery) === normalizeStr(query)) {
-                    renderProductSearchResults(results, false);
+                const currentInput = document.getElementById("prod-search-input");
+                const currentQuery = (currentInput ? currentInput.value : "").trim();
+                if (normalizeStr(currentQuery) === normalizeStr(trimmedQuery)) {
+                    renderProductSearchResults(results);
                 }
             } catch(e) {
                 if (e.name === 'AbortError') return;
                 console.error("Error searching server products:", e);
+                const container = document.getElementById("prod-search-results");
+                if (container && thisReqId === prodSearchReqId) {
+                    container.innerHTML = `
+                        <div style="text-align:center; padding:18px; background:#fef2f2; border-radius:10px; border:1px solid #fca5a5;">
+                            <div style="font-size:13px; color:#b91c1c; font-weight:700; margin-bottom:4px;">⚠️ Não foi possível consultar o catálogo</div>
+                            <div style="font-size:11.5px; color:#991b1b; margin-bottom:12px;">${escapeHtml(e.message || 'Verifique a conexão ou tente novamente.')}</div>
+                            <div style="display:flex; justify-content:center; gap:8px;">
+                                <button type="button" onclick="executeServerProductSearch('${escapeHtml(trimmedQuery)}')" style="background:#ef4444; color:white; border:none; padding:7px 14px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">🔄 Tentar Novamente</button>
+                                <button type="button" onclick="clearProdSearch()" style="background:#e2e8f0; color:#334155; border:none; padding:7px 14px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer;">Limpar Busca</button>
+                            </div>
+                        </div>
+                    `;
+                }
             }
         }
 
@@ -3359,16 +3403,19 @@
 
             if (!products || products.length === 0) {
                 container.innerHTML = `
-                    <div style="text-align:center; padding:18px; background:#f8fafc; border-radius:10px; border:1px dashed var(--color-border);">
-                        <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:8px;">Nenhum produto encontrado para "<strong>${escapeHtml(query)}</strong>".</div>
-                        <button type="button" onclick="clearProdSearch()" style="background:#e2e8f0; color:#334155; border:none; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">Limpar Pesquisa e Ver Todos</button>
+                    <div style="text-align:center; padding:24px 16px; background:#f8fafc; border-radius:12px; border:1px dashed var(--color-border);">
+                        <div style="font-size:22px; margin-bottom:6px;">📦</div>
+                        <div style="font-size:13.5px; font-weight:700; color:#334155; margin-bottom:4px;">Nenhum produto encontrado</div>
+                        <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:12px;">Não encontramos itens para "<strong>${escapeHtml(query)}</strong>" no catálogo.</div>
+                        <button type="button" onclick="clearProdSearch()" style="background:#e2e8f0; color:#334155; border:none; padding:7px 16px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Limpar Pesquisa e Ver Todos</button>
                     </div>
                 `;
                 return;
             }
 
-            container.innerHTML = "";
+            let html = "";
             products.forEach(p => {
+                if (!p) return;
                 const rawMin = parseFloat(p.preco_minimo || p.venda_minima || 0);
                 const rawSug = parseFloat(p.preco_sugerido || p.preco_tabela || p.preco_venda || p.preco || 0);
                 const activePrice = (rawMin > 0) ? rawMin : rawSug;
@@ -3387,11 +3434,11 @@
                 const codeStr = p.codigo_sankhya || p.codprod || p.id;
                 const brandStr = p.marca ? ` | ${p.marca}` : '';
 
-                const cartItem = (quoteCartItems || []).find(item => item.product_id == p.id);
+                const cartItem = (quoteCartItems || []).find(item => item && item.product_id == p.id);
                 const cartQty = cartItem ? cartItem.qty : 0;
 
                 if (cartQty > 0) {
-                    container.innerHTML += `
+                    html += `
                         <div class="product-item-row" id="prod-row-${p.id}" style="border-color:#86efac; background:#f0fdf4;">
                             <div style="flex-grow:1; padding-right:8px;">
                                 <div style="display:flex; align-items:center; gap:6px;">
@@ -3408,7 +3455,7 @@
                         </div>
                     `;
                 } else if (!isCotavel) {
-                    container.innerHTML += `
+                    html += `
                         <div class="product-item-row" id="prod-row-${p.id}" style="opacity: 0.65;">
                             <div style="flex-grow:1; padding-right:8px;">
                                 <div class="product-item-title">${escapeHtml(p.descricao)}</div>
@@ -3418,7 +3465,7 @@
                         </div>
                     `;
                 } else {
-                    container.innerHTML += `
+                    html += `
                         <div class="product-item-row" id="prod-row-${p.id}">
                             <div style="flex-grow:1; padding-right:8px;">
                                 <div class="product-item-title">${escapeHtml(p.descricao)}</div>
@@ -3429,9 +3476,14 @@
                     `;
                 }
             });
+            container.innerHTML = html;
         }
 
         function clearProdSearch() {
+            clearTimeout(prodSearchTimer);
+            if (prodSearchAbortController) {
+                try { prodSearchAbortController.abort(); } catch(e) {}
+            }
             const input = document.getElementById("prod-search-input");
             if (input) input.value = "";
             renderProductSearchResults(allProductsList ? allProductsList.slice(0, 40) : []);

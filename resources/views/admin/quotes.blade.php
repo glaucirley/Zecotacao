@@ -2628,6 +2628,9 @@
         try {
             const partnerParam = (adminSelectedPartner && adminSelectedPartner.id) ? `&parceiro_id=${adminSelectedPartner.id}` : '';
             const res = await fetch(`${API_URL}/produtos?search=${encodeURIComponent(query)}&limit=40${partnerParam}`);
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
             const data = await res.json();
             
             let results = [];
@@ -2635,11 +2638,13 @@
                 results = data.data;
             } else if (Array.isArray(data)) {
                 results = data;
+            } else if (data.data && Array.isArray(data.data)) {
+                results = data.data;
             }
 
             if (Array.isArray(results)) {
                 results.forEach(prod => {
-                    if (!adminProductsList.some(p => p.id == prod.id)) {
+                    if (prod && !adminProductsList.some(p => p.id == prod.id)) {
                         adminProductsList.push(prod);
                     }
                 });

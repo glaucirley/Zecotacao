@@ -96,9 +96,12 @@ class RestricaoComercialService
      * Retorna apenas os códigos dos produtos restritos (array simples de strings)
      * para filtragem no catálogo e na busca de produtos.
      */
-    public function codigosProdutosRestritos(string $codVend, string $codParc): array
+    public function codigosProdutosRestritos(string|int|null $codVend, string|int|null $codParc, string $canal = 'ZC'): array
     {
-        $list = $this->produtosRestritos($codVend, $codParc) ?: [];
+        if (empty($codVend) || empty($codParc)) {
+            return [];
+        }
+        $list = $this->produtosRestritos((string)$codVend, (string)$codParc, $canal) ?: [];
         $codes = [];
         foreach ($list as $item) {
             $cod = (string)($item['CODPROD'] ?? $item['codprod'] ?? '');

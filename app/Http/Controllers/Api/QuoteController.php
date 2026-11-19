@@ -1625,7 +1625,10 @@ class QuoteController extends Controller
             $q->where('ativo', true)
               ->orWhere('ativo', 1)
               ->orWhereNull('ativo');
-        })->where('codigo_sankhya', 'not like', 'SEM_CODIGO%');
+        })->where(function($q) {
+            $q->whereNull('codigo_sankhya')
+              ->orWhere('codigo_sankhya', 'not like', 'SEM_CODIGO%');
+        });
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
@@ -1688,7 +1691,7 @@ class QuoteController extends Controller
         if (!empty($codvend) && !empty($codparc)) {
             try {
                 $restricaoService = app(\App\Services\RestricaoComercialService::class);
-                $codigosRestritos = $restricaoService->codigosProdutosRestritos($codvend, $codparc, 'ZC');
+                $codigosRestritos = $restricaoService->codigosProdutosRestritos((string)$codvend, (string)$codparc, 'ZC');
                 if (!empty($codigosRestritos)) {
                     $rawProducts = $rawProducts->reject(function ($p) use ($codigosRestritos) {
                         return in_array((string)$p->codigo_sankhya, $codigosRestritos, true);
