@@ -368,9 +368,8 @@ class RestricaoComercialService
                 $item->restricao_origem = ($canal === 'N8N') ? 'N8N' : 'PAINEL';
             }
             if ($res['efeito'] === 'B') {
-                if ($item->status_item !== 'recusado') {
-                    $item->status_item = 'bloqueado';
-                }
+                // restricao_efeito = 'B' já é a coluna oficial e canônica para bloqueios comerciais.
+                // Não alteramos status_item para 'bloqueado' para manter total compatibilidade com o ENUM('pendente', 'aprovado', 'recusado')
                 $itemInfo = [
                     'item_id' => $item->id,
                     'codprod' => $codProd,

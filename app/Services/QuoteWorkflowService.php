@@ -408,9 +408,9 @@ class QuoteWorkflowService
         if ($canAutoApprove) {
             $quote->update(['status' => 'APROVADA']);
 
-            // Set remaining non-approved items status to approved
+            // Set remaining non-approved items status to approved (exceto itens bloqueados ou não encontrados)
             foreach ($quote->itens as $item) {
-                if ($item->status_item !== 'aprovado') {
+                if (!$item->isBloqueado() && !$item->nao_encontrado && $item->status_item !== 'aprovado') {
                     $item->update(['status_item' => 'aprovado']);
                 }
             }
